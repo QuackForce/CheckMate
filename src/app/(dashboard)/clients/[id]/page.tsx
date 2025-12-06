@@ -66,7 +66,7 @@ async function getClient(id: string) {
   return {
     ...client,
     infraCheckAssigneeUser,
-  }
+  } as any
 }
 
 export default async function ClientPage({ params }: ClientPageProps) {
