@@ -72,7 +72,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
   }, [isAccountOpen])
 
   return (
-    <aside className="w-64 bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0">
+    <aside className="w-64 min-w-[16rem] bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0">
       {/* Logo */}
       <div className="px-6 py-4 border-b border-surface-800 h-[84px] flex items-center">
         <Link href="/dashboard" className="flex items-center gap-3">
@@ -106,14 +106,14 @@ export function Sidebar({ user, stats }: SidebarProps) {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 min-w-0',
                   isActive
                     ? 'bg-brand-500/10 text-brand-400'
                     : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
                 )}
               >
-                <item.icon className="w-5 h-5" />
-                <span className="flex-1">{item.name}</span>
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <span className="flex-1 whitespace-nowrap">{item.name}</span>
                 {showOverdueBadge ? (
                   <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded-full">
                     {stats.overdueCount}
@@ -147,8 +147,8 @@ export function Sidebar({ user, stats }: SidebarProps) {
                       : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
                   )}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{item.name}</span>
                 </Link>
               )
             })}
@@ -174,8 +174,8 @@ export function Sidebar({ user, stats }: SidebarProps) {
                       : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
                   )}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{item.name}</span>
                 </Link>
               )
             })}

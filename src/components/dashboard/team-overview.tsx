@@ -21,7 +21,7 @@ export function TeamOverview({ team }: TeamOverviewProps) {
   return (
     <div className="card">
       <div className="p-4 border-b border-surface-700/50 flex items-center justify-between">
-        <h2 className="font-semibold text-white">Team Progress</h2>
+        <h2 className="font-semibold text-white whitespace-nowrap">Team Progress</h2>
         <Link 
           href="/team" 
           className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1 transition-colors"
