@@ -171,9 +171,29 @@ export function ScheduleForm() {
       <div className="card">
         <div className="p-4 border-b border-surface-700/50">
           <h2 className="font-semibold text-white">Quick Schedule</h2>
+          <p className="text-sm text-surface-400 mt-0.5">
+            Schedule a new infrastructure check
+          </p>
         </div>
-        <div className="p-8 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 text-brand-400 animate-spin" />
+        <div className="p-4 space-y-4">
+          {/* Client field skeleton */}
+          <div className="space-y-2">
+            <div className="h-4 w-16 bg-surface-800 rounded animate-pulse" />
+            <div className="h-10 w-full bg-surface-800 rounded-lg animate-pulse" />
+          </div>
+          {/* Date/Time skeleton */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="h-4 w-12 bg-surface-800 rounded animate-pulse" />
+              <div className="h-10 w-full bg-surface-800 rounded-lg animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-12 bg-surface-800 rounded animate-pulse" />
+              <div className="h-10 w-full bg-surface-800 rounded-lg animate-pulse" />
+            </div>
+          </div>
+          {/* Button skeleton */}
+          <div className="h-10 w-full bg-surface-800 rounded-lg animate-pulse mt-4" />
         </div>
       </div>
     )
