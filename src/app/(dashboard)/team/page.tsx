@@ -6,84 +6,84 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 async function getTeamData() {
-  // Get all users with their basic info
-  const users = await db.user.findMany({
-    orderBy: { createdAt: 'asc' },
-  })
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
 
-  // Get additional stats for each user
-  const teamWithStats = await Promise.all(
-    users.map(async (user) => {
-      // Count overdue checks assigned to this user
-      const overdueChecks = await db.infraCheck.count({
-        where: {
-          assignedEngineerId: user.id,
-          status: 'OVERDUE',
-        }
-      })
+  // Fetch all data in parallel (5 queries instead of 192!)
+  const [users, overdueByUser, completedByUser, clientsByPrimary, clientsBySecondary] = await Promise.all([
+    // Get all users
+    db.user.findMany({
+      orderBy: { createdAt: 'asc' },
+    }),
+    // Get overdue checks grouped by assignee
+    db.infraCheck.groupBy({
+      by: ['assignedEngineerId'],
+      where: { status: 'OVERDUE', assignedEngineerId: { not: null } },
+      _count: { id: true },
+    }),
+    // Get completed this month grouped by completedBy
+    db.infraCheck.groupBy({
+      by: ['completedById'],
+      where: { 
+        status: 'COMPLETED', 
+        completedAt: { gte: startOfMonth },
+        completedById: { not: null }
+      },
+      _count: { id: true },
+    }),
+    // Get clients by primary engineer
+    db.client.groupBy({
+      by: ['primaryEngineerId'],
+      where: { primaryEngineerId: { not: null } },
+      _count: { id: true },
+    }),
+    // Get clients by secondary engineer
+    db.client.groupBy({
+      by: ['secondaryEngineerId'],
+      where: { secondaryEngineerId: { not: null } },
+      _count: { id: true },
+    }),
+  ])
 
-      // Count completed this month
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1)
-      startOfMonth.setHours(0, 0, 0, 0)
-      
-      const completedThisMonth = await db.infraCheck.count({
-        where: {
-          completedById: user.id,
-          status: 'COMPLETED',
-          completedAt: { gte: startOfMonth }
-        }
-      })
-
-      // Count assigned clients:
-      // - linked via primaryEngineerId / secondaryEngineerId
-      // - OR Notion SE / infra assignee name contains their name (handles \"(TL - SE)\" suffix etc.)
-      const matchName = (user.notionTeamMemberName || user.name || '').trim()
-      const assignedClients = await db.client.count({
-        where: {
-          OR: [
-            { primaryEngineerId: user.id },
-            { secondaryEngineerId: user.id },
-            matchName
-              ? {
-                  systemEngineerName: {
-                    contains: matchName,
-                    mode: 'insensitive',
-                  },
-                }
-              : undefined,
-            matchName
-              ? {
-                  infraCheckAssigneeName: {
-                    contains: matchName,
-                    mode: 'insensitive',
-                  },
-                }
-              : undefined,
-          ].filter(Boolean) as any,
-        },
-      })
-
-      return {
-        id: user.id,
-        name: user.name || 'Unknown',
-        email: user.email || '',
-        role: user.role,
-        image: user.image,
-        notionTeamMemberId: user.notionTeamMemberId,
-        notionTeamMemberName: user.notionTeamMemberName,
-        slackUsername: user.slackUsername,
-        hasHarvest: !!user.harvestAccessToken,
-        createdAt: user.createdAt,
-        stats: {
-          assignedClients,
-          completedThisMonth,
-          overdueChecks,
-          avgDuration: 0, // TODO: Calculate from timer sessions
-        }
-      }
-    })
+  // Create lookup maps for O(1) access
+  const overdueMap = new Map(
+    overdueByUser.map(r => [r.assignedEngineerId, r._count.id])
   )
+  const completedMap = new Map(
+    completedByUser.map(r => [r.completedById, r._count.id])
+  )
+  const primaryClientsMap = new Map(
+    clientsByPrimary.map(r => [r.primaryEngineerId, r._count.id])
+  )
+  const secondaryClientsMap = new Map(
+    clientsBySecondary.map(r => [r.secondaryEngineerId, r._count.id])
+  )
+
+  // Build team data with stats from lookup maps
+  const teamWithStats = users.map((user) => {
+    const primaryCount = primaryClientsMap.get(user.id) || 0
+    const secondaryCount = secondaryClientsMap.get(user.id) || 0
+    
+    return {
+      id: user.id,
+      name: user.name || 'Unknown',
+      email: user.email || '',
+      role: user.role,
+      image: user.image,
+      notionTeamMemberId: user.notionTeamMemberId,
+      notionTeamMemberName: user.notionTeamMemberName,
+      slackUsername: user.slackUsername,
+      hasHarvest: !!user.harvestAccessToken,
+      createdAt: user.createdAt,
+      stats: {
+        assignedClients: primaryCount + secondaryCount,
+        completedThisMonth: completedMap.get(user.id) || 0,
+        overdueChecks: overdueMap.get(user.id) || 0,
+        avgDuration: 0,
+      }
+    }
+  })
 
   return teamWithStats
 }
