@@ -53,13 +53,15 @@ export async function GET(
     }
 
     const data = await response.json()
-    // Extract tasks from task assignments
-    const tasks = (data.task_assignments || []).map((ta: any) => ({
-      id: ta.task.id,
-      name: ta.task.name,
-      billable: ta.billable,
-      hourly_rate: ta.hourly_rate,
-    }))
+    // Extract tasks from task assignments - only include active ones
+    const tasks = (data.task_assignments || [])
+      .filter((ta: any) => ta.is_active) // Only active task assignments
+      .map((ta: any) => ({
+        id: ta.task.id,
+        name: ta.task.name,
+        billable: ta.billable,
+        hourly_rate: ta.hourly_rate,
+      }))
 
     return NextResponse.json(tasks)
   } catch (error: any) {
