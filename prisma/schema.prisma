@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Authentication Models (NextAuth.js)
+// ============================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================
+// User & Role Models
+// ============================================
+
+enum UserRole {
+  ADMIN
+  IT_ENGINEER
+  VIEWER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(VIEWER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Link to Notion Team Member
+  notionTeamMemberId   String? // Notion page ID for team member
+  notionTeamMemberName String? // Cached name from Notion
+
+  // Harvest integration (per-user OAuth)
+  harvestAccessToken String? @db.Text
+  harvestAccountId   String?
+  harvestUserId      String?
+
+  // Google Calendar integration (per-user OAuth)
+  googleCalendarAccessToken  String?   @db.Text
+  googleCalendarRefreshToken String?   @db.Text
+  googleCalendarExpiresAt    DateTime?
+
+  // Slack integration
+  slackUsername String? // Slack display name (e.g., "Michael Lemay") - stored for display
+  slackUserId   String? // Slack user ID (e.g., "U1234567890") - required for @mentions
+
+  accounts Account[]
+  sessions Session[]
+
+  // Relations - Client Assignments
+  primaryClients   Client[] @relation("PrimaryEngineer")
+  secondaryClients Client[] @relation("SecondaryEngineer")
+
+  // Relations - Checks
+  assignedChecks  InfraCheck[]   @relation("AssignedEngineer")
+  completedChecks InfraCheck[]   @relation("CompletedBy")
+  checkComments   CheckComment[]
+  timerSessions   TimerSession[]
+}
+
+// ============================================
+// Client Models
+// ============================================
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ONBOARDING
+  OFFBOARDING
+  ON_HOLD
+  EXITING
+  AS_NEEDED
+}
+
+enum CheckCadence {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  ADHOC
+  CUSTOM
+}
+
+enum Priority {
+  P1
+  P2
+  P3
+  P4
+}
+
+model Client {
+  id       String       @id @default(cuid())
+  name     String
+  status   ClientStatus @default(ACTIVE)
+  priority Priority?
+
+  // Slack Integration
+  slackChannelId   String?
+  slackChannelName String?
+
+  // Notion Sync
+  notionPageId     String?   @unique
+  notionLastSynced DateTime?
+
+  // Check Scheduling
+  defaultCadence    CheckCadence  @default(MONTHLY)
+  customCadenceDays Int? // For CUSTOM cadence - number of days between checks
+  checkCadence      CheckCadence? // Specific cadence for infra checks (can differ from IT Syncs)
+
+  // Engineer Assignments (from Notion)
+  // These store the names from Notion - can be linked to app Users later
+  systemEngineerName       String? // SE - System Engineer from Notion
+  primaryConsultantName    String? // Primary Consultant - Fixes checks
+  secondaryConsultantNames String[] // Secondaries - Can also fix checks
+  itManagerName            String? // IT Manager - Account manager
+  grceEngineerName         String? // GRCE - Compliance engineer
+
+  // App-specific: Infra Check Assignee (defaults to SE if not set)
+  infraCheckAssigneeName String? // Override: Who does infra checks (if different from SE)
+
+  // App-level engineer assignments (linked to app Users for future)
+  primaryEngineerId   String?
+  primaryEngineer     User?   @relation("PrimaryEngineer", fields: [primaryEngineerId], references: [id])
+  secondaryEngineerId String?
+  secondaryEngineer   User?   @relation("SecondaryEngineer", fields: [secondaryEngineerId], references: [id])
+
+  // From Notion - Contact & Location
+  pocEmail      String?
+  officeAddress String?
+
+  // From Notion - Service Levels
+  hoursPerMonth    String? // HPM value
+  itSyncsFrequency String? // IT Syncs frequency from Notion
+  onsitesFrequency String? // Onsites frequency from Notion
+
+  // From Notion - Security & Compliance
+  dmarc                  String?
+  dmarcRecord            String? // Full DMARC DNS record
+  dmarcLastChecked       DateTime? // When DMARC was last checked
+  accessRequests         String?
+  userAccessReviews      String?
+  acceptedPasswordPolicy String?
+
+  // From Notion - Teams & HR
+  teams       String[] // Array of team names (Team 1, Team 2, etc.)
+  hrProcesses String[] // HR processes enabled
+  policies    String[] // Policies in place
+
+  // From Notion - URLs & Integrations
+  itGlueUrl      String?
+  zendeskUrl     String?
+  trelloUrl      String?
+  onePasswordUrl String?
+  sharedDriveUrl String?
+  websiteUrl     String?
+
+  // From Notion - Time Tracking
+  harvestProjectId String?
+  estimation       Float? // Estimation hours
+
+  // From Notion - Dates
+  startDate DateTime?
+
+  // Other
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  checks        InfraCheck[]
+  template      CheckTemplate? @relation(fields: [templateId], references: [id])
+  templateId    String?
+  clientSystems ClientSystem[] // Systems this client uses
+
+  @@index([status])
+  @@index([primaryEngineerId])
+  @@index([secondaryEngineerId])
+}
+
+// ============================================
+// Systems Database Models
+// ============================================
+
+enum SystemCategoryType {
+  IDENTITY // Google, Okta, Azure AD
+  MDM // Kandji, Addigy, Jamf, Intune
+  AV_EDR // CrowdStrike, Sophos, SentinelOne
+  PASSWORD // 1Password, Bitwarden, LastPass
+  GRC // Vanta, Drata, Secureframe
+  SECURITY_TRAINING // KnowBe4, Curricula
+  BACKUP // Backupify, Spanning
+  EMAIL_SECURITY // Abnormal, Proofpoint
+  OTHER // Custom/Other systems
+}
+
+enum SystemSource {
+  APP // Created in the app
+  NOTION // Imported from Notion vendors
+  SEEDED // Pre-seeded from system database
+}
+
+model System {
+  id          String             @id @default(cuid())
+  name        String             @unique // e.g., "Kandji", "CrowdStrike", "1Password"
+  category    SystemCategoryType
+  icon        String? // Icon name from lucide-react or URL
+  description String?
+  isActive    Boolean            @default(true)
+  order       Int                @default(0)
+  source      SystemSource       @default(APP) // Track where system came from
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Relations
+  checkItems    SystemCheckItem[]
+  clientSystems ClientSystem[]
+}
+
+model SystemCheckItem {
+  id          String   @id @default(cuid())
+  text        String // The check item text
+  description String? // Optional detailed description
+  order       Int      @default(0)
+  isOptional  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+}
+
+model ClientSystem {
+  id        String   @id @default(cuid())
+  notes     String? // Client-specific notes for this system
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId String
+  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId String
+
+  @@unique([clientId, systemId]) // A client can only have each system once
+  @@index([clientId])
+  @@index([systemId])
+}
+
+// ============================================
+// Check Template Models (Legacy - can be removed later)
+// ============================================
+
+model CheckTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  categories TemplateCategory[]
+  clients    Client[]
+  checks     InfraCheck[]
+}
+
+model TemplateCategory {
+  id        String   @id @default(cuid())
+  name      String // e.g., "Okta", "Gmail", "Jamf", "CrowdStrike", "Vanta"
+  icon      String? // Icon name from lucide-react
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  template   CheckTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String
+
+  items TemplateItem[]
+}
+
+model TemplateItem {
+  id          String   @id @default(cuid())
+  text        String
+  description String?
+  order       Int      @default(0)
+  isOptional  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+}
+
+// ============================================
+// Infrastructure Check Models
+// ============================================
+
+enum CheckStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+model InfraCheck {
+  id                   String       @id @default(cuid())
+  status               CheckStatus  @default(SCHEDULED)
+  scheduledDate        DateTime
+  startedAt            DateTime?
+  completedAt          DateTime?
+  dueDate              DateTime? // Made optional - can be calculated
+  cadence              CheckCadence
+  calendarEventId      String? // Google Calendar event ID
+  calendarEventLink    String? // Google Calendar event link
+  slackMessageTs       String? // Slack message timestamp (for updates)
+  totalTimeSeconds     Int          @default(0)
+  notes                String?      @db.Text
+  assignedEngineerName String? // Store engineer name if not linked to User
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  // Relations
+  client             Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId           String
+  assignedEngineer   User?          @relation("AssignedEngineer", fields: [assignedEngineerId], references: [id])
+  assignedEngineerId String? // Made optional
+  completedBy        User?          @relation("CompletedBy", fields: [completedById], references: [id])
+  completedById      String?
+  template           CheckTemplate? @relation(fields: [templateId], references: [id])
+  templateId         String? // Made optional - not needed with Systems approach
+
+  // Check data
+  categoryResults CategoryResult[]
+  comments        CheckComment[]
+  timerSessions   TimerSession[]
+
+  @@index([clientId])
+  @@index([assignedEngineerId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model CategoryResult {
+  id        String   @id @default(cuid())
+  name      String // Category name at time of check
+  status    String   @default("pending") // pending, all_good, issues_found
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  check   InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  checkId String
+
+  items ItemResult[]
+}
+
+model ItemResult {
+  id        String   @id @default(cuid())
+  text      String // Item text at time of check
+  checked   Boolean  @default(false)
+  notes     String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categoryResult   CategoryResult @relation(fields: [categoryResultId], references: [id], onDelete: Cascade)
+  categoryResultId String
+}
+
+model CheckComment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  check    InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  checkId  String
+  author   User       @relation(fields: [authorId], references: [id])
+  authorId String
+}
+
+// ============================================
+// Time Tracking Models
+// ============================================
+
+model TimerSession {
+  id             String    @id @default(cuid())
+  startTime      DateTime
+  endTime        DateTime?
+  durationSecs   Int?
+  harvestEntryId String? // Harvest time entry ID
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  check   InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  checkId String
+  user    User       @relation(fields: [userId], references: [id])
+  userId  String
+}
+
+// ============================================
+// Integration Settings (Org-wide)
+// ============================================
+
+model IntegrationSettings {
+  id       String  @id @default(cuid())
+  provider String  @unique // 'notion', 'slack', 'google_calendar', etc.
+  enabled  Boolean @default(false)
+
+  // Encrypted/secure storage for API keys and tokens
+  apiKey       String? @db.Text // API key or token
+  apiSecret    String? @db.Text // API secret (if needed)
+  accessToken  String? @db.Text // OAuth access token (if OAuth-based)
+  refreshToken String? @db.Text // OAuth refresh token (if OAuth-based)
+
+  // Provider-specific configuration (JSON)
+  config String? @db.Text // JSON string for provider-specific settings
+
+  // Metadata
+  connectedAt  DateTime?
+  lastTestedAt DateTime?
+  notes        String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
