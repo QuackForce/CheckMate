@@ -88,7 +88,7 @@ export async function GET(
     const client = await db.client.findUnique({
       where: { id: params.id },
       select: {
-        domain: true,
+        websiteUrl: true,
         dmarc: true,
         dmarcRecord: true,
         dmarcLastChecked: true,
