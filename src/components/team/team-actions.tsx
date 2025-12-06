@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Link2 } from 'lucide-react'
 import { SiNotion, SiSlack } from 'react-icons/si'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -76,12 +75,6 @@ export function TeamActions() {
         Sync Slack
       </button>
       
-      <div className="flex-1" />
-      
-      <div className="flex items-center gap-2 text-sm text-surface-500">
-        <Link2 className="w-4 h-4" />
-        <span>Users are synced from your Notion Team Members database</span>
-      </div>
     </div>
   )
 }
