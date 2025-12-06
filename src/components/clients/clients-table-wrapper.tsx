@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { 
   Building2, 
@@ -10,6 +10,8 @@ import {
   Globe,
   Loader2,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
@@ -32,6 +34,8 @@ interface Client {
   infraCheckAssigneeUser?: { id: string; name: string | null; email: string | null; image: string | null } | null
 }
 
+const CLIENTS_PER_PAGE = 25
+
 // Extract domain from URL
 function getDomain(url: string | null): string | null {
   if (!url) return null
@@ -47,59 +51,70 @@ function getDomain(url: string | null): string | null {
 function getLogoUrl(websiteUrl: string | null): string | null {
   const domain = getDomain(websiteUrl)
   if (!domain) return null
-  // Use Google's high-res favicon service
   return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
 }
 
 export function ClientsTableWrapper() {
-  const [allClients, setAllClients] = useState<Client[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [statusFilter, setStatusFilter] = useState('all')
 
-  // Fetch all clients once on mount
-  useEffect(() => {
-    const fetchAllClients = async () => {
-      setLoading(true)
-      try {
-        // Fetch all clients (no pagination, no search filter)
-        const res = await fetch('/api/clients?limit=1000')
-        const data = await res.json()
-        
-        if (data.clients) {
-          setAllClients(data.clients)
-        }
-      } catch (error) {
-        console.error('Failed to fetch clients:', error)
-      } finally {
-        setLoading(false)
+  const totalPages = Math.ceil(total / CLIENTS_PER_PAGE)
+
+  // Fetch clients with pagination
+  const fetchClients = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: CLIENTS_PER_PAGE.toString(),
+      })
+      
+      if (search) {
+        params.set('search', search)
       }
+      
+      if (statusFilter !== 'all') {
+        params.set('status', statusFilter)
+      }
+
+      const res = await fetch(`/api/clients?${params}`)
+      const data = await res.json()
+      
+      if (data.clients) {
+        setClients(data.clients)
+        setTotal(data.pagination?.total || data.clients.length)
+      }
+    } catch (error) {
+      console.error('Failed to fetch clients:', error)
+    } finally {
+      setLoading(false)
     }
+  }, [page, search, statusFilter])
 
-    fetchAllClients()
-  }, [])
+  useEffect(() => {
+    fetchClients()
+  }, [fetchClients])
 
-  // Client-side filtering (like team search)
-  const filteredClients = allClients.filter(client => {
-    if (!search.trim()) return true
-    
-    const query = search.toLowerCase()
-    return (
-      client.name?.toLowerCase().includes(query) ||
-      client.pocEmail?.toLowerCase().includes(query) ||
-      client.teams?.some(team => team.toLowerCase().includes(query)) ||
-      client.status?.toLowerCase().includes(query) ||
-      client.primaryEngineer?.name?.toLowerCase().includes(query) ||
-      client.secondaryEngineer?.name?.toLowerCase().includes(query) ||
-      client.systemEngineerName?.toLowerCase().includes(query) ||
-      client.infraCheckAssigneeName?.toLowerCase().includes(query) ||
-      getDomain(client.websiteUrl)?.toLowerCase().includes(query)
-    )
-  })
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== search) {
+        setSearch(searchInput)
+        setPage(1) // Reset to first page on search
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput, search])
 
-  // Sort filtered clients alphabetically
-  const sortedClients = [...filteredClients].sort((a, b) => 
-    a.name.localeCompare(b.name)
-  )
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value)
+    setPage(1) // Reset to first page on filter change
+  }
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -125,21 +140,17 @@ export function ClientsTableWrapper() {
     return styles[priority] || 'bg-surface-700 text-surface-400'
   }
 
-  const handleSearch = (value: string) => {
-    setSearch(value)
-  }
-
   return (
     <div className="card overflow-hidden">
       {/* Search & Filters Bar */}
       <div className="p-4 border-b border-surface-700/50">
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput
-            value={search}
-            onChange={handleSearch}
+            value={searchInput}
+            onChange={setSearchInput}
             placeholder="Search by name, email, team, or engineer..."
             className="flex-1 min-w-[280px] max-w-md"
-            isLoading={false}
+            isLoading={loading && searchInput !== search}
           />
           
           {/* Quick filters */}
@@ -147,27 +158,41 @@ export function ClientsTableWrapper() {
             <Filter className="w-4 h-4 text-surface-500" />
             <select
               className="px-3 py-2 bg-surface-800/50 border border-surface-700 rounded-lg text-sm text-surface-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-              defaultValue="all"
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value)}
             >
               <option value="all">All Status</option>
               <option value="ACTIVE">Active</option>
               <option value="ONBOARDING">Onboarding</option>
               <option value="INACTIVE">Inactive</option>
+              <option value="ON_HOLD">On Hold</option>
             </select>
           </div>
 
           {/* Results count */}
           {!loading && (
             <span className="text-sm text-surface-500 ml-auto">
-              {filteredClients.length} of {allClients.length} client{allClients.length !== 1 ? 's' : ''}
+              {total} client{total !== 1 ? 's' : ''}
             </span>
           )}
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+        /* Skeleton rows instead of spinner */
+        <div className="divide-y divide-surface-700/50">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-surface-800 rounded-lg animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-40 bg-surface-800 rounded animate-pulse" />
+                <div className="h-3 w-24 bg-surface-800 rounded animate-pulse" />
+              </div>
+              <div className="h-6 w-16 bg-surface-800 rounded animate-pulse" />
+              <div className="h-6 w-12 bg-surface-800 rounded animate-pulse" />
+              <div className="h-6 w-16 bg-surface-800 rounded animate-pulse" />
+            </div>
+          ))}
         </div>
       ) : (
         <>
@@ -185,7 +210,7 @@ export function ClientsTableWrapper() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-700/50">
-                {sortedClients.map((client) => (
+                {clients.map((client) => (
                   <tr
                     key={client.id}
                     className="hover:bg-surface-800/30 transition-colors"
@@ -275,11 +300,8 @@ export function ClientsTableWrapper() {
                     {/* Infra Check Assignee */}
                     <td className="table-cell">
                       {(() => {
-                        // Use override if set, otherwise default to SE
                         const assignee = client.infraCheckAssigneeName || client.systemEngineerName
                         const isOverride = client.infraCheckAssigneeName && client.infraCheckAssigneeName !== client.systemEngineerName
-                        // Only use the looked-up user's image - don't fallback to primaryEngineer
-                        // If no image, we'll show initials instead
                         const avatarImage = client.infraCheckAssigneeUser?.image || null
                         
                         if (assignee) {
@@ -361,6 +383,62 @@ export function ClientsTableWrapper() {
             </table>
           </div>
 
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-surface-700/50 flex items-center justify-between">
+              <span className="text-sm text-surface-500">
+                Showing {((page - 1) * CLIENTS_PER_PAGE) + 1} - {Math.min(page * CLIENTS_PER_PAGE, total)} of {total}
+              </span>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 rounded-lg hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5 text-surface-400" />
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (page <= 3) {
+                      pageNum = i + 1
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = page - 2 + i
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={cn(
+                          'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                          page === pageNum
+                            ? 'bg-brand-500 text-white'
+                            : 'text-surface-400 hover:bg-surface-700 hover:text-white'
+                        )}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-2 rounded-lg hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5 text-surface-400" />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
