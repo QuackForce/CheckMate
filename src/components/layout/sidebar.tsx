@@ -72,7 +72,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
   }, [isAccountOpen])
 
   return (
-    <aside className="w-64 min-w-[16rem] bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0">
+    <aside className="w-64 min-w-[16rem] max-w-[16rem] bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0">
       {/* Logo */}
       <div className="px-6 py-4 border-b border-surface-800 h-[84px] flex items-center">
         <Link href="/dashboard" className="flex items-center gap-3">
@@ -113,7 +113,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
                 )}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 whitespace-nowrap">{item.name}</span>
+                <span className="whitespace-nowrap">{item.name}</span>
                 {showOverdueBadge ? (
                   <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded-full">
                     {stats.overdueCount}

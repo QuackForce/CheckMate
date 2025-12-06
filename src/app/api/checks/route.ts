@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         status: true,
         notes: true,
         assignedEngineerName: true, // Include assignedEngineerName field
+        calendarEventLink: true, // Include calendarEventLink for schedule page
         client: {
           select: { id: true, name: true, websiteUrl: true },
         },
