@@ -114,10 +114,10 @@ export async function GET(request: NextRequest) {
             const userName = u.name?.toLowerCase() || ''
             return userName.includes(normalizedAssigneeName) || 
                    userName.startsWith(normalizedAssigneeName)
-          }) || null
+          })
         }
         
-        infraCheckAssigneeUser = user
+        infraCheckAssigneeUser = user ?? null
       }
       
       return {

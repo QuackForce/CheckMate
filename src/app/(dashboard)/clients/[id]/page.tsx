@@ -57,10 +57,10 @@ async function getClient(id: string) {
       user = allUsers.find(u => {
         const userName = u.name?.toLowerCase() || ''
         return userName.includes(normalizedAssigneeName)
-      }) || null
+      })
     }
     
-    infraCheckAssigneeUser = user || null
+    infraCheckAssigneeUser = user ?? null
   }
   
   return {
