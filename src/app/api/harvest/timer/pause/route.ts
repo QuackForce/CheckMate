@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // POST /api/harvest/timer/pause - Pause a timer in Harvest by setting hours
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

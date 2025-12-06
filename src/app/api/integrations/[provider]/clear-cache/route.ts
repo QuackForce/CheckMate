@@ -4,6 +4,9 @@ import { clearNotionConfigCache } from '@/lib/notion'
 import { clearIntegrationConfigCache } from '@/lib/integrations'
 
 // POST /api/integrations/[provider]/clear-cache - Clear integration config cache
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { provider: string } }

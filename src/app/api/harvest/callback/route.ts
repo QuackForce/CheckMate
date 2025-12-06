@@ -5,6 +5,9 @@ import { getIntegrationConfig } from '@/lib/integrations'
 
 const HARVEST_TOKEN_URL = 'https://id.getharvest.com/api/v2/oauth2/token'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

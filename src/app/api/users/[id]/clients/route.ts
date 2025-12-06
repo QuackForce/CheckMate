@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 // POST /api/users/[id]/clients - Attach clients to this user based on Notion/system engineer name
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

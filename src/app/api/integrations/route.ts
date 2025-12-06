@@ -4,6 +4,9 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth-utils'
 
 // GET /api/integrations - Get all integration settings
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     await requireAdmin()
@@ -40,6 +43,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/integrations - Create or update integration settings
+// Force dynamic rendering for this route
+
 export async function POST(request: NextRequest) {
   try {
     await requireAdmin()

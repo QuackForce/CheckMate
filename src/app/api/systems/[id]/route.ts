@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET /api/systems/[id] - Get a single system
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -24,6 +27,8 @@ export async function GET(
 }
 
 // PATCH /api/systems/[id] - Update a system
+// Force dynamic rendering for this route
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -52,6 +57,8 @@ export async function PATCH(
 }
 
 // DELETE /api/systems/[id] - Delete a system
+// Force dynamic rendering for this route
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

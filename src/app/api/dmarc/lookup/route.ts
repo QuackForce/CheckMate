@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { lookupDMARC } from '@/lib/dmarc'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   const domain = request.nextUrl.searchParams.get('domain')
 

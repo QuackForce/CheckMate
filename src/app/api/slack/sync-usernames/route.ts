@@ -5,6 +5,9 @@ import { getIntegrationConfig } from '@/lib/integrations'
 import { requireAdmin } from '@/lib/auth-utils'
 
 // POST /api/slack/sync-usernames - Sync Slack usernames by matching emails
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const { error: authError } = await requireAdmin()
   if (authError) return authError

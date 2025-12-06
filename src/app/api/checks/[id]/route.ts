@@ -4,6 +4,9 @@ import { requireEngineer, requireAdmin } from '@/lib/auth-utils'
 import { auth } from '@/lib/auth'
 
 // GET /api/checks/[id] - Get a specific check
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -39,6 +42,8 @@ export async function GET(
 }
 
 // PATCH /api/checks/[id] - Update a check (Engineer+ only)
+// Force dynamic rendering for this route
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -394,6 +399,8 @@ export async function PATCH(
 }
 
 // DELETE /api/checks/[id] - Delete a check (Admin only)
+// Force dynamic rendering for this route
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

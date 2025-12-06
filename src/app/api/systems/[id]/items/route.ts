@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // POST /api/systems/[id]/items - Add a check item to a system
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

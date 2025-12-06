@@ -4,6 +4,9 @@ import { auth } from '@/lib/auth'
 
 // POST /api/users/[id]/merge - Merge another user into this one (admin only)
 // This transfers Notion link from sourceUserId to the target user
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

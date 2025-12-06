@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // POST /api/calendar/test - Create a test calendar event
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

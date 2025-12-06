@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // PATCH /api/systems/[id]/items/[itemId] - Update a check item
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string; itemId: string } }
@@ -28,6 +31,8 @@ export async function PATCH(
 }
 
 // DELETE /api/systems/[id]/items/[itemId] - Delete a check item
+// Force dynamic rendering for this route
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string; itemId: string } }

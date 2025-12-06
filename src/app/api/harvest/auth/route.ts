@@ -3,6 +3,9 @@ import { getIntegrationConfig } from '@/lib/integrations'
 
 const HARVEST_AUTH_URL = 'https://id.getharvest.com/oauth2/authorize'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   const harvestConfig = await getIntegrationConfig('harvest')
   const clientId = harvestConfig.apiKey // Client ID stored in apiKey field

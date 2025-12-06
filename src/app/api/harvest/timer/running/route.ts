@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // GET /api/harvest/timer/running - Get the currently running timer in Harvest
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

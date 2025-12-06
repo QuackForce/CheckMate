@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // GET /api/calendar/status - Check if Google Calendar is connected
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const session = await auth()
@@ -41,6 +44,8 @@ export async function GET() {
 }
 
 // DELETE /api/calendar/status - Disconnect Google Calendar
+// Force dynamic rendering for this route
+
 export async function DELETE() {
   try {
     const session = await auth()

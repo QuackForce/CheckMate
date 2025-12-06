@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth-utils';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST() {
   // Require admin role
   const { error: authError } = await requireAdmin();

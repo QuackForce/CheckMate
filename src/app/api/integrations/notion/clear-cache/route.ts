@@ -3,6 +3,9 @@ import { requireAdmin } from '@/lib/auth-utils'
 import { clearNotionConfigCache } from '@/lib/notion'
 
 // POST /api/integrations/notion/clear-cache - Clear Notion config cache
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     await requireAdmin()

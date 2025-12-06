@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 // GET /api/users/[id] - Get a single user
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -34,6 +37,8 @@ export async function GET(
 }
 
 // PATCH /api/users/[id] - Update a user (admin only)
+// Force dynamic rendering for this route
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -80,6 +85,8 @@ export async function PATCH(
 }
 
 // DELETE /api/users/[id] - Delete a user (admin only)
+// Force dynamic rendering for this route
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { syncClientsFromNotion, getNotionSyncStatus } from '@/lib/notion';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST() {
   try {
     const result = await syncClientsFromNotion();
@@ -17,6 +20,8 @@ export async function POST() {
     );
   }
 }
+
+// Force dynamic rendering for this route
 
 export async function GET() {
   try {

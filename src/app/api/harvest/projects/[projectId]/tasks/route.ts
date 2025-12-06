@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // GET /api/harvest/projects/[projectId]/tasks - Get tasks for a Harvest project
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> | { projectId: string } }

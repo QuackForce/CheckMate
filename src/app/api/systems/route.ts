@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 // GET /api/systems - Get all systems
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -27,6 +30,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/systems - Create a new system
+// Force dynamic rendering for this route
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

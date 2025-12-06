@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 
 // GET /api/harvest/status - Check if Harvest is connected
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const session = await auth()
@@ -38,6 +41,8 @@ export async function GET() {
 }
 
 // DELETE /api/harvest/status - Disconnect Harvest
+// Force dynamic rendering for this route
+
 export async function DELETE() {
   try {
     const session = await auth()

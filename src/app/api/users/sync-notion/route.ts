@@ -105,6 +105,9 @@ async function fetchNotionTeamMembers(): Promise<NotionTeamMember[]> {
 }
 
 // POST /api/users/sync-notion - Sync users from Notion team members
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -246,6 +249,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/users/sync-notion - Get Notion team members for preview
+// Force dynamic rendering for this route
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

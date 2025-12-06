@@ -4,6 +4,9 @@ import { db } from '@/lib/db'
 import { getIntegrationConfig } from '@/lib/integrations'
 
 // GET /api/integrations/slack - Get Slack integration status (safe for all users)
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { requireEngineer } from '@/lib/auth-utils'
 import { auth } from '@/lib/auth'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   
@@ -80,6 +83,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/checks - Create a new check (Engineer+ only)
+// Force dynamic rendering for this route
+
 export async function POST(request: NextRequest) {
   // Check if user has engineer or admin role
   const { error } = await requireEngineer()

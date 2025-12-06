@@ -4,6 +4,9 @@ import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth-utils'
 
 // GET /api/integrations/[provider] - Get specific integration (with sensitive data for editing)
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> | { provider: string } }
@@ -40,6 +43,8 @@ export async function GET(
 }
 
 // PATCH /api/integrations/[provider] - Update specific integration
+// Force dynamic rendering for this route
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> | { provider: string } }
@@ -102,6 +107,8 @@ export async function PATCH(
 }
 
 // DELETE /api/integrations/[provider] - Delete integration settings
+// Force dynamic rendering for this route
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> | { provider: string } }

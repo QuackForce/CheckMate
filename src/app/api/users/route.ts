@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
 // GET /api/users - Get all users (admin only)
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
@@ -43,6 +46,8 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/users - Create a new user (admin only) or sync from Notion
+// Force dynamic rendering for this route
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()

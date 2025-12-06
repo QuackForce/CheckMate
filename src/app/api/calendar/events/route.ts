@@ -66,6 +66,9 @@ async function getCalendarAccessToken(userId: string) {
 }
 
 // POST /api/calendar/events - Create a calendar event
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -174,6 +177,8 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/calendar/events - Get calendar events
+// Force dynamic rendering for this route
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()

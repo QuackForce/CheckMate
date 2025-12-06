@@ -5,6 +5,9 @@ import { getIntegrationConfig } from '@/lib/integrations'
 import { requireEngineer } from '@/lib/auth-utils'
 
 // POST /api/slack/post - Post a message to a Slack channel
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const { error: authError } = await requireEngineer()
   if (authError) return authError

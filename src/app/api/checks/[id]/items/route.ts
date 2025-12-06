@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { requireEngineer } from '@/lib/auth-utils'
 
 // POST /api/checks/[id]/items - Add a new check item to a category
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

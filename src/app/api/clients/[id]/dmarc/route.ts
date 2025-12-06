@@ -3,6 +3,9 @@ import { db } from '@/lib/db'
 import { lookupDMARC } from '@/lib/dmarc'
 
 // Save DMARC result to client
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }

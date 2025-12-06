@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { getIntegrationConfig } from '@/lib/integrations'
 
 // GET /api/slack/channels/[channelId] - Check if bot can access a specific channel
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ channelId: string }> | { channelId: string } }
