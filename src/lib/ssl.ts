@@ -65,7 +65,8 @@ export async function checkSSL(domain: string): Promise<SSLResult> {
           // Check if cert is actually authorized
           if (!socket.authorized) {
             const authError = socket.authorizationError
-            if (authError === 'CERT_HAS_EXPIRED') {
+            const errorStr = authError?.message || String(authError)
+            if (errorStr.includes('CERT_HAS_EXPIRED')) {
               status = 'expired'
             } else if (authError) {
               status = 'invalid'
