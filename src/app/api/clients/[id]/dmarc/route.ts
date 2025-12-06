@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { lookupDMARC } from '@/lib/dmarc'
+import { lookupDMARC } from '@/lib/dns-security'
 
 // Save DMARC result to client
 // Force dynamic rendering for this route

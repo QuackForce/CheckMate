@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { lookupDMARC } from '@/lib/dmarc'
+import { lookupDMARC } from '@/lib/dns-security'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'

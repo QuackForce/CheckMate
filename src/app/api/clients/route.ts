@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { auth } from '@/lib/auth';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -143,6 +144,90 @@ export async function GET(request: NextRequest) {
       { error: error.message },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await auth()
+    
+    // Only admins and IT engineers can create clients
+    if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'IT_ENGINEER')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const { 
+      name, 
+      status = 'ACTIVE', 
+      priority, 
+      defaultCadence = 'MONTHLY',
+      websiteUrl,
+      pocEmail,
+      officeAddress,
+      notes,
+      infraCheckAssigneeName,
+    } = body
+
+    // Validate required fields
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { error: 'Client name is required' },
+        { status: 400 }
+      )
+    }
+
+    // Create client in database (notionPageId will be null - app-created)
+    const client = await db.client.create({
+      data: {
+        name: name.trim(),
+        status,
+        priority: priority || null,
+        defaultCadence,
+        websiteUrl: websiteUrl?.trim() || null,
+        pocEmail: pocEmail?.trim() || null,
+        officeAddress: officeAddress?.trim() || null,
+        notes: notes?.trim() || null,
+        infraCheckAssigneeName: infraCheckAssigneeName?.trim() || null,
+        // Explicitly set notionPageId to null to indicate this is app-created
+        notionPageId: null,
+        notionLastSynced: null,
+      },
+    })
+
+    // If websiteUrl is provided, look up trust center
+    if (websiteUrl) {
+      try {
+        const { lookupTrustCenter } = await import('@/lib/trustlists')
+        const trustCenter = await lookupTrustCenter(websiteUrl)
+        if (trustCenter.found) {
+          await db.client.update({
+            where: { id: client.id },
+            data: {
+              trustCenterUrl: trustCenter.trustCenterUrl,
+              trustCenterPlatform: trustCenter.platform,
+            },
+          })
+        }
+      } catch (error) {
+        // Silently fail trust center lookup - don't block client creation
+        console.error('Failed to lookup trust center:', error)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      client,
+    })
+  } catch (error: any) {
+    console.error('Error creating client:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to create client' },
+      { status: 500 }
+    )
   }
 }
 

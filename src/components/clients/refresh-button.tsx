@@ -44,10 +44,10 @@ export function RefreshButton() {
         onClick={handleSync}
         disabled={syncing}
         className="btn-ghost flex items-center gap-2 text-sm"
-        title="Sync from Notion"
+        title="Sync clients from Notion and update trust centers"
       >
         <RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />
-        {syncing ? 'Syncing...' : 'Sync Notion'}
+        {syncing ? 'Syncing...' : 'Sync Clients'}
       </button>
     </div>
   )

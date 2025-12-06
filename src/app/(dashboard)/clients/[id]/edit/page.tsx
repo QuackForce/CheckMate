@@ -16,7 +16,12 @@ import {
   AlertCircle,
   Users,
   Clock,
+  Shield,
+  X,
+  Check,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Combobox } from '@/components/ui/combobox'
 import { toast } from 'sonner'
 
 interface Client {
@@ -42,6 +47,16 @@ interface Client {
   grceEngineerName: string | null
   // App-specific override
   infraCheckAssigneeName: string | null
+  // Compliance
+  complianceFrameworks: string[]
+}
+
+interface Framework {
+  id: string
+  name: string
+  category: string
+  description: string | null
+  isActive: boolean
 }
 
 export default function EditClientPage() {
@@ -80,11 +95,33 @@ export default function EditClientPage() {
   const [engineers, setEngineers] = useState<Array<{ id: string; name: string | null; email: string | null }>>([])
   const [engineerSearch, setEngineerSearch] = useState('')
   const [showEngineerDropdown, setShowEngineerDropdown] = useState(false)
+  
+  // For compliance frameworks
+  const [availableFrameworks, setAvailableFrameworks] = useState<Framework[]>([])
+  const [selectedFrameworks, setSelectedFrameworks] = useState<string[]>([])
+  const [frameworkSearch, setFrameworkSearch] = useState('')
+  const [showFrameworkDropdown, setShowFrameworkDropdown] = useState(false)
+  
+  // Track which comboboxes are open for z-index management
+  const [openComboboxes, setOpenComboboxes] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchClient()
     fetchEngineers()
+    fetchFrameworks()
   }, [clientId])
+  
+  const fetchFrameworks = async () => {
+    try {
+      const res = await fetch('/api/frameworks')
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableFrameworks(data)
+      }
+    } catch (err) {
+      console.error('Failed to load frameworks:', err)
+    }
+  }
   
   const fetchEngineers = async () => {
     try {
@@ -141,6 +178,7 @@ export default function EditClientPage() {
       setInfraCheckAssigneeName(client.infraCheckAssigneeName || '')
       setOriginalInfraCheckAssigneeName(client.infraCheckAssigneeName || '')
       setEngineerSearch(client.infraCheckAssigneeName || '')
+      setSelectedFrameworks(client.complianceFrameworks || [])
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -190,6 +228,7 @@ export default function EditClientPage() {
           grceEngineerName: grceEngineerName || null,
           infraCheckAssigneeName: infraCheckAssigneeName || null,
           _oldInfraCheckAssigneeName: originalInfraCheckAssigneeName, // Pass old value for comparison
+          complianceFrameworks: selectedFrameworks,
         }),
       })
 
@@ -250,7 +289,7 @@ export default function EditClientPage() {
           )}
 
           {/* Basic Information */}
-          <div className="card p-6 space-y-4">
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50")}>
             <h2 className="text-lg font-medium text-white flex items-center gap-2">
               <Building2 className="w-5 h-5 text-brand-400" />
               Basic Information
@@ -270,34 +309,58 @@ export default function EditClientPage() {
 
               <div>
                 <label className="label">Status</label>
-                <select
+                <Combobox
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="input"
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="ONBOARDING">Onboarding</option>
-                  <option value="INACTIVE">Inactive</option>
-                  <option value="ON_HOLD">On Hold</option>
-                  <option value="OFFBOARDING">Offboarding</option>
-                  <option value="EXITING">Exiting</option>
-                  <option value="AS_NEEDED">As Needed</option>
-                </select>
+                  onChange={setStatus}
+                  options={[
+                    { value: 'ACTIVE', label: 'Active' },
+                    { value: 'INACTIVE', label: 'Inactive' },
+                    { value: 'ON_HOLD', label: 'On Hold' },
+                    { value: 'OFFBOARDING', label: 'Offboarding' },
+                    { value: 'EXITING', label: 'Exiting' },
+                    { value: 'AS_NEEDED', label: 'As Needed' },
+                  ]}
+                  placeholder="Select status..."
+                  onOpenChange={(isOpen) => {
+                    setOpenComboboxes(prev => {
+                      const next = new Set(prev)
+                      if (isOpen) {
+                        next.add('status')
+                      } else {
+                        next.delete('status')
+                      }
+                      return next
+                    })
+                  }}
+                />
               </div>
 
               <div>
                 <label className="label">Priority</label>
-                <select
+                <Combobox
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  className="input"
-                >
-                  <option value="">None</option>
-                  <option value="P1">P1</option>
-                  <option value="P2">P2</option>
-                  <option value="P3">P3</option>
-                  <option value="P4">P4</option>
-                </select>
+                  onChange={setPriority}
+                  options={[
+                    { value: '', label: 'None' },
+                    { value: 'P1', label: 'P1' },
+                    { value: 'P2', label: 'P2' },
+                    { value: 'P3', label: 'P3' },
+                    { value: 'P4', label: 'P4' },
+                  ]}
+                  placeholder="Select priority..."
+                  allowClear
+                  onOpenChange={(isOpen) => {
+                    setOpenComboboxes(prev => {
+                      const next = new Set(prev)
+                      if (isOpen) {
+                        next.add('priority')
+                      } else {
+                        next.delete('priority')
+                      }
+                      return next
+                    })
+                  }}
+                />
               </div>
 
               <div>
@@ -559,7 +622,7 @@ export default function EditClientPage() {
           </div>
 
           {/* Service Settings */}
-          <div className="card p-6 space-y-4">
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50")}>
             <h2 className="text-lg font-medium text-white flex items-center gap-2">
               <Clock className="w-5 h-5 text-brand-400" />
               Service Settings
@@ -571,18 +634,30 @@ export default function EditClientPage() {
                   <RefreshCw className="w-4 h-4" />
                   Default Check Cadence
                 </label>
-                <select
+                <Combobox
                   value={defaultCadence}
-                  onChange={(e) => setDefaultCadence(e.target.value)}
-                  className="input"
-                >
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="BIWEEKLY">Bi-weekly</option>
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="BIMONTHLY">Bi-monthly</option>
-                  <option value="QUARTERLY">Quarterly</option>
-                  <option value="ADHOC">Ad-hoc</option>
-                </select>
+                  onChange={setDefaultCadence}
+                  options={[
+                    { value: 'WEEKLY', label: 'Weekly' },
+                    { value: 'BIWEEKLY', label: 'Bi-weekly' },
+                    { value: 'MONTHLY', label: 'Monthly' },
+                    { value: 'BIMONTHLY', label: 'Bi-monthly' },
+                    { value: 'QUARTERLY', label: 'Quarterly' },
+                    { value: 'ADHOC', label: 'Ad-hoc' },
+                  ]}
+                  placeholder="Select cadence..."
+                  onOpenChange={(isOpen) => {
+                    setOpenComboboxes(prev => {
+                      const next = new Set(prev)
+                      if (isOpen) {
+                        next.add('cadence')
+                      } else {
+                        next.delete('cadence')
+                      }
+                      return next
+                    })
+                  }}
+                />
               </div>
 
               <div>
@@ -618,6 +693,105 @@ export default function EditClientPage() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Compliance Frameworks */}
+          <div className={cn("card p-6 space-y-4", showFrameworkDropdown && "relative z-50")}>
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-400" />
+              <h2 className="text-lg font-medium text-white">Compliance Frameworks</h2>
+            </div>
+            
+            {/* Selected frameworks */}
+            {selectedFrameworks.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedFrameworks.map(framework => (
+                  <span 
+                    key={framework}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  >
+                    {framework}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFrameworks(prev => prev.filter(f => f !== framework))}
+                      className="hover:text-blue-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            
+            {/* Framework picker */}
+            <div className="relative">
+              <input
+                type="text"
+                value={frameworkSearch}
+                onChange={(e) => {
+                  setFrameworkSearch(e.target.value)
+                  setShowFrameworkDropdown(true)
+                }}
+                onFocus={() => setShowFrameworkDropdown(true)}
+                className="input w-full"
+                placeholder="Search and add frameworks..."
+              />
+              
+              {showFrameworkDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-surface-800 border border-surface-700 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                  {availableFrameworks
+                    .filter(f => 
+                      f.isActive && 
+                      !selectedFrameworks.includes(f.name) &&
+                      (frameworkSearch === '' || f.name.toLowerCase().includes(frameworkSearch.toLowerCase()))
+                    )
+                    .map(framework => (
+                      <button
+                        key={framework.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFrameworks(prev => [...prev, framework.name])
+                          setFrameworkSearch('')
+                          setShowFrameworkDropdown(false)
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-surface-700 flex items-center justify-between group"
+                      >
+                        <div>
+                          <span className="text-white">{framework.name}</span>
+                          {framework.description && (
+                            <p className="text-xs text-surface-400 truncate max-w-md">
+                              {framework.description}
+                            </p>
+                          )}
+                        </div>
+                        <Check className="w-4 h-4 text-green-400 opacity-0 group-hover:opacity-100" />
+                      </button>
+                    ))
+                  }
+                  {availableFrameworks.filter(f => 
+                    f.isActive && 
+                    !selectedFrameworks.includes(f.name) &&
+                    (frameworkSearch === '' || f.name.toLowerCase().includes(frameworkSearch.toLowerCase()))
+                  ).length === 0 && (
+                    <div className="px-4 py-3 text-surface-400 text-sm">
+                      {frameworkSearch ? 'No matching frameworks' : 'No more frameworks available'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {/* Click outside to close */}
+            {showFrameworkDropdown && (
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowFrameworkDropdown(false)}
+              />
+            )}
+            
+            <p className="text-xs text-surface-500">
+              Select compliance frameworks this client needs to maintain. Manage available frameworks in Settings.
+            </p>
           </div>
 
           {/* Notes */}

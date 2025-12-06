@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
+import { Combobox } from '@/components/ui/combobox'
 
 interface Client {
   id: string
@@ -62,6 +63,7 @@ export function ClientsTableWrapper() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false)
 
   const totalPages = Math.ceil(total / CLIENTS_PER_PAGE)
 
@@ -141,9 +143,9 @@ export function ClientsTableWrapper() {
   }
 
   return (
-    <div className="card overflow-hidden">
+    <div className={cn("card relative", isStatusFilterOpen && "z-[100]", !isStatusFilterOpen && "overflow-hidden")}>
       {/* Search & Filters Bar */}
-      <div className="p-4 border-b border-surface-700/50">
+      <div className={cn("p-4 border-b border-surface-700/50", isStatusFilterOpen && "overflow-visible")}>
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput
             value={searchInput}
@@ -156,17 +158,21 @@ export function ClientsTableWrapper() {
           {/* Quick filters */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-surface-500" />
-            <select
-              className="px-3 py-2 bg-surface-800/50 border border-surface-700 rounded-lg text-sm text-surface-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            <Combobox
               value={statusFilter}
-              onChange={(e) => handleStatusChange(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="ONBOARDING">Onboarding</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="ON_HOLD">On Hold</option>
-            </select>
+              onChange={(value) => handleStatusChange(value)}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'OFFBOARDING', label: 'Offboarding' },
+                { value: 'INACTIVE', label: 'Inactive' },
+                { value: 'ON_HOLD', label: 'On Hold' },
+              ]}
+              placeholder="Filter by status..."
+              searchable={false}
+              className="w-[130px]"
+              onOpenChange={setIsStatusFilterOpen}
+            />
           </div>
 
           {/* Results count */}
@@ -210,7 +216,22 @@ export function ClientsTableWrapper() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-700/50">
-                {clients.map((client) => (
+                {clients.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="table-cell">
+                      <div className="py-12 text-center">
+                        <Filter className="w-12 h-12 text-surface-600 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-white mb-2">No results found</h3>
+                        <p className="text-surface-400">
+                          {search || statusFilter !== 'all' 
+                            ? 'Try adjusting your search or filter criteria.'
+                            : 'No clients match your current filters.'}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  clients.map((client) => (
                   <tr
                     key={client.id}
                     className="hover:bg-surface-800/30 transition-colors"
@@ -378,7 +399,8 @@ export function ClientsTableWrapper() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

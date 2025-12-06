@@ -5,6 +5,7 @@
 
 import { db as prisma } from './db';
 import { ClientStatus, CheckCadence, Priority } from '@prisma/client';
+import { lookupTrustCenter } from './trustlists';
 
 // Cache for Notion config (refreshed on each sync)
 let notionConfigCache: {
@@ -160,6 +161,88 @@ let teamMemberCache: Map<string, string> = new Map();
 
 // Cache for vendor names (pageId -> name)
 let vendorCache: Map<string, string> = new Map();
+
+// Cache for compliance framework names (pageId -> name)
+let complianceFrameworkCache: Map<string, string> = new Map();
+
+/**
+ * Get compliance frameworks - handles both multi_select and relation types
+ */
+async function getComplianceFrameworks(property: any): Promise<string[]> {
+  if (!property) return [];
+  
+  // Handle multi_select type
+  if (property.type === 'multi_select') {
+    return property.multi_select?.map((s: any) => s.name) || [];
+  }
+  
+  // Handle relation type - need to look up the page titles
+  if (property.type === 'relation') {
+    const relationIds = property.relation?.map((r: any) => r.id) || [];
+    if (relationIds.length === 0) return [];
+    
+    const config = await getNotionConfig();
+    if (!config.apiKey) return [];
+    
+    const frameworks: string[] = [];
+    
+    for (const pageId of relationIds) {
+      // Check cache first
+      if (complianceFrameworkCache.has(pageId)) {
+        frameworks.push(complianceFrameworkCache.get(pageId)!);
+        continue;
+      }
+      
+      try {
+        const response = await fetch(
+          `https://api.notion.com/v1/pages/${pageId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${config.apiKey}`,
+              'Notion-Version': '2022-06-28',
+            },
+          }
+        );
+        
+        if (response.ok) {
+          const page = await response.json();
+          // Try to get the title from common property names
+          const props = page.properties;
+          let name = null;
+          
+          // Try different property names for the title
+          for (const propName of ['Name', 'Title', 'Framework', 'Compliance']) {
+            if (props[propName]) {
+              name = getPropertyValue(props[propName]);
+              if (name) break;
+            }
+          }
+          
+          // Fallback: find any title property
+          if (!name) {
+            for (const prop of Object.values(props) as any[]) {
+              if (prop.type === 'title') {
+                name = prop.title?.[0]?.plain_text;
+                if (name) break;
+              }
+            }
+          }
+          
+          if (name) {
+            complianceFrameworkCache.set(pageId, name);
+            frameworks.push(name);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch compliance framework ${pageId}:`, error);
+      }
+    }
+    
+    return frameworks;
+  }
+  
+  return [];
+}
 
 // System relation columns in Notion -> our SystemCategoryType
 const SYSTEM_RELATION_COLUMNS: Record<string, string> = {
@@ -325,7 +408,6 @@ function mapNotionStatus(notionStatus: string | null): ClientStatus {
   const statusMap: Record<string, ClientStatus> = {
     'active': 'ACTIVE',
     'new - active': 'ACTIVE',
-    'bonboard': 'ONBOARDING',
     'exiting': 'OFFBOARDING',
     'on-hold due to no payment': 'ON_HOLD',
     'ip closing': 'OFFBOARDING',
@@ -540,7 +622,7 @@ async function linkSystemsToClient(clientId: string, vendorNames: string[]): Pro
 /**
  * Transform Notion page to client data (uses cached team member names)
  */
-function transformNotionPageToClient(page: NotionPage) {
+async function transformNotionPageToClient(page: NotionPage) {
   const props = page.properties;
   
   // Get engineer names from relations using cache
@@ -580,6 +662,7 @@ function transformNotionPageToClient(page: NotionPage) {
     defaultCadence: mapCadence(getPropertyValue(props['IT Syncs'])),
     
     // Security & Compliance
+    complianceFrameworks: await getComplianceFrameworks(props['Compliance']),
     dmarc: getPropertyValue(props['DMARC']),
     accessRequests: getPropertyValue(props['Access Requests']),
     userAccessReviews: getPropertyValue(props['User Access Reviews']),
@@ -635,7 +718,7 @@ export async function syncClientsFromNotion(): Promise<{
 
     for (const page of notionPages) {
       try {
-        const clientData = transformNotionPageToClient(page);
+        const clientData = await transformNotionPageToClient(page);
         
         // Check if client already exists
         const existing = await prisma.client.findUnique({
@@ -663,6 +746,25 @@ export async function syncClientsFromNotion(): Promise<{
         if (vendorNames.length > 0) {
           const linked = await linkSystemsToClient(client.id, vendorNames);
           result.systemsLinked += linked;
+        }
+        
+        // Look up trust center from TrustLists API
+        if (clientData.websiteUrl) {
+          try {
+            const trustCenter = await lookupTrustCenter(clientData.websiteUrl);
+            if (trustCenter.found) {
+              await prisma.client.update({
+                where: { id: client.id },
+                data: {
+                  trustCenterUrl: trustCenter.trustCenterUrl,
+                  trustCenterPlatform: trustCenter.platform,
+                },
+              });
+            }
+          } catch (error) {
+            // Silently fail trust center lookup - don't block the sync
+            console.error(`Failed to lookup trust center for ${client.name}:`, error);
+          }
         }
         
         result.synced++;
@@ -716,6 +818,10 @@ export async function syncSingleClient(notionPageId: string) {
     throw new Error('Notion API key not configured');
   }
   
+  // Load caches for team member and vendor lookups
+  await loadTeamMemberCache();
+  await loadVendorCache();
+  
   const response = await fetch(
     `https://api.notion.com/v1/pages/${notionPageId}`,
     {
@@ -733,21 +839,52 @@ export async function syncSingleClient(notionPageId: string) {
   }
 
   const page = await response.json();
-  const clientData = transformNotionPageToClient(page);
+  const clientData = await transformNotionPageToClient(page);
 
   const existing = await prisma.client.findUnique({
     where: { notionPageId },
   });
 
+  let client;
   if (existing) {
-    return prisma.client.update({
+    client = await prisma.client.update({
       where: { notionPageId },
       data: clientData,
     });
   } else {
-    return prisma.client.create({
+    client = await prisma.client.create({
       data: clientData,
     });
   }
+  
+  // Extract and link systems from Notion vendor relations
+  const vendorNames = extractSystemVendorsFromPage(page);
+  let systemsLinked = 0;
+  if (vendorNames.length > 0) {
+    systemsLinked = await linkSystemsToClient(client.id, vendorNames);
+  }
+  
+  // Look up trust center from TrustLists API
+  let trustCenterFound = false;
+  if (clientData.websiteUrl) {
+    const trustCenter = await lookupTrustCenter(clientData.websiteUrl);
+    if (trustCenter.found) {
+      await prisma.client.update({
+        where: { id: client.id },
+        data: {
+          trustCenterUrl: trustCenter.trustCenterUrl,
+          trustCenterPlatform: trustCenter.platform,
+        },
+      });
+      trustCenterFound = true;
+    }
+  }
+  
+  return {
+    client,
+    trustCenterFound,
+    systemsLinked,
+    isNew: !existing,
+  };
 }
 

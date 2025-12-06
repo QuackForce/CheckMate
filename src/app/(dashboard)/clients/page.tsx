@@ -10,7 +10,7 @@ async function getClientStats() {
   const [total, active, onboarding, inactive] = await Promise.all([
     db.client.count(),
     db.client.count({ where: { status: 'ACTIVE' } }),
-    db.client.count({ where: { status: 'ONBOARDING' } }),
+    db.client.count({ where: { status: 'OFFBOARDING' } }),
     db.client.count({ where: { status: 'INACTIVE' } }),
   ])
   
@@ -41,8 +41,8 @@ export default async function ClientsPage() {
             <p className="text-2xl font-bold text-brand-400">{stats.active}</p>
           </div>
           <div className="card p-4">
-            <p className="text-sm text-surface-400">Onboarding</p>
-            <p className="text-2xl font-bold text-blue-400">{stats.onboarding}</p>
+            <p className="text-sm text-surface-400">Offboarding</p>
+            <p className="text-2xl font-bold text-amber-400">{stats.onboarding}</p>
           </div>
           <div className="card p-4">
             <p className="text-sm text-surface-400">Inactive</p>

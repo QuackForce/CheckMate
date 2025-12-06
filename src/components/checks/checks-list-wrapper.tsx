@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn, formatDate, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
+import { Combobox } from '@/components/ui/combobox'
 
 interface Check {
   id: string
@@ -56,6 +57,7 @@ export function ChecksListWrapper() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false)
   const limit = 20
 
   const fetchChecks = useCallback(async () => {
@@ -103,8 +105,8 @@ export function ChecksListWrapper() {
     return styles[status] || styles.SCHEDULED
   }
 
-  // Show empty state with real data message
-  if (!loading && checks.length === 0 && !search) {
+  // Show empty state with real data message - only when there are truly no checks (no filters/search)
+  if (!loading && total === 0 && !search && statusFilter === 'all') {
     return (
       <div className="card p-12 text-center">
         <Calendar className="w-12 h-12 text-surface-600 mx-auto mb-4" />
@@ -120,9 +122,9 @@ export function ChecksListWrapper() {
   }
 
   return (
-    <div className="card overflow-hidden">
+    <div className={cn("card relative", isStatusFilterOpen && "z-[100]", !isStatusFilterOpen && "overflow-hidden")}>
       {/* Search & Filters Bar */}
-      <div className="p-4 border-b border-surface-700/50">
+      <div className={cn("p-4 border-b border-surface-700/50", isStatusFilterOpen && "overflow-visible")}>
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput
             value={search}
@@ -135,20 +137,24 @@ export function ChecksListWrapper() {
           {/* Status filter */}
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-surface-500" />
-            <select
+            <Combobox
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
+              onChange={(value) => {
+                setStatusFilter(value)
                 setPage(1)
               }}
-              className="px-3 py-2 bg-surface-800/50 border border-surface-700 rounded-lg text-sm text-surface-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
-            >
-              <option value="all">All Status</option>
-              <option value="OVERDUE">Overdue</option>
-              <option value="SCHEDULED">Scheduled</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-            </select>
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'OVERDUE', label: 'Overdue' },
+                { value: 'SCHEDULED', label: 'Scheduled' },
+                { value: 'IN_PROGRESS', label: 'In Progress' },
+                { value: 'COMPLETED', label: 'Completed' },
+              ]}
+              placeholder="Filter by status..."
+              searchable={false}
+              className="w-[130px]"
+              onOpenChange={setIsStatusFilterOpen}
+            />
           </div>
 
           {/* Results count */}
@@ -176,8 +182,14 @@ export function ChecksListWrapper() {
           ))}
         </div>
       ) : checks.length === 0 ? (
-        <div className="py-12 text-center text-surface-500">
-          No checks found matching your search.
+        <div className="py-12 text-center">
+          <Filter className="w-12 h-12 text-surface-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">No results found</h3>
+          <p className="text-surface-400">
+            {search || statusFilter !== 'all' 
+              ? 'Try adjusting your search or filter criteria.'
+              : 'No checks match your current filters.'}
+          </p>
         </div>
       ) : (
         <>

@@ -23,8 +23,9 @@ import {
   Search,
 } from 'lucide-react'
 import { cn, getCadenceLabel, formatDate } from '@/lib/utils'
-import { DMARCChecker } from './dmarc-checker'
+import { SecurityChecks } from './security-checks'
 import { ClientSystems } from './client-systems'
+import { ClientCompliance } from './client-compliance'
 import { toast } from 'sonner'
 
 interface Client {
@@ -44,9 +45,23 @@ interface Client {
   hoursPerMonth: string | null
   itSyncsFrequency: string | null
   onsitesFrequency: string | null
+  complianceFrameworks: string[]
+  trustCenterUrl: string | null
+  trustCenterPlatform: string | null
   dmarc: string | null
   dmarcRecord: string | null
   dmarcLastChecked: Date | null
+  spf: string | null
+  spfRecord: string | null
+  spfLastChecked: Date | null
+  dkim: string | null
+  dkimSelector: string | null
+  dkimRecord: string | null
+  dkimLastChecked: Date | null
+  sslStatus: string | null
+  sslIssuer: string | null
+  sslExpiry: Date | null
+  sslLastChecked: Date | null
   accessRequests: string | null
   userAccessReviews: string | null
   acceptedPasswordPolicy: string | null
@@ -91,9 +106,37 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
   const [loadingChannels, setLoadingChannels] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [saving, setSaving] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [testChannelId, setTestChannelId] = useState('')
   const [testingChannel, setTestingChannel] = useState(false)
   const [testResult, setTestResult] = useState<{ accessible: boolean; channel?: any; error?: string; message?: string } | null>(null)
+
+  const handleSync = async () => {
+    if (!client.notionPageId) {
+      toast.error('Client is not linked to Notion')
+      return
+    }
+    
+    setSyncing(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}/sync`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        toast.success(data.message)
+        // Force a hard refresh to reload server component data
+        window.location.reload()
+      } else {
+        toast.error(data.error || 'Sync failed')
+      }
+    } catch (error) {
+      toast.error('Failed to sync from Notion')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const fetchChannels = async () => {
     setLoadingChannels(true)
@@ -255,6 +298,11 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 <span className={cn('badge border', getStatusBadge(client.status))}>
                   {client.status.replace('_', ' ')}
                 </span>
+                {client.teams.length > 0 && client.teams.map((team) => (
+                  <span key={team} className="badge bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    {team}
+                  </span>
+                ))}
                 {client.priority && (
                   <span className="badge bg-surface-700 text-surface-300">
                     {client.priority}
@@ -268,10 +316,16 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button className="btn-ghost flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" />
-                Sync
-              </button>
+              {client.notionPageId && (
+                <button 
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className="btn-ghost flex items-center gap-2"
+                >
+                  <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+                  {syncing ? 'Syncing...' : 'Sync'}
+                </button>
+              )}
               {canEdit && (
                 <>
                   <Link href={`/clients/${client.id}/edit`} className="btn-ghost flex items-center gap-2">
@@ -374,79 +428,71 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
               </div>
             </div>
 
-            {/* Security & Compliance */}
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Security & Compliance</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <DMARCChecker 
-                  clientId={client.id}
-                  domain={client.websiteUrl} 
-                  currentValue={client.dmarc}
-                  currentRecord={client.dmarcRecord}
-                  lastChecked={client.dmarcLastChecked}
-                />
-                <div>
-                  <p className="text-xs text-surface-500 uppercase tracking-wide">Access Requests</p>
-                  <p className="text-surface-200">{client.accessRequests || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-surface-500 uppercase tracking-wide">User Access Reviews</p>
-                  <p className="text-surface-200">{client.userAccessReviews || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-surface-500 uppercase tracking-wide">Password Policy</p>
-                  <p className="text-surface-200">{client.acceptedPasswordPolicy || '—'}</p>
-                </div>
-              </div>
-            </div>
+            {/* Security Checks (Automated) */}
+            <SecurityChecks
+              clientId={client.id}
+              domain={client.websiteUrl}
+              dmarcValue={client.dmarc}
+              dmarcRecord={client.dmarcRecord}
+              dmarcLastChecked={client.dmarcLastChecked}
+              spfValue={client.spf}
+              spfRecord={client.spfRecord}
+              spfLastChecked={client.spfLastChecked}
+              dkimValue={client.dkim}
+              dkimSelector={client.dkimSelector}
+              dkimRecord={client.dkimRecord}
+              dkimLastChecked={client.dkimLastChecked}
+              sslStatus={client.sslStatus}
+              sslIssuer={client.sslIssuer}
+              sslExpiry={client.sslExpiry}
+              sslLastChecked={client.sslLastChecked}
+            />
 
-            {/* Teams & Policies */}
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Teams & Policies</h2>
-              <div className="space-y-4">
-                {client.teams.length > 0 && (
-                  <div>
-                    <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Teams</p>
-                    <div className="flex flex-wrap gap-2">
-                      {client.teams.map((team) => (
-                        <span key={team} className="badge bg-surface-700 text-surface-300">
-                          {team}
-                        </span>
-                      ))}
+            {/* HR Processes & Policies - Only show if there's data */}
+            {(client.hrProcesses.length > 0 || client.policies.length > 0) && (
+              <div className="card p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">HR & Policies</h2>
+                <div className="space-y-4">
+                  {client.hrProcesses.length > 0 && (
+                    <div>
+                      <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">HR Processes</p>
+                      <div className="flex flex-wrap gap-2">
+                        {client.hrProcesses.map((process) => (
+                          <span key={process} className="badge bg-blue-500/20 text-blue-400">
+                            {process}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {client.hrProcesses.length > 0 && (
-                  <div>
-                    <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">HR Processes</p>
-                    <div className="flex flex-wrap gap-2">
-                      {client.hrProcesses.map((process) => (
-                        <span key={process} className="badge bg-blue-500/20 text-blue-400">
-                          {process}
-                        </span>
-                      ))}
+                  )}
+                  {client.policies.length > 0 && (
+                    <div>
+                      <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Policies</p>
+                      <div className="flex flex-wrap gap-2">
+                        {client.policies.slice(0, 10).map((policy) => (
+                          <span key={policy} className="badge bg-purple-500/20 text-purple-400">
+                            {policy}
+                          </span>
+                        ))}
+                        {client.policies.length > 10 && (
+                          <span className="badge bg-surface-700 text-surface-400">
+                            +{client.policies.length - 10} more
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {client.policies.length > 0 && (
-                  <div>
-                    <p className="text-xs text-surface-500 uppercase tracking-wide mb-2">Policies</p>
-                    <div className="flex flex-wrap gap-2">
-                      {client.policies.slice(0, 10).map((policy) => (
-                        <span key={policy} className="badge bg-purple-500/20 text-purple-400">
-                          {policy}
-                        </span>
-                      ))}
-                      {client.policies.length > 10 && (
-                        <span className="badge bg-surface-700 text-surface-400">
-                          +{client.policies.length - 10} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Compliance */}
+            <ClientCompliance 
+              clientId={client.id}
+              complianceFrameworks={client.complianceFrameworks}
+              trustCenterUrl={client.trustCenterUrl}
+              trustCenterPlatform={client.trustCenterPlatform}
+            />
 
             {/* Systems */}
             <ClientSystems clientId={client.id} />
@@ -800,7 +846,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search channels..."
-                    className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
+                    className="input pl-10"
                   />
                 </div>
                 <button

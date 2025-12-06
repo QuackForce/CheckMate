@@ -8,10 +8,12 @@ import {
   Link2, 
   FileText, 
   Bell,
+  Shield,
 } from 'lucide-react'
 
 const settingsTabs = [
   { name: 'Systems', href: '/settings/systems', icon: Boxes, description: 'Manage check systems and items' },
+  { name: 'Frameworks', href: '/settings/frameworks', icon: Shield, description: 'Compliance frameworks' },
   { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
   { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },
   { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Alert preferences' },

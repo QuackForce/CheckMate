@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { Combobox } from '@/components/ui/combobox'
 
 interface TeamMember {
   id: string
@@ -79,6 +80,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [slackUsername, setSlackUsername] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false)
 
   // For portal - need to wait for client-side mount
   useEffect(() => {
@@ -262,7 +264,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   }
 
   return (
-    <div className="card">
+    <div className={cn("card", isRoleFilterOpen && "relative z-50")}>
       <div className="p-4 border-b border-surface-700/50 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-white">Team Members</h2>
@@ -271,26 +273,30 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
         
         {/* Search and Role Filter */}
         <div className="flex items-center gap-3">
-          <div className="relative flex-1">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-surface-400" />
             <input
               type="text"
               placeholder="Search by name, email, or Slack username..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
+              className="input pl-10"
             />
           </div>
-          <select
+          <Combobox
             value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
-          >
-            <option value="all">All Roles</option>
-            <option value="ADMIN">Admins</option>
-            <option value="IT_ENGINEER">IT Engineers</option>
-            <option value="VIEWER">Viewers</option>
-          </select>
+            onChange={setRoleFilter}
+            options={[
+              { value: 'all', label: 'All Roles' },
+              { value: 'ADMIN', label: 'Admins' },
+              { value: 'IT_ENGINEER', label: 'IT Engineers' },
+              { value: 'VIEWER', label: 'Viewers' },
+            ]}
+            placeholder="Filter by role..."
+            searchable={false}
+            className="w-[130px]"
+            onOpenChange={setIsRoleFilterOpen}
+          />
         </div>
       </div>
 
@@ -336,16 +342,20 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                     {/* Role Badge - Clickable for admins */}
                     {isEditingThis ? (
                       <div className="flex items-center gap-1">
-                        <select
-                          value={selectedRole}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="input text-xs py-1 px-2"
-                          autoFocus
-                        >
-                          <option value="ADMIN">Admin</option>
-                          <option value="IT_ENGINEER">IT Engineer</option>
-                          <option value="VIEWER">Viewer</option>
-                        </select>
+                        <div className="flex-1 min-w-[120px]">
+                          <Combobox
+                            value={selectedRole}
+                            onChange={setSelectedRole}
+                            options={[
+                              { value: 'ADMIN', label: 'Admin' },
+                              { value: 'IT_ENGINEER', label: 'IT Engineer' },
+                              { value: 'VIEWER', label: 'Viewer' },
+                            ]}
+                            placeholder="Select role..."
+                            className="text-xs"
+                            searchable={false}
+                          />
+                        </div>
                         <button
                           onClick={() => handleRoleChange(member.id, selectedRole)}
                           className="p-1 text-green-400 hover:bg-green-500/20 rounded"
@@ -558,30 +568,28 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                 <p className="text-xs text-surface-500 mb-2">
                   This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
                 </p>
-                <select
+                <Combobox
                   value={mergeTarget}
-                  onChange={(e) => setMergeTarget(e.target.value)}
-                  className="input w-full"
-                >
-                  <option value="">Select user to merge into...</option>
-                  {team
+                  onChange={setMergeTarget}
+                  options={team
                     // Can't merge into yourself (the source user)
                     .filter(t => t.id !== editingUser.id)
                     // If this editing user is the Notion-linked placeholder, only show targets
-                    // that are NOT already linked to Notion (so you can't \"link\" someone twice)
+                    // that are NOT already linked to Notion (so you can't "link" someone twice)
                     .filter(t => {
                       if (editingUser.notionTeamMemberId) {
                         return !t.notionTeamMemberId
                       }
                       return true
                     })
-                    .map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} {t.email ? `(${t.email})` : '(no email)'}
-                        {t.notionTeamMemberId ? ' - Notion Linked' : ''}
-                      </option>
-                    ))}
-                </select>
+                    .map(t => ({
+                      value: t.id,
+                      label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
+                      description: t.notionTeamMemberId ? 'Notion Linked' : undefined,
+                    }))}
+                  placeholder="Select user to merge into..."
+                  allowClear
+                />
                 {mergeTarget && (
                   <button
                     onClick={handleMergeUsers}

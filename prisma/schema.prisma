@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -175,9 +176,23 @@ model Client {
   onsitesFrequency String? // Onsites frequency from Notion
 
   // From Notion - Security & Compliance
+  complianceFrameworks   String[] // Compliance frameworks (SOC 2, ISO 27001, HIPAA, etc.)
+  trustCenterUrl         String? // Trust center URL (from TrustLists API)
+  trustCenterPlatform    String? // Trust center platform (Vanta, Drata, SafeBase, etc.)
   dmarc                  String?
   dmarcRecord            String? // Full DMARC DNS record
   dmarcLastChecked       DateTime? // When DMARC was last checked
+  spf                    String? // SPF policy result (pass, softfail, hardfail, none)
+  spfRecord              String? // Full SPF DNS record
+  spfLastChecked         DateTime? // When SPF was last checked
+  dkim                   String? // DKIM status (found, not_found)
+  dkimSelector           String? // DKIM selector used for lookup
+  dkimRecord             String? // Full DKIM DNS record
+  dkimLastChecked        DateTime? // When DKIM was last checked
+  sslStatus              String? // SSL status (valid, expiring_soon, expired, not_found)
+  sslIssuer              String? // SSL certificate issuer
+  sslExpiry              DateTime? // SSL certificate expiry date
+  sslLastChecked         DateTime? // When SSL was last checked
   accessRequests         String?
   userAccessReviews      String?
   acceptedPasswordPolicy String?
@@ -238,6 +253,30 @@ enum SystemSource {
   APP // Created in the app
   NOTION // Imported from Notion vendors
   SEEDED // Pre-seeded from system database
+}
+
+// ============================================
+// Compliance Framework Types
+// ============================================
+
+enum FrameworkCategory {
+  SECURITY // SOC 2, ISO 27001, NIST
+  PRIVACY // GDPR, CCPA, HIPAA
+  GOVERNMENT // FedRAMP, CMMC, StateRAMP
+  INDUSTRY // PCI DSS, HITRUST
+  OTHER // Custom frameworks
+}
+
+model Framework {
+  id          String            @id @default(cuid())
+  name        String            @unique // e.g., "SOC 2", "ISO 27001", "HIPAA"
+  category    FrameworkCategory
+  description String?
+  isActive    Boolean           @default(true)
+  order       Int               @default(0)
+  source      SystemSource      @default(APP) // Reuse SystemSource enum
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 }
 
 model System {

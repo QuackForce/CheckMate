@@ -25,6 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Combobox } from '@/components/ui/combobox'
 
 interface SystemCheckItem {
   id: string
@@ -413,7 +414,7 @@ export default function SystemsSettingsPage() {
       {/* New System Modal */}
       {showNewSystemModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-md p-6">
+          <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-md p-6 relative">
             <h3 className="text-lg font-semibold text-white mb-4">Add New System</h3>
             
             <div className="space-y-4">
@@ -430,15 +431,15 @@ export default function SystemsSettingsPage() {
 
               <div>
                 <label className="label">Category</label>
-                <select
-                  className="input"
+                <Combobox
                   value={newSystem.category}
-                  onChange={(e) => setNewSystem({ ...newSystem, category: e.target.value })}
-                >
-                  {Object.entries(categoryLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
+                  onChange={(value) => setNewSystem({ ...newSystem, category: value })}
+                  options={Object.entries(categoryLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  placeholder="Select category..."
+                />
               </div>
 
               <div>

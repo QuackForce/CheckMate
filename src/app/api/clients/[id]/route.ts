@@ -84,6 +84,8 @@ export async function PATCH(
       'grceEngineerName',
       // App-specific override
       'infraCheckAssigneeName',
+      // Compliance
+      'complianceFrameworks',
     ]
 
     // Filter to only allowed fields

@@ -9,10 +9,23 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'CheckMate',
   description: 'Infrastructure monitoring and compliance checks for IT managed services',
+  manifest: '/manifest.json',
+  themeColor: '#22c55e',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'CheckMate',
+  },
   icons: {
     icon: '/jonesit_transparent.png',
     shortcut: '/jonesit_transparent.png',
-    apple: '/jonesit_transparent.png',
+    apple: '/icons/icon-192.png',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
   },
 }
 
