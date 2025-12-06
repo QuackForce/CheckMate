@@ -49,10 +49,14 @@ export async function POST(request: NextRequest) {
 
     // Start timer in Harvest - create a time entry without hours to start a timer
     // Required fields: project_id, task_id, spent_date
+    // Use local date, not UTC (toISOString uses UTC which can be wrong day)
+    const today = new Date()
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    
     const timerData: any = {
       project_id: parseInt(projectId),
       task_id: parseInt(taskId),
-      spent_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+      spent_date: localDate, // YYYY-MM-DD in local timezone
       notes: notes || '',
     }
 

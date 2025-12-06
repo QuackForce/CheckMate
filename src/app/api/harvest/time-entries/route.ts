@@ -41,9 +41,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create time entry in Harvest
+    // Use local date, not UTC (toISOString uses UTC which can be wrong day)
+    const today = new Date()
+    const localDate = spentDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    
     const timeEntryData: any = {
       project_id: parseInt(projectId),
-      spent_date: spentDate || new Date().toISOString().split('T')[0], // YYYY-MM-DD
+      spent_date: localDate, // YYYY-MM-DD in local timezone
       hours: parseFloat(hours.toFixed(2)),
       notes: notes || '',
     }
