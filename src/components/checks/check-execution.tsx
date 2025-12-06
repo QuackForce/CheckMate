@@ -108,6 +108,12 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const [showProjectDropdown, setShowProjectDropdown] = useState(false)
   const [harvestTaskSearch, setHarvestTaskSearch] = useState<string>('')
   const [showTaskDropdown, setShowTaskDropdown] = useState(false)
+  // Helper to get local date string (YYYY-MM-DD) without UTC conversion
+  const getLocalDateString = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  }
+  
   const [harvestNotes, setHarvestNotes] = useState(
     `Infra Check - ${check.client.name} - ${new Date().toLocaleDateString()}`
   )
@@ -118,7 +124,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const [harvestMode, setHarvestMode] = useState<'timer' | 'log'>('timer')
   const [harvestLogHours, setHarvestLogHours] = useState(0)
   const [harvestLogMinutes, setHarvestLogMinutes] = useState(30)
-  const [harvestLogDate, setHarvestLogDate] = useState(new Date().toISOString().split('T')[0])
+  const [harvestLogDate, setHarvestLogDate] = useState(getLocalDateString())
   
   // Connect to Harvest modal
   const [showConnectHarvest, setShowConnectHarvest] = useState(false)
