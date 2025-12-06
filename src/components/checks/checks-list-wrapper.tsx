@@ -161,8 +161,19 @@ export function ChecksListWrapper() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+        /* Skeleton rows instead of spinner */
+        <div className="divide-y divide-surface-700/50">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-surface-800 rounded-lg animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-40 bg-surface-800 rounded animate-pulse" />
+                <div className="h-3 w-32 bg-surface-800 rounded animate-pulse" />
+              </div>
+              <div className="h-6 w-20 bg-surface-800 rounded-full animate-pulse" />
+              <div className="h-8 w-16 bg-surface-800 rounded animate-pulse" />
+            </div>
+          ))}
         </div>
       ) : checks.length === 0 ? (
         <div className="py-12 text-center text-surface-500">
