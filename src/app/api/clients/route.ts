@@ -62,62 +62,69 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
     
-    // Look up infraCheckAssigneeUser for each client
-    const clientsWithAssignee = await Promise.all(
-      clients.map(async (client) => {
-        let infraCheckAssigneeUser = null
-        const assigneeName = client.infraCheckAssigneeName || client.systemEngineerName
-        
-        if (assigneeName) {
-          // First try exact match (case-insensitive)
-          let user = await db.user.findFirst({
-            where: {
-              name: { equals: assigneeName.trim(), mode: 'insensitive' },
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          })
-          
-          // If no exact match, try contains but only if the assignee name is a substring
-          // This prevents matching "Daniel" when looking for "Daniel Perez"
-          if (!user && assigneeName.trim().length > 3) {
-            // Only use contains if the name is long enough to avoid false matches
-            const allUsers = await db.user.findMany({
-              where: {
-                name: { contains: assigneeName.trim(), mode: 'insensitive' },
-              },
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
-            })
-            
-            // Find the best match - prefer names that start with the assignee name
-            user = allUsers.find(u => 
-              u.name?.toLowerCase().startsWith(assigneeName.trim().toLowerCase())
-            ) || allUsers[0] || null
+    // Fetch all users once (instead of querying for each client - N+1 problem fix)
+    const allUsers = await db.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+      },
+    })
+    
+    // Create a lookup map for fast in-memory matching
+    const userMap = new Map<string, typeof allUsers[0]>()
+    allUsers.forEach(user => {
+      if (user.name) {
+        const normalizedName = user.name.toLowerCase().trim()
+        // Store both exact and lowercase versions for fast lookup
+        userMap.set(normalizedName, user)
+        // Also store by first word for partial matches
+        const firstName = normalizedName.split(' ')[0]
+        if (firstName && firstName.length > 2) {
+          if (!userMap.has(firstName)) {
+            userMap.set(firstName, user)
           }
-          
-          infraCheckAssigneeUser = user
-          
-          // Debug logging in development
-          if (process.env.NODE_ENV === 'development' && user && user.name !== assigneeName.trim()) {
-            console.log(`[Client ${client.id}] Assignee lookup: "${assigneeName}" matched user "${user.name}" (${user.id})`)
+        }
+      }
+    })
+    
+    // Look up infraCheckAssigneeUser for each client (now using in-memory lookup)
+    const clientsWithAssignee = clients.map((client) => {
+      let infraCheckAssigneeUser = null
+      const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
+      
+      if (assigneeName) {
+        const normalizedAssigneeName = assigneeName.toLowerCase()
+        
+        // First try exact match
+        let user = userMap.get(normalizedAssigneeName)
+        
+        // If no exact match, try first word match
+        if (!user) {
+          const firstName = normalizedAssigneeName.split(' ')[0]
+          if (firstName && firstName.length > 2) {
+            user = userMap.get(firstName)
           }
         }
         
-        return {
-          ...client,
-          infraCheckAssigneeUser,
+        // If still no match, try contains search (but only if name is long enough)
+        if (!user && assigneeName.length > 3) {
+          user = allUsers.find(u => {
+            const userName = u.name?.toLowerCase() || ''
+            return userName.includes(normalizedAssigneeName) || 
+                   userName.startsWith(normalizedAssigneeName)
+          }) || null
         }
-      })
-    )
+        
+        infraCheckAssigneeUser = user
+      }
+      
+      return {
+        ...client,
+        infraCheckAssigneeUser,
+      }
+    })
     
     return NextResponse.json({
       clients: clientsWithAssignee,

@@ -8,100 +8,59 @@ interface ClientPageProps {
 }
 
 async function getClient(id: string) {
-  const client = await db.client.findUnique({
-    where: { id },
-    include: {
-      primaryEngineer: true,
-      secondaryEngineer: true,
-      checks: {
-        take: 5,
-        orderBy: { scheduledDate: 'desc' },
+  const [client, allUsers] = await Promise.all([
+    db.client.findUnique({
+      where: { id },
+      include: {
+        primaryEngineer: true,
+        secondaryEngineer: true,
+        checks: {
+          take: 5,
+          orderBy: { scheduledDate: 'desc' },
+        },
       },
-    },
-  })
+    }),
+    // Fetch all users once for lookup (optimization)
+    db.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+      },
+    }),
+  ])
   
   if (!client) return null
   
-  // Look up the infra check assignee user by name if set
+  // Look up the infra check assignee user by name if set (using in-memory lookup)
   let infraCheckAssigneeUser = null
-  if (client.infraCheckAssigneeName) {
-    // First try exact match (case-insensitive)
-    let user = await db.user.findFirst({
-      where: {
-        name: { equals: client.infraCheckAssigneeName.trim(), mode: 'insensitive' },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-      },
-    })
+  const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
+  
+  if (assigneeName) {
+    const normalizedAssigneeName = assigneeName.toLowerCase()
     
-    // If no exact match, try contains but only if the name is long enough
-    if (!user && client.infraCheckAssigneeName.trim().length > 3) {
-      const allUsers = await db.user.findMany({
-        where: {
-          name: { contains: client.infraCheckAssigneeName.trim(), mode: 'insensitive' },
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      })
-      
-      // Find the best match - prefer names that start with the assignee name
-      const trimmedName = client.infraCheckAssigneeName.trim()
+    // First try exact match
+    let user = allUsers.find(u => 
+      u.name?.toLowerCase().trim() === normalizedAssigneeName
+    )
+    
+    // If no exact match, try starts with
+    if (!user) {
       user = allUsers.find(u => 
-        u.name?.toLowerCase().startsWith(trimmedName.toLowerCase())
-      ) || allUsers[0] || null
+        u.name?.toLowerCase().trim().startsWith(normalizedAssigneeName)
+      )
     }
     
-    infraCheckAssigneeUser = user
-    
-    // Debug logging in development
-    if (process.env.NODE_ENV === 'development' && user && user.name !== client.infraCheckAssigneeName.trim()) {
-      console.log(`[Client ${client.id}] Assignee lookup: "${client.infraCheckAssigneeName}" matched user "${user.name}" (${user.id})`)
-    }
-  } else if (client.systemEngineerName) {
-    // Fallback to system engineer if no override
-    // First try exact match (case-insensitive)
-    let user = await db.user.findFirst({
-      where: {
-        name: { equals: client.systemEngineerName.trim(), mode: 'insensitive' },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-      },
-    })
-    
-    // If no exact match, try contains but only if the name is long enough
-    if (!user && client.systemEngineerName.trim().length > 3) {
-      const allUsers = await db.user.findMany({
-        where: {
-          name: { contains: client.systemEngineerName.trim(), mode: 'insensitive' },
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      })
-      
-      // Find the best match - prefer names that start with the system engineer name
-      const trimmedSeName = client.systemEngineerName.trim()
-      user = allUsers.find(u => 
-        u.name?.toLowerCase().startsWith(trimmedSeName.toLowerCase())
-      ) || allUsers[0] || null
+    // If still no match and name is long enough, try contains
+    if (!user && assigneeName.length > 3) {
+      user = allUsers.find(u => {
+        const userName = u.name?.toLowerCase() || ''
+        return userName.includes(normalizedAssigneeName)
+      }) || null
     }
     
-    infraCheckAssigneeUser = user
+    infraCheckAssigneeUser = user || null
   }
   
   return {
