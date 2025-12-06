@@ -78,6 +78,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [mounted, setMounted] = useState(false)
   const [slackUsername, setSlackUsername] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
 
   // For portal - need to wait for client-side mount
   useEffect(() => {
@@ -116,8 +117,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     }
   }
 
-  // Filter by search query
+  // Filter by search query and role
   const filteredTeam = team.filter(member => {
+    // Role filter
+    if (roleFilter !== 'all' && member.role !== roleFilter) return false
+    
+    // Search filter
     if (!searchQuery.trim()) return true
     
     const query = searchQuery.toLowerCase()
@@ -264,16 +269,28 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
           <span className="text-sm text-surface-500">{filteredTeam.length} of {team.length} members</span>
         </div>
         
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-surface-400" />
-          <input
-            type="text"
-            placeholder="Search by name, email, Slack username, or role..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
-          />
+        {/* Search and Role Filter */}
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-surface-400" />
+            <input
+              type="text"
+              placeholder="Search by name, email, or Slack username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white placeholder-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
+          >
+            <option value="all">All Roles</option>
+            <option value="ADMIN">Admins</option>
+            <option value="IT_ENGINEER">IT Engineers</option>
+            <option value="VIEWER">Viewers</option>
+          </select>
         </div>
       </div>
 

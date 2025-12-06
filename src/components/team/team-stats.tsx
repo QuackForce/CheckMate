@@ -25,7 +25,7 @@ export function TeamStats({ team }: TeamStatsProps) {
 
   const stats = [
     {
-      label: 'IT Engineers',
+      label: 'Team Members',
       value: team.length,
       subtext: 'Active',
       icon: Users,
