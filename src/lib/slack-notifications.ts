@@ -155,7 +155,11 @@ export async function sendCheckReminder(
     ? 'This check is now *overdue*. Please complete it as soon as possible.'
     : 'This check is scheduled for today.'
 
-  const message = `${emoji} *${title}*\n\nYou have an infrastructure check for *${clientName}*.\n\n📅 ${isOverdue ? 'Was due' : 'Due'}: ${dateStr}\n\n${urgency}\n\n<${process.env.NEXTAUTH_URL}/checks/${checkId}|Start Check>`
+  const baseUrl = process.env.NEXTAUTH_URL
+  const startLink = `<${baseUrl}/checks/${checkId}|Start Check>`
+  const rescheduleLink = `<${baseUrl}/checks/${checkId}?action=reschedule|Reschedule>`
+
+  const message = `${emoji} *${title}*\n\nYou have an infrastructure check for *${clientName}*.\n\n📅 ${isOverdue ? 'Was due' : 'Due'}: ${dateStr}\n\n${urgency}\n\n${startLink}  •  ${rescheduleLink}`
 
   return sendSlackDM(user.slackUserId, message)
 }
