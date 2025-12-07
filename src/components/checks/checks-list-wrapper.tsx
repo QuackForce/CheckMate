@@ -94,13 +94,27 @@ export function ChecksListWrapper() {
     setPage(1)
   }, [])
 
-  const getStatusStyles = (status: string) => {
+  // Check if a date is in the past (overdue)
+  const isOverdue = (dateStr: string, status: string) => {
+    if (status === 'COMPLETED' || status === 'CANCELLED') return false
+    const today = new Date()
+    const checkDate = new Date(dateStr)
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const scheduledDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate())
+    return scheduledDate < todayDate
+  }
+
+  const getStatusStyles = (status: string, overdue: boolean = false) => {
     const styles: Record<string, { badge: string; icon: typeof Clock }> = {
       SCHEDULED: { badge: 'bg-blue-500/20 text-blue-400', icon: Calendar },
       IN_PROGRESS: { badge: 'bg-amber-500/20 text-amber-400', icon: Play },
       COMPLETED: { badge: 'bg-brand-500/20 text-brand-400', icon: CheckCircle2 },
       OVERDUE: { badge: 'bg-red-500/20 text-red-400', icon: AlertTriangle },
       CANCELLED: { badge: 'bg-surface-700 text-surface-400', icon: Clock },
+    }
+    // If overdue but not status OVERDUE, use overdue styling for icon
+    if (overdue && status !== 'OVERDUE') {
+      return { ...styles[status], icon: AlertTriangle, iconBadge: 'bg-red-500/20 text-red-400' }
     }
     return styles[status] || styles.SCHEDULED
   }
@@ -195,17 +209,22 @@ export function ChecksListWrapper() {
         <>
           <div className="divide-y divide-surface-700/50">
             {checks.map((check) => {
-              const statusStyle = getStatusStyles(check.status)
+              const overdue = isOverdue(check.scheduledDate, check.status)
+              const statusStyle = getStatusStyles(check.status, overdue)
               const StatusIcon = statusStyle.icon
+              const iconBadgeStyle = (statusStyle as any).iconBadge || statusStyle.badge
 
               return (
                 <Link
                   key={check.id}
                   href={`/checks/${check.id}`}
-                  className="flex items-center gap-4 p-4 hover:bg-surface-800/30 transition-colors"
+                  className={cn(
+                    'flex items-center gap-4 p-4 hover:bg-surface-800/30 transition-colors',
+                    overdue && 'bg-red-500/5'
+                  )}
                 >
                   {/* Status Icon */}
-                  <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', statusStyle.badge)}>
+                  <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', iconBadgeStyle)}>
                     <StatusIcon className="w-5 h-5" />
                   </div>
 
@@ -242,10 +261,19 @@ export function ChecksListWrapper() {
                     </div>
                   </div>
 
-                  {/* Status Badge */}
-                  <span className={cn('badge', statusStyle.badge)}>
-                    {check.status.replace('_', ' ')}
-                  </span>
+                  {/* Status Badges */}
+                  <div className="flex items-center gap-2">
+                    {/* Show Overdue badge if overdue but status isn't OVERDUE */}
+                    {overdue && check.status !== 'OVERDUE' && (
+                      <span className="badge bg-red-500/20 text-red-400">
+                        OVERDUE
+                      </span>
+                    )}
+                    {/* Status Badge */}
+                    <span className={cn('badge', statusStyle.badge)}>
+                      {check.status.replace('_', ' ')}
+                    </span>
+                  </div>
                 </Link>
               )
             })}

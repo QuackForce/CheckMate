@@ -39,10 +39,21 @@ const statusIcons = {
 }
 
 export function ChecksList({ checks }: ChecksListProps) {
+  // Check if a date is in the past (overdue)
+  const isOverdue = (date: Date) => {
+    const today = new Date()
+    const checkDate = new Date(date)
+    // Compare just the date parts
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const scheduledDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate())
+    return scheduledDate < todayDate
+  }
+
   return (
     <div className="space-y-3">
       {checks.map((check, index) => {
-        const StatusIcon = statusIcons[check.status]
+        const overdue = check.status !== 'COMPLETED' && check.status !== 'CANCELLED' && isOverdue(check.scheduledDate)
+        const StatusIcon = overdue && check.status !== 'OVERDUE' ? AlertTriangle : statusIcons[check.status]
         const progressPercent = (check.progress.completed / check.progress.total) * 100
 
         return (
@@ -50,7 +61,7 @@ export function ChecksList({ checks }: ChecksListProps) {
             key={check.id}
             className={cn(
               'card p-4 hover:bg-surface-800/50 transition-all duration-200 animate-slide-up',
-              check.status === 'OVERDUE' && 'border-red-500/30 bg-red-500/5'
+              (check.status === 'OVERDUE' || overdue) && 'border-red-500/30 bg-red-500/5'
             )}
             style={{ animationDelay: `${index * 30}ms` }}
           >
@@ -59,20 +70,20 @@ export function ChecksList({ checks }: ChecksListProps) {
               <div
                 className={cn(
                   'w-12 h-12 rounded-xl flex items-center justify-center',
-                  check.status === 'OVERDUE' && 'bg-red-500/20',
-                  check.status === 'IN_PROGRESS' && 'bg-yellow-500/20',
+                  (check.status === 'OVERDUE' || overdue) && 'bg-red-500/20',
+                  check.status === 'IN_PROGRESS' && !overdue && 'bg-yellow-500/20',
                   check.status === 'COMPLETED' && 'bg-brand-500/20',
-                  check.status === 'SCHEDULED' && 'bg-blue-500/20',
+                  check.status === 'SCHEDULED' && !overdue && 'bg-blue-500/20',
                   check.status === 'CANCELLED' && 'bg-surface-700/50'
                 )}
               >
                 <StatusIcon
                   className={cn(
                     'w-6 h-6',
-                    check.status === 'OVERDUE' && 'text-red-400',
-                    check.status === 'IN_PROGRESS' && 'text-yellow-400',
+                    (check.status === 'OVERDUE' || overdue) && 'text-red-400',
+                    check.status === 'IN_PROGRESS' && !overdue && 'text-yellow-400',
                     check.status === 'COMPLETED' && 'text-brand-400',
-                    check.status === 'SCHEDULED' && 'text-blue-400',
+                    check.status === 'SCHEDULED' && !overdue && 'text-blue-400',
                     check.status === 'CANCELLED' && 'text-surface-400'
                   )}
                 />
@@ -87,6 +98,13 @@ export function ChecksList({ checks }: ChecksListProps) {
                   >
                     {check.client.name}
                   </Link>
+                  {/* Show Overdue badge first if overdue */}
+                  {overdue && check.status !== 'OVERDUE' && (
+                    <span className={cn('badge', getStatusColor('OVERDUE'))}>
+                      Overdue
+                    </span>
+                  )}
+                  {/* Show status badge */}
                   <span className={cn('badge', getStatusColor(check.status))}>
                     {check.status.replace('_', ' ')}
                   </span>
