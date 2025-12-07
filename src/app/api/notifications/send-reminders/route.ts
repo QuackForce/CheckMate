@@ -1,8 +1,30 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { sendCheckReminder } from '@/lib/slack-notifications'
+import { auth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Verify the request is authorized (either via session or cron secret)
+ */
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  // Check for cron secret in Authorization header
+  const authHeader = req.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+  
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    return true
+  }
+  
+  // Check for user session (for manual triggers from the app)
+  const session = await auth()
+  if (session?.user) {
+    return true
+  }
+  
+  return false
+}
 
 /**
  * POST /api/notifications/send-reminders
@@ -11,10 +33,17 @@ export const dynamic = 'force-dynamic'
  * - Due today
  * - Overdue
  * 
- * Can be called manually or via cron job
+ * Can be called manually (with session) or via cron job (with CRON_SECRET)
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
+    // Verify authorization
+    if (!await isAuthorized(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayEnd = new Date(todayStart)
@@ -100,8 +129,15 @@ export async function POST() {
  * 
  * Preview what reminders would be sent (dry run)
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // Verify authorization
+    if (!await isAuthorized(req)) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const todayEnd = new Date(todayStart)
