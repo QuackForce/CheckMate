@@ -96,8 +96,8 @@ async function getDashboardData() {
     take: 10,
   })
 
-  // Get recent activity (completed checks + recently scheduled)
-  const [recentCompleted, recentScheduled] = await Promise.all([
+  // Get recent activity (completed, in progress, scheduled, slack posted)
+  const [recentCompleted, recentInProgress, recentScheduled, recentSlackPosted] = await Promise.all([
     // Recently completed checks
     db.infraCheck.findMany({
       where: { status: 'COMPLETED' },
@@ -110,6 +110,19 @@ async function getDashboardData() {
         assignedEngineerName: true,
       },
       orderBy: { completedAt: 'desc' },
+      take: 5,
+    }),
+    // Recently started checks (IN_PROGRESS)
+    db.infraCheck.findMany({
+      where: { status: 'IN_PROGRESS' },
+      select: {
+        id: true,
+        updatedAt: true,
+        client: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { updatedAt: 'desc' },
       take: 5,
     }),
     // Recently scheduled checks
@@ -125,6 +138,22 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
+    // Checks with Slack messages posted
+    db.infraCheck.findMany({
+      where: { 
+        slackMessageTs: { not: null },
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+        client: { select: { name: true } },
+        completedBy: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+    }),
   ])
 
   // Format recent activity
@@ -137,6 +166,14 @@ async function getDashboardData() {
       time: check.completedAt ? formatRelativeTime(check.completedAt) : 'Recently',
       timestamp: check.completedAt || new Date(),
     })),
+    ...recentInProgress.map(check => ({
+      id: `started-${check.id}`,
+      type: 'started' as const,
+      client: check.client.name,
+      user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+      time: formatRelativeTime(check.updatedAt),
+      timestamp: check.updatedAt,
+    })),
     ...recentScheduled.map(check => ({
       id: `scheduled-${check.id}`,
       type: 'scheduled' as const,
@@ -145,8 +182,20 @@ async function getDashboardData() {
       time: formatRelativeTime(check.createdAt),
       timestamp: check.createdAt,
     })),
+    ...recentSlackPosted.map(check => ({
+      id: `slack-${check.id}`,
+      type: 'slack' as const,
+      client: check.client.name,
+      user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+      time: formatRelativeTime(check.updatedAt),
+      timestamp: check.updatedAt,
+    })),
   ]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    // Remove duplicates (same check might appear in multiple lists)
+    .filter((activity, index, self) => 
+      index === self.findIndex(a => a.id === activity.id)
+    )
     .slice(0, 8)
 
   return {

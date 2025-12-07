@@ -1,62 +1,216 @@
-import { Bell, Mail, MessageSquare, Calendar } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { Bell, MessageSquare, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function NotificationsPage() {
-  const notifications = [
-    {
-      name: 'Check Reminders',
-      description: 'Get reminded about upcoming and overdue checks',
-      icon: Calendar,
-      enabled: true,
-    },
-    {
-      name: 'Email Notifications',
-      description: 'Receive email summaries and alerts',
-      icon: Mail,
-      enabled: false,
-    },
-    {
-      name: 'Slack Notifications',
-      description: 'Get notified in Slack about check updates',
-      icon: MessageSquare,
-      enabled: false,
-    },
-  ]
+  const [sendingReminders, setSendingReminders] = useState(false)
+  const [lastResult, setLastResult] = useState<any>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [preview, setPreview] = useState<any>(null)
+
+  const handlePreviewReminders = async () => {
+    setPreviewing(true)
+    try {
+      const res = await fetch('/api/notifications/send-reminders')
+      const data = await res.json()
+      setPreview(data)
+    } catch (error) {
+      toast.error('Failed to preview reminders')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  const handleSendReminders = async () => {
+    if (!confirm('Send Slack reminders to all assigned engineers with checks due today or overdue?')) {
+      return
+    }
+
+    setSendingReminders(true)
+    setLastResult(null)
+    
+    try {
+      const res = await fetch('/api/notifications/send-reminders', {
+        method: 'POST',
+      })
+      const data = await res.json()
+      
+      if (data.success) {
+        toast.success(`Sent ${data.sent} reminders`)
+        setLastResult(data)
+      } else {
+        toast.error(data.error || 'Failed to send reminders')
+      }
+    } catch (error) {
+      toast.error('Failed to send reminders')
+    } finally {
+      setSendingReminders(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-white">Notifications</h2>
         <p className="text-sm text-surface-400 mt-1">
-          Configure how and when you receive notifications
+          Configure and send Slack notifications to your team
         </p>
       </div>
 
-      <div className="card divide-y divide-surface-700/50">
-        {notifications.map((notification) => (
-          <div key={notification.name} className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-surface-700">
-                <notification.icon className="w-5 h-5 text-surface-400" />
+      {/* Slack Reminders Section */}
+      <div className="card">
+        <div className="p-4 border-b border-surface-700/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/20">
+              <MessageSquare className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Slack Reminders</h3>
+              <p className="text-sm text-surface-400">
+                Send DM reminders to engineers with checks due today or overdue
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Preview */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePreviewReminders}
+              disabled={previewing}
+              className="btn-secondary text-sm flex items-center gap-2"
+            >
+              {previewing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Bell className="w-4 h-4" />
+              )}
+              Preview
+            </button>
+            
+            <button
+              onClick={handleSendReminders}
+              disabled={sendingReminders}
+              className="btn-primary text-sm flex items-center gap-2"
+            >
+              {sendingReminders ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Send Reminders Now
+            </button>
+          </div>
+
+          {/* Preview Results */}
+          {preview && (
+            <div className="bg-surface-800/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-surface-400">
+                  Total checks: <span className="text-white font-medium">{preview.total}</span>
+                </span>
+                <span className="text-surface-400">
+                  Would send: <span className="text-emerald-400 font-medium">{preview.wouldSend}</span>
+                </span>
+                <span className="text-surface-400">
+                  Would skip: <span className="text-yellow-400 font-medium">{preview.wouldSkip}</span>
+                </span>
               </div>
-              <div>
-                <h3 className="font-medium text-white">{notification.name}</h3>
-                <p className="text-sm text-surface-400">{notification.description}</p>
+
+              {preview.checks?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-surface-500 uppercase tracking-wide">Checks to remind:</p>
+                  <div className="divide-y divide-surface-700/50">
+                    {preview.checks.map((check: any, i: number) => (
+                      <div key={i} className="py-2 flex items-center justify-between text-sm">
+                        <div>
+                          <span className="text-white">{check.client}</span>
+                          <span className="text-surface-500 mx-2">→</span>
+                          <span className="text-surface-400">{check.assignedTo}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {check.isOverdue && (
+                            <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded">
+                              Overdue
+                            </span>
+                          )}
+                          {check.hasSlackId ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <span title="No Slack ID">
+                            <AlertCircle className="w-4 h-4 text-yellow-400" />
+                          </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {preview.checks?.length === 0 && (
+                <p className="text-sm text-surface-500">No checks due today or overdue</p>
+              )}
+            </div>
+          )}
+
+          {/* Send Results */}
+          {lastResult && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm text-white font-medium">
+                    Reminders sent successfully
+                  </p>
+                  <p className="text-sm text-surface-400">
+                    Sent: {lastResult.sent} • Skipped: {lastResult.skipped} • Failed: {lastResult.failed}
+                  </p>
+                  {lastResult.errors?.length > 0 && (
+                    <div className="mt-2 text-xs text-red-400">
+                      Errors: {lastResult.errors.join(', ')}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                defaultChecked={notification.enabled}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
-            </label>
+          )}
+        </div>
+      </div>
+
+      {/* Info Box */}
+      <div className="bg-surface-800/50 border border-surface-700 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-white mb-2">How Slack Notifications Work</h4>
+        <ul className="text-sm text-surface-400 space-y-1">
+          <li>• Reminders are sent as DMs to the assigned engineer</li>
+          <li>• Engineers must have their Slack username set in their profile</li>
+          <li>• The Slack bot must be configured in Settings → Integrations</li>
+          <li>• You can set up a daily cron job to auto-send reminders</li>
+        </ul>
+      </div>
+
+      {/* Future: Automated Reminders */}
+      <div className="card opacity-60">
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-surface-700">
+              <Bell className="w-5 h-5 text-surface-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Automated Daily Reminders</h3>
+              <p className="text-sm text-surface-400">
+                Coming soon: Auto-send reminders every morning
+              </p>
+            </div>
           </div>
-        ))}
+          <span className="text-xs text-surface-500 bg-surface-700 px-2 py-1 rounded">
+            Coming Soon
+          </span>
+        </div>
       </div>
     </div>
   )
 }
-
-
-
