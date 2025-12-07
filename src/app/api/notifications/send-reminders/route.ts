@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       }
 
       const userId = check.assignedEngineer.id
-      const isOverdue = check.scheduledDate < todayStart
+      const isOverdue = check.scheduledDate <= todayStart
 
       if (!checksByUser.has(userId)) {
         checksByUser.set(userId, {
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     })
 
     const preview = checks.map(check => {
-      const isOverdue = check.scheduledDate < todayStart
+      const isOverdue = check.scheduledDate <= todayStart
       const hasSlackId = !!check.assignedEngineer?.slackUserId
       const remindersEnabled = check.assignedEngineer?.notifySlackReminders !== false
       const overdueEnabled = check.assignedEngineer?.notifyOverdueChecks !== false
