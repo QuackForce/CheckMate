@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { Bell, MessageSquare, Calendar, Loader2, CheckCircle2, User, Mail } from 'lucide-react'
+import { Bell, MessageSquare, Calendar, Loader2, CheckCircle2, User, Mail, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface UserPreferences {
+  timezone: string
   notifySlackReminders: boolean
   notifyOverdueChecks: boolean
   notifyWeeklySummary: boolean
@@ -13,16 +14,29 @@ interface UserPreferences {
   slackUserId: string | null
 }
 
+const TIMEZONES = [
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)', offset: 'UTC-8' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)', offset: 'UTC-7' },
+  { value: 'America/Chicago', label: 'Central Time (CT)', offset: 'UTC-6' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)', offset: 'UTC-5' },
+  { value: 'America/Phoenix', label: 'Arizona (MST)', offset: 'UTC-7' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)', offset: 'UTC-10' },
+  { value: 'America/Anchorage', label: 'Alaska (AKST)', offset: 'UTC-9' },
+  { value: 'UTC', label: 'UTC', offset: 'UTC' },
+]
+
 export default function ProfilePreferencesPage() {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
   const [preferences, setPreferences] = useState<UserPreferences>({
+    timezone: 'America/Los_Angeles',
     notifySlackReminders: true,
     notifyOverdueChecks: true,
     notifyWeeklySummary: false,
     slackUsername: null,
     slackUserId: null,
   })
+  const [savingTimezone, setSavingTimezone] = useState(false)
 
   useEffect(() => {
     fetchPreferences()
@@ -63,6 +77,32 @@ export default function ProfilePreferencesPage() {
     } catch (error) {
       setPreferences(prev => ({ ...prev, [key]: !newValue }))
       toast.error('Failed to save preference')
+    }
+  }
+
+  const handleTimezoneChange = async (newTimezone: string) => {
+    const oldTimezone = preferences.timezone
+    setPreferences(prev => ({ ...prev, timezone: newTimezone }))
+    setSavingTimezone(true)
+
+    try {
+      const res = await fetch('/api/users/me/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: newTimezone }),
+      })
+
+      if (res.ok) {
+        toast.success('Timezone updated')
+      } else {
+        setPreferences(prev => ({ ...prev, timezone: oldTimezone }))
+        toast.error('Failed to save timezone')
+      }
+    } catch (error) {
+      setPreferences(prev => ({ ...prev, timezone: oldTimezone }))
+      toast.error('Failed to save timezone')
+    } finally {
+      setSavingTimezone(false)
     }
   }
 
@@ -112,6 +152,57 @@ export default function ProfilePreferencesPage() {
             ) : (
               <span className="text-sm text-yellow-400">Not connected</span>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Timezone Settings */}
+      <div className="card">
+        <div className="p-4 border-b border-surface-700/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/20">
+              <Globe className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-medium text-white">Timezone</h3>
+              <p className="text-sm text-surface-400">
+                Used for Slack notifications and date displays
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white">Your timezone</p>
+              <p className="text-xs text-surface-500">
+                Dates in Slack reminders will be shown in this timezone
+              </p>
+            </div>
+            <div className="relative">
+              <select
+                value={preferences.timezone}
+                onChange={(e) => handleTimezoneChange(e.target.value)}
+                disabled={savingTimezone}
+                className="appearance-none bg-surface-800 border border-surface-600 text-white text-sm rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:opacity-50"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label} ({tz.offset})
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                {savingTimezone ? (
+                  <Loader2 className="w-4 h-4 text-surface-400 animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ export async function GET() {
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
+      timezone: true,
       notifySlackReminders: true,
       notifyOverdueChecks: true,
       notifyWeeklySummary: true,
@@ -48,11 +49,18 @@ export async function PATCH(request: Request) {
     const body = await request.json()
 
     // Only allow updating specific fields
-    const allowedFields = ['notifySlackReminders', 'notifyOverdueChecks', 'notifyWeeklySummary']
-    const updates: Record<string, boolean> = {}
+    const booleanFields = ['notifySlackReminders', 'notifyOverdueChecks', 'notifyWeeklySummary']
+    const stringFields = ['timezone']
+    const updates: Record<string, boolean | string> = {}
 
-    for (const field of allowedFields) {
+    for (const field of booleanFields) {
       if (typeof body[field] === 'boolean') {
+        updates[field] = body[field]
+      }
+    }
+
+    for (const field of stringFields) {
+      if (typeof body[field] === 'string' && body[field].length > 0) {
         updates[field] = body[field]
       }
     }
@@ -65,6 +73,7 @@ export async function PATCH(request: Request) {
       where: { id: session.user.id },
       data: updates,
       select: {
+        timezone: true,
         notifySlackReminders: true,
         notifyOverdueChecks: true,
         notifyWeeklySummary: true,

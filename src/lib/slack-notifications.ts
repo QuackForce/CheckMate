@@ -90,22 +90,23 @@ export async function notifyCheckAssigned(
   clientName: string,
   scheduledDate: Date
 ): Promise<SlackMessageResult> {
-  // Get user's Slack ID
+  // Get user's Slack ID and timezone
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { slackUserId: true, name: true },
+    select: { slackUserId: true, name: true, timezone: true },
   })
 
   if (!user?.slackUserId) {
     return { success: false, error: 'User has no Slack ID' }
   }
 
-  // Format date in Pacific timezone to match user expectations
+  // Format date in user's timezone
+  const userTimezone = user.timezone || 'America/Los_Angeles'
   const dateStr = scheduledDate.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    timeZone: 'America/Los_Angeles',
+    timeZone: userTimezone,
   })
 
   const message = `🔔 *New Check Assigned*\n\nYou've been assigned an infrastructure check for *${clientName}*.\n\n📅 Scheduled: ${dateStr}\n\n<${process.env.NEXTAUTH_URL}/checks/${checkId}|View Check>`
@@ -120,14 +121,15 @@ function formatCheckBlock(
   checkId: string,
   clientName: string,
   scheduledDate: Date,
-  isOverdue: boolean
+  isOverdue: boolean,
+  timezone: string = 'America/Los_Angeles'
 ): string {
-  // Format date in Pacific timezone to match user expectations
+  // Format date in user's timezone
   const dateStr = scheduledDate.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
-    timeZone: 'America/Los_Angeles',
+    timeZone: timezone,
   })
 
   const emoji = isOverdue ? '⚠️' : '⏰'
@@ -163,6 +165,7 @@ export async function sendBatchedReminders(
     select: { 
       slackUserId: true, 
       name: true,
+      timezone: true,
       notifySlackReminders: true,
       notifyOverdueChecks: true,
     },
@@ -191,9 +194,10 @@ export async function sendBatchedReminders(
 
   // Build message with dividers between checks
   const divider = '\n\n━━━━━━━━━━━━━━━━━━━━\n\n'
+  const userTimezone = user.timezone || 'America/Los_Angeles'
   
   const messageBlocks = filteredChecks.map(check => 
-    formatCheckBlock(check.checkId, check.clientName, check.scheduledDate, check.isOverdue)
+    formatCheckBlock(check.checkId, check.clientName, check.scheduledDate, check.isOverdue, userTimezone)
   )
 
   // Add header if multiple checks

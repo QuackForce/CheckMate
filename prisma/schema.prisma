@@ -85,7 +85,8 @@ model User {
   slackUsername String? // Slack display name (e.g., "Michael Lemay") - stored for display
   slackUserId   String? // Slack user ID (e.g., "U1234567890") - required for @mentions
 
-  // Notification Preferences
+  // User Preferences
+  timezone             String  @default("America/Los_Angeles") // User's timezone for date display
   notifySlackReminders Boolean @default(true)  // Receive Slack reminders for assigned checks
   notifyOverdueChecks  Boolean @default(true)  // Receive reminders for overdue checks
   notifyWeeklySummary  Boolean @default(false) // Receive weekly summary (future feature)
