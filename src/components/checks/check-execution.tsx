@@ -1716,19 +1716,14 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
           <button
             onClick={saveCheckProgress}
             disabled={savingCheck}
-            className="flex items-center gap-2 px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
           >
             {savingCheck ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Saving...
-              </>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save Changes
-              </>
+              <Save className="w-4 h-4" />
             )}
+            {savingCheck ? 'Saving...' : 'Save'}
           </button>
         </div>
       )}
