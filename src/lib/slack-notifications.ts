@@ -111,6 +111,7 @@ export async function notifyCheckAssigned(
 
 /**
  * Send a reminder about an upcoming check
+ * Respects user notification preferences
  */
 export async function sendCheckReminder(
   userId: string,
@@ -121,11 +122,25 @@ export async function sendCheckReminder(
 ): Promise<SlackMessageResult> {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { slackUserId: true, name: true },
+    select: { 
+      slackUserId: true, 
+      name: true,
+      notifySlackReminders: true,
+      notifyOverdueChecks: true,
+    },
   })
 
   if (!user?.slackUserId) {
     return { success: false, error: 'User has no Slack ID' }
+  }
+
+  // Check user preferences
+  if (!user.notifySlackReminders) {
+    return { success: false, error: 'User has disabled Slack reminders' }
+  }
+
+  if (isOverdue && !user.notifyOverdueChecks) {
+    return { success: false, error: 'User has disabled overdue notifications' }
   }
 
   const dateStr = scheduledDate.toLocaleDateString('en-US', {

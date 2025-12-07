@@ -108,16 +108,21 @@ export default function NotificationsPage() {
           {/* Preview Results */}
           {preview && (
             <div className="bg-surface-800/50 rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm flex-wrap">
                 <span className="text-surface-400">
-                  Total checks: <span className="text-white font-medium">{preview.total}</span>
+                  Total: <span className="text-white font-medium">{preview.total}</span>
                 </span>
                 <span className="text-surface-400">
                   Would send: <span className="text-emerald-400 font-medium">{preview.wouldSend}</span>
                 </span>
                 <span className="text-surface-400">
-                  Would skip: <span className="text-yellow-400 font-medium">{preview.wouldSkip}</span>
+                  No Slack: <span className="text-yellow-400 font-medium">{preview.wouldSkip}</span>
                 </span>
+                {preview.optedOut > 0 && (
+                  <span className="text-surface-400">
+                    Opted out: <span className="text-surface-500 font-medium">{preview.optedOut}</span>
+                  </span>
+                )}
               </div>
 
               {preview.checks?.length > 0 && (
@@ -137,12 +142,16 @@ export default function NotificationsPage() {
                               Overdue
                             </span>
                           )}
-                          {check.hasSlackId ? (
+                          {check.wouldSend ? (
                             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          ) : (
+                          ) : !check.hasSlackId ? (
                             <span title="No Slack ID">
-                            <AlertCircle className="w-4 h-4 text-yellow-400" />
-                          </span>
+                              <AlertCircle className="w-4 h-4 text-yellow-400" />
+                            </span>
+                          ) : (
+                            <span title="User opted out" className="text-xs text-surface-500">
+                              Opted out
+                            </span>
                           )}
                         </div>
                       </div>
@@ -167,7 +176,7 @@ export default function NotificationsPage() {
                     Reminders sent successfully
                   </p>
                   <p className="text-sm text-surface-400">
-                    Sent: {lastResult.sent} • Skipped: {lastResult.skipped} • Failed: {lastResult.failed}
+                    Sent: {lastResult.sent} • Skipped: {lastResult.skipped} • Opted out: {lastResult.optedOut || 0} • Failed: {lastResult.failed}
                   </p>
                   {lastResult.errors?.length > 0 && (
                     <div className="mt-2 text-xs text-red-400">

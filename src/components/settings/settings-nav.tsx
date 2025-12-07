@@ -9,14 +9,16 @@ import {
   FileText, 
   Bell,
   Shield,
+  User,
 } from 'lucide-react'
 
 const settingsTabs = [
+  { name: 'Profile', href: '/settings/profile', icon: User, description: 'Your preferences' },
   { name: 'Systems', href: '/settings/systems', icon: Boxes, description: 'Manage check systems and items' },
   { name: 'Frameworks', href: '/settings/frameworks', icon: Shield, description: 'Compliance frameworks' },
   { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
   { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },
-  { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Alert preferences' },
+  { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Send reminders' },
 ]
 
 export function SettingsNav() {

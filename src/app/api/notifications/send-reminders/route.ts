@@ -44,6 +44,7 @@ export async function POST() {
       sent: 0,
       failed: 0,
       skipped: 0,
+      optedOut: 0,
       errors: [] as string[],
     }
 
@@ -71,6 +72,9 @@ export async function POST() {
 
       if (result.success) {
         results.sent++
+      } else if (result.error?.includes('disabled')) {
+        // User opted out
+        results.optedOut++
       } else {
         results.failed++
         results.errors.push(`${check.client.name}: ${result.error}`)
@@ -114,23 +118,46 @@ export async function GET() {
       include: {
         client: { select: { name: true } },
         assignedEngineer: { 
-          select: { id: true, slackUserId: true, name: true } 
+          select: { 
+            id: true, 
+            slackUserId: true, 
+            name: true,
+            notifySlackReminders: true,
+            notifyOverdueChecks: true,
+          } 
         },
       },
     })
 
-    const preview = checks.map(check => ({
-      client: check.client.name,
-      assignedTo: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned',
-      hasSlackId: !!check.assignedEngineer?.slackUserId,
-      isOverdue: check.scheduledDate < todayStart,
-      scheduledDate: check.scheduledDate,
-    }))
+    const preview = checks.map(check => {
+      const isOverdue = check.scheduledDate < todayStart
+      const hasSlackId = !!check.assignedEngineer?.slackUserId
+      const remindersEnabled = check.assignedEngineer?.notifySlackReminders !== false
+      const overdueEnabled = check.assignedEngineer?.notifyOverdueChecks !== false
+      
+      // Determine if would actually send
+      let wouldSend = hasSlackId && remindersEnabled
+      if (isOverdue && !overdueEnabled) {
+        wouldSend = false
+      }
+
+      return {
+        client: check.client.name,
+        assignedTo: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned',
+        hasSlackId,
+        remindersEnabled,
+        overdueEnabled,
+        isOverdue,
+        wouldSend,
+        scheduledDate: check.scheduledDate,
+      }
+    })
 
     return NextResponse.json({
       total: preview.length,
-      wouldSend: preview.filter(p => p.hasSlackId).length,
+      wouldSend: preview.filter(p => p.wouldSend).length,
       wouldSkip: preview.filter(p => !p.hasSlackId).length,
+      optedOut: preview.filter(p => p.hasSlackId && !p.wouldSend).length,
       checks: preview,
     })
   } catch (error: any) {
