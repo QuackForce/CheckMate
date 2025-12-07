@@ -50,12 +50,14 @@ export async function POST(req: NextRequest) {
     todayEnd.setDate(todayEnd.getDate() + 1)
 
     // Get checks due today or overdue
+    // Use lte (<=) instead of lt (<) for todayEnd to handle timezone edge cases
+    // where a date stored as "Dec 8 00:00:00 UTC" represents "Dec 7 end of day" in Pacific
     const checks = await db.infraCheck.findMany({
       where: {
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
         OR: [
-          // Due today
-          { scheduledDate: { gte: todayStart, lt: todayEnd } },
+          // Due today (inclusive of midnight boundary for timezone handling)
+          { scheduledDate: { gte: todayStart, lte: todayEnd } },
           // Overdue (before today)
           { scheduledDate: { lt: todayStart } },
         ],
@@ -147,7 +149,9 @@ export async function GET(req: NextRequest) {
       where: {
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
         OR: [
-          { scheduledDate: { gte: todayStart, lt: todayEnd } },
+          // Due today (inclusive of midnight boundary for timezone handling)
+          { scheduledDate: { gte: todayStart, lte: todayEnd } },
+          // Overdue (before today)
           { scheduledDate: { lt: todayStart } },
         ],
       },
