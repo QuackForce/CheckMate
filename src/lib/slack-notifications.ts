@@ -65,6 +65,8 @@ export async function sendSlackDM(
         channel: channelId,
         text: message,
         mrkdwn: true,
+        unfurl_links: false,
+        unfurl_media: false,
       }),
     })
 
