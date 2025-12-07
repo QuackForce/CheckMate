@@ -64,10 +64,9 @@ async function getDashboardData() {
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
       } 
     }),
-    // This week (next 7 days)
+    // All scheduled checks
     db.infraCheck.count({ 
       where: { 
-        scheduledDate: { gte: todayStart, lt: weekEnd },
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
       } 
     }),

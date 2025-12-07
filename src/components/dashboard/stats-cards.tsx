@@ -28,7 +28,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
       subtext: 'Scheduled for today',
     },
     {
-      label: 'This Week',
+      label: 'Scheduled',
       value: stats.thisWeekCount,
       icon: CheckCircle2,
       color: 'text-blue-400',
