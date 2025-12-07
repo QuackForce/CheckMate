@@ -47,4 +47,12 @@ public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
 
+# Internal documentation (keep README.md public)
+SECURITY_REVIEW.md
+DEPLOYMENT_COSTS.md
+PUBLIC_REPO_SECURITY.md
+VERCEL_DEPLOYMENT.md
+VERCEL_ENV_VARS.md
+DEPLOYMENT_CHECKLIST.md
+
 
