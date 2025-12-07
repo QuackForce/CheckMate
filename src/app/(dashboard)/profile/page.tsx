@@ -157,8 +157,8 @@ export default function ProfilePreferencesPage() {
         </div>
       </div>
 
-      {/* Timezone Settings */}
-      <div className="card">
+      {/* Timezone Settings - z-50 and overflow-visible to prevent dropdown clipping */}
+      <div className="card relative z-50 overflow-visible">
         <div className="p-4 border-b border-surface-700/50">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-blue-500/20">
@@ -173,7 +173,7 @@ export default function ProfilePreferencesPage() {
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-4 overflow-visible">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">
               <p className="text-sm font-medium text-white">Your timezone</p>
