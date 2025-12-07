@@ -100,10 +100,12 @@ export async function notifyCheckAssigned(
     return { success: false, error: 'User has no Slack ID' }
   }
 
+  // Format date in Pacific timezone to match user expectations
   const dateStr = scheduledDate.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    timeZone: 'America/Los_Angeles',
   })
 
   const message = `🔔 *New Check Assigned*\n\nYou've been assigned an infrastructure check for *${clientName}*.\n\n📅 Scheduled: ${dateStr}\n\n<${process.env.NEXTAUTH_URL}/checks/${checkId}|View Check>`
@@ -120,10 +122,12 @@ function formatCheckBlock(
   scheduledDate: Date,
   isOverdue: boolean
 ): string {
+  // Format date in Pacific timezone to match user expectations
   const dateStr = scheduledDate.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    timeZone: 'America/Los_Angeles',
   })
 
   const emoji = isOverdue ? '⚠️' : '⏰'
