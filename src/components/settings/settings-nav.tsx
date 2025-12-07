@@ -9,7 +9,6 @@ import {
   FileText, 
   Bell,
   Shield,
-  Users,
 } from 'lucide-react'
 
 const settingsTabs = [
@@ -18,7 +17,6 @@ const settingsTabs = [
   { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
   { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },
   { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Send reminders' },
-  { name: 'Users', href: '/settings/users', icon: Users, description: 'Manage team' },
 ]
 
 export function SettingsNav() {
