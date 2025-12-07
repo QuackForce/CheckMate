@@ -181,9 +181,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   // Saving from unsaved modal
   const [savingAndLeaving, setSavingAndLeaving] = useState(false)
   
-  // Auto-save debounce ref
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
   // Handle navigation with unsaved changes check
   const handleNavigation = (url: string) => {
     if (hasUnsavedChanges) {
@@ -588,11 +585,13 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
           totalTimeSeconds: timerSeconds,
           categories: categories.map(cat => ({
             id: cat.id,
+            name: cat.name,
             status: cat.items.every(i => i.checked) ? 'complete' : 
                    cat.items.some(i => i.checked) ? 'in_progress' : 'pending',
             notes: cat.notes,
             items: cat.items.map(item => ({
               id: item.id,
+              text: item.text,
               checked: item.checked,
               notes: item.notes,
             })),
@@ -603,6 +602,21 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
       if (!res.ok) {
         const error = await res.json()
         throw new Error(error.error || 'Failed to save check')
+      }
+
+      const data = await res.json()
+      
+      // Update categories with saved IDs from server
+      if (data.categories) {
+        setCategories(data.categories.map((cat: any) => ({
+          ...cat,
+          icon: categories.find(c => c.name === cat.name)?.icon || 'clipboard',
+        })))
+      }
+      
+      // Update check status if it changed
+      if (data.check?.status && data.check.status !== check.status) {
+        setCheck(prev => ({ ...prev, status: data.check.status }))
       }
 
       setHasUnsavedChanges(false)
@@ -721,29 +735,9 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     }
   }
 
-  // Track unsaved changes and trigger auto-save
+  // Track unsaved changes (no more autosave - user clicks save button)
   const markUnsaved = useCallback(() => {
     setHasUnsavedChanges(true)
-    
-    // Clear existing timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-    }
-    
-    // Auto-save after 5 seconds of no changes
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      // Trigger auto-save
-      saveCheckProgress()
-    }, 5000)
-  }, [])
-  
-  // Cleanup auto-save timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-    }
   }, [])
 
   // Generate Slack report
@@ -1680,6 +1674,29 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Save Button */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-6 right-6 z-40 animate-scale-in">
+          <button
+            onClick={saveCheckProgress}
+            disabled={savingCheck}
+            className="flex items-center gap-2 px-5 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
+          >
+            {savingCheck ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Changes
+              </>
+            )}
+          </button>
         </div>
       )}
 

@@ -269,21 +269,23 @@ export async function PATCH(
     }
 
     // If categories are provided, update or create them
+    const savedCategories: any[] = []
     if (categories && Array.isArray(categories)) {
+      // Track if any items are checked to update check status
+      let anyItemChecked = false
+      
       for (const cat of categories) {
         // Check if this is a system ID (from initial load) or a categoryResult ID (already saved)
-        // System IDs are UUIDs, but we can check if categoryResult exists
         let categoryResult = await db.categoryResult.findUnique({
           where: { id: cat.id },
         })
 
         // If categoryResult doesn't exist, check if it's a system ID and create the categoryResult
         if (!categoryResult) {
-          // Check if this ID is a system ID
           const system = await db.system.findUnique({
             where: { id: cat.id },
             include: {
-              checkItems: true,
+              checkItems: { orderBy: { order: 'asc' } },
             },
           })
 
@@ -298,93 +300,99 @@ export async function PATCH(
               },
             })
 
-            // Create itemResults for all system check items
-            for (const systemItem of system.checkItems) {
+            // Create itemResults with the checked state from client
+            for (let i = 0; i < system.checkItems.length; i++) {
+              const systemItem = system.checkItems[i]
+              const clientItem = cat.items?.[i]
+              
               await db.itemResult.create({
                 data: {
                   categoryResultId: categoryResult.id,
                   text: systemItem.text,
-                  checked: false,
-                  notes: null,
+                  checked: clientItem?.checked || false,
+                  notes: clientItem?.notes || null,
                   order: systemItem.order,
                 },
               })
+              
+              if (clientItem?.checked) anyItemChecked = true
             }
           } else {
-            // Not a system ID either - skip this category
             console.error(`Category with ID ${cat.id} not found as categoryResult or system`)
             continue
           }
-        }
-
-        // Update category result
-        await db.categoryResult.update({
-          where: { id: categoryResult.id },
-          data: {
-            status: cat.status,
-            notes: cat.notes || null,
-          },
-        })
-
-        // Update items - need to match by order/text since item IDs might be system item IDs
-        if (cat.items && Array.isArray(cat.items)) {
-          // Get all itemResults for this category
-          const existingItems = await db.itemResult.findMany({
-            where: { categoryResultId: categoryResult.id },
-            orderBy: { order: 'asc' },
+        } else {
+          // Update existing category result
+          await db.categoryResult.update({
+            where: { id: categoryResult.id },
+            data: {
+              status: cat.status,
+              notes: cat.notes || null,
+            },
           })
 
-          for (const item of cat.items) {
-            // Try to find by ID first
-            let itemResult = existingItems.find(i => i.id === item.id)
-            
-            // If not found by ID, try to match by order/index
-            if (!itemResult && typeof item.id === 'string') {
-              // Check if this is a system item ID
-              const systemItem = await db.systemCheckItem.findUnique({
-                where: { id: item.id },
-              })
-              
-              if (systemItem) {
-                // Find the corresponding itemResult by order
-                const itemIndex = cat.items.indexOf(item)
-                itemResult = existingItems[itemIndex]
-              }
-            }
+          // Update items
+          if (cat.items && Array.isArray(cat.items)) {
+            const existingItems = await db.itemResult.findMany({
+              where: { categoryResultId: categoryResult.id },
+              orderBy: { order: 'asc' },
+            })
 
-            if (itemResult) {
-              // Update existing item
-              await db.itemResult.update({
-                where: { id: itemResult.id },
-                data: {
-                  checked: item.checked,
-                  notes: item.notes || null,
-                },
-              })
-            } else {
-              // Item doesn't exist - might be a custom item added on the fly
-              // Create it
-              const maxOrder = existingItems.length > 0 
-                ? Math.max(...existingItems.map(i => i.order || 0))
-                : -1
-              
-              await db.itemResult.create({
-                data: {
-                  categoryResultId: categoryResult.id,
-                  text: item.text || '(Custom item)',
-                  checked: item.checked,
-                  notes: item.notes || null,
-                  order: maxOrder + 1,
-                },
-              })
+            for (let i = 0; i < cat.items.length; i++) {
+              const item = cat.items[i]
+              // Match by index since IDs might not match
+              const itemResult = existingItems[i]
+
+              if (itemResult) {
+                await db.itemResult.update({
+                  where: { id: itemResult.id },
+                  data: {
+                    checked: item.checked,
+                    notes: item.notes || null,
+                  },
+                })
+                if (item.checked) anyItemChecked = true
+              }
             }
           }
         }
+
+        // Fetch the saved category with items to return
+        const savedCat = await db.categoryResult.findUnique({
+          where: { id: categoryResult.id },
+          include: {
+            items: { orderBy: { order: 'asc' } },
+          },
+        })
+        
+        if (savedCat) {
+          savedCategories.push({
+            id: savedCat.id,
+            name: savedCat.name,
+            status: savedCat.status,
+            notes: savedCat.notes || '',
+            items: savedCat.items.map(item => ({
+              id: item.id,
+              text: item.text,
+              checked: item.checked,
+              notes: item.notes || '',
+            })),
+          })
+        }
+      }
+      
+      // Update check status to IN_PROGRESS if any items are checked and not already completed
+      if (anyItemChecked && currentCheck.status === 'SCHEDULED') {
+        await db.infraCheck.update({
+          where: { id: params.id },
+          data: { status: 'IN_PROGRESS' },
+        })
       }
     }
 
     return NextResponse.json({ 
       check,
+      categories: savedCategories.length > 0 ? savedCategories : undefined,
       calendarEvent: calendarEvent ? {
         id: calendarEvent.id,
         link: calendarEvent.htmlLink,
