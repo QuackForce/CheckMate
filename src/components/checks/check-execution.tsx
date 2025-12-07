@@ -91,6 +91,14 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const router = useRouter()
   const [check, setCheck] = useState(initialCheck)
   const [categories, setCategories] = useState(initialCheck.categories)
+  
+  // Track original state for dirty checking
+  const originalCategoriesRef = useRef(JSON.stringify(
+    initialCheck.categories.map(c => ({
+      id: c.id,
+      items: c.items.map(i => ({ id: i.id, checked: i.checked, notes: i.notes }))
+    }))
+  ))
   const [expandedCategories, setExpandedCategories] = useState<string[]>(
     check.categories.map((c) => c.id)
   )
@@ -294,8 +302,8 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
 
   // Toggle item checked
   const toggleItem = (categoryId: string, itemId: string) => {
-    setCategories((prev) =>
-      prev.map((cat) =>
+    setCategories((prev) => {
+      const newCategories = prev.map((cat) =>
         cat.id === categoryId
           ? {
               ...cat,
@@ -305,14 +313,16 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             }
           : cat
       )
-    )
-    markUnsaved()
+      // Check for changes after state update
+      setTimeout(() => markUnsaved(newCategories), 0)
+      return newCategories
+    })
   }
 
   // Update item notes
   const updateItemNotes = (categoryId: string, itemId: string, notes: string) => {
-    setCategories((prev) =>
-      prev.map((cat) =>
+    setCategories((prev) => {
+      const newCategories = prev.map((cat) =>
         cat.id === categoryId
           ? {
               ...cat,
@@ -322,8 +332,10 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             }
           : cat
       )
-    )
-    markUnsaved()
+      // Check for changes after state update
+      setTimeout(() => markUnsaved(newCategories), 0)
+      return newCategories
+    })
   }
 
   // Get category completion status
@@ -608,10 +620,19 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
       
       // Update categories with saved IDs from server
       if (data.categories) {
-        setCategories(data.categories.map((cat: any) => ({
+        const updatedCategories = data.categories.map((cat: any) => ({
           ...cat,
           icon: categories.find(c => c.name === cat.name)?.icon || 'clipboard',
-        })))
+        }))
+        setCategories(updatedCategories)
+        
+        // Update original state reference so future changes are compared against saved state
+        originalCategoriesRef.current = JSON.stringify(
+          updatedCategories.map((c: any) => ({
+            id: c.id,
+            items: c.items.map((i: any) => ({ id: i.id, checked: i.checked, notes: i.notes }))
+          }))
+        )
       }
       
       // Update check status if it changed
@@ -735,10 +756,22 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     }
   }
 
-  // Track unsaved changes (no more autosave - user clicks save button)
-  const markUnsaved = useCallback(() => {
-    setHasUnsavedChanges(true)
+  // Check if current state differs from original
+  const checkForChanges = useCallback((currentCategories: CheckCategory[]) => {
+    const currentState = JSON.stringify(
+      currentCategories.map(c => ({
+        id: c.id,
+        items: c.items.map(i => ({ id: i.id, checked: i.checked, notes: i.notes }))
+      }))
+    )
+    return currentState !== originalCategoriesRef.current
   }, [])
+  
+  // Track unsaved changes (no more autosave - user clicks save button)
+  const markUnsaved = useCallback((currentCategories: CheckCategory[]) => {
+    const hasChanges = checkForChanges(currentCategories)
+    setHasUnsavedChanges(hasChanges)
+  }, [checkForChanges])
 
   // Generate Slack report
   const generateReport = () => {
