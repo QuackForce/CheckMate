@@ -3,16 +3,27 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { getIntegrationConfig } from '@/lib/integrations'
 import { requireEngineer } from '@/lib/auth-utils'
+import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit'
 
 // POST /api/slack/post - Post a message to a Slack channel
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const { error: authError } = await requireEngineer()
+  const { error: authError, session } = await requireEngineer()
   if (authError) return authError
 
   try {
+    // Rate limiting (general - posting messages)
+    const identifier = getIdentifier(session?.user?.id, request)
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.GENERAL)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before posting more messages.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+      )
+    }
     const body = await request.json()
     const { checkId, message } = body
 

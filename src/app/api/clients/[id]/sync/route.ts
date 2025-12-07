@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { syncSingleClient } from '@/lib/notion'
+import { auth } from '@/lib/auth'
+import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +11,17 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Rate limiting
+    const session = await auth()
+    const identifier = getIdentifier(session?.user?.id, request)
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.SYNC)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { success: false, error: 'Rate limit exceeded. Please wait before syncing again.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+      )
+    }
     // First, get the client to find their Notion page ID
     const client = await db.client.findUnique({
       where: { id: params.id },

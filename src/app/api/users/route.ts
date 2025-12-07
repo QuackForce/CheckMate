@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit'
 
 // GET /api/users - Get all users (admin only)
 // Force dynamic rendering for this route
@@ -15,6 +16,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
         { status: 403 }
+      )
+    }
+
+    // Rate limiting
+    const identifier = getIdentifier(session.user.id, request)
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.GENERAL)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
       )
     }
 
@@ -57,6 +69,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized - Admin access required' },
         { status: 403 }
+      )
+    }
+
+    // Rate limiting
+    const identifier = getIdentifier(session.user.id, request)
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.GENERAL)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
       )
     }
 

@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting for GET (relaxed - page loads)
+  const session = await auth()
+  const identifier = getIdentifier(session?.user?.id, request)
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.RELAXED)
+  
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please slow down.' },
+      { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+    )
+  }
   const searchParams = request.nextUrl.searchParams;
   
   // Query parameters
@@ -156,6 +168,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
+      )
+    }
+    
+    // Rate limiting for POST (general - creating clients)
+    const identifier = getIdentifier(session.user.id, request)
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.GENERAL)
+    
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before creating more clients.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
       )
     }
 

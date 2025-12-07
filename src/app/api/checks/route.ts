@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireEngineer } from '@/lib/auth-utils'
 import { auth } from '@/lib/auth'
+import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting (relaxed - page loads)
+  const session = await auth()
+  const identifier = getIdentifier(session?.user?.id, request)
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.RELAXED)
+  
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please slow down.' },
+      { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+    )
+  }
+
   const searchParams = request.nextUrl.searchParams
   
   const page = parseInt(searchParams.get('page') || '1')
@@ -87,8 +100,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   // Check if user has engineer or admin role
-  const { error } = await requireEngineer()
+  const { error, session: authSession } = await requireEngineer()
   if (error) return error
+
+  // Rate limiting (general - creating checks)
+  const identifier = getIdentifier(authSession?.user?.id, request)
+  const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.GENERAL)
+  
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please wait before scheduling more checks.' },
+      { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+    )
+  }
 
   try {
     const body = await request.json()
