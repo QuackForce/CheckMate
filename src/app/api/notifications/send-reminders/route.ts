@@ -119,7 +119,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Send batched reminders per user
-    for (const [userId, userData] of checksByUser) {
+    const userIds = Array.from(checksByUser.keys())
+    for (const userId of userIds) {
+      const userData = checksByUser.get(userId)!
+      
       if (!userData.slackUserId) {
         results.skipped += userData.checks.length
         continue
