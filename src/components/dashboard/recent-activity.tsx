@@ -49,31 +49,37 @@ export function RecentActivity({ activities }: RecentActivityProps) {
         <h2 className="font-semibold text-white">Recent Activity</h2>
       </div>
 
-      <div className="p-3 space-y-1">
-        {activities.map((activity) => {
-          const config = activityConfig[activity.type]
-          const Icon = config.icon
+      {activities.length > 0 ? (
+        <div className="p-3 space-y-1">
+          {activities.map((activity) => {
+            const config = activityConfig[activity.type]
+            const Icon = config.icon
 
-          return (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-800/50 transition-colors"
-            >
-              <div className={cn('p-1.5 rounded-lg', config.bg)}>
-                <Icon className={cn('w-4 h-4', config.color)} />
+            return (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-800/50 transition-colors"
+              >
+                <div className={cn('p-1.5 rounded-lg', config.bg)}>
+                  <Icon className={cn('w-4 h-4', config.color)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-surface-300">
+                    <span className="font-medium text-white">{activity.user}</span>
+                    {' '}{config.label}{' '}
+                    <span className="font-medium text-white">{activity.client}</span>
+                  </p>
+                  <p className="text-xs text-surface-500 mt-0.5">{activity.time}</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-surface-300">
-                  <span className="font-medium text-white">{activity.user}</span>
-                  {' '}{config.label}{' '}
-                  <span className="font-medium text-white">{activity.client}</span>
-                </p>
-                <p className="text-xs text-surface-500 mt-0.5">{activity.time}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="p-6 text-center">
+          <p className="text-sm text-surface-500">No recent activity</p>
+        </div>
+      )}
     </div>
   )
 }
