@@ -1,7 +1,6 @@
 import { Header } from '@/components/layout/header'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { UpcomingChecks } from '@/components/dashboard/upcoming-checks'
-import { TeamOverview } from '@/components/dashboard/team-overview'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
@@ -184,9 +183,6 @@ export default async function DashboardPage() {
   const userName = session?.user?.name?.split(' ')[0] || 'there'
   const canEdit = session?.user?.role === 'ADMIN' || session?.user?.role === 'IT_ENGINEER'
 
-  // Empty team for now (could implement later)
-  const emptyTeam: any[] = []
-
   return (
     <>
       <Header 
@@ -210,9 +206,8 @@ export default async function DashboardPage() {
             <UpcomingChecks checks={checks} />
           </div>
 
-          {/* Sidebar widgets */}
+          {/* Sidebar widget */}
           <div className="space-y-6">
-            <TeamOverview team={emptyTeam} />
             <RecentActivity activities={recentActivity} />
           </div>
         </div>
