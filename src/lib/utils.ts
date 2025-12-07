@@ -49,15 +49,21 @@ export function formatTimerDisplay(seconds: number): string {
 export function getRelativeTime(date: Date | string): string {
   const d = new Date(date)
   const now = new Date()
-  const diffMs = d.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  
+  // Compare dates in local timezone by stripping time component
+  const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  
+  // Calculate difference in days
+  const diffMs = targetDate.getTime() - todayDate.getTime()
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
 
   if (diffDays < -1) return `${Math.abs(diffDays)} days overdue`
   if (diffDays === -1) return 'Yesterday'
   if (diffDays === 0) return 'Today'
   if (diffDays === 1) return 'Tomorrow'
-  if (diffDays < 7) return `In ${diffDays} days`
-  if (diffDays < 14) return 'Next week'
+  if (diffDays <= 7) return `In ${diffDays} days`
+  if (diffDays <= 14) return 'Next week'
   return formatDate(d)
 }
 
