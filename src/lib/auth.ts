@@ -113,6 +113,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // Use database session when Google OAuth is configured
   session: {
     strategy: hasGoogleAuth ? 'database' : 'jwt',
+    maxAge: 8 * 60 * 60, // 8 hours
+    updateAge: 60 * 60, // Refresh session every hour if active
   },
 })
 
