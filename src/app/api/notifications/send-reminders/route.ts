@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendCheckReminder } from '@/lib/slack-notifications'
+import { sendBatchedReminders } from '@/lib/slack-notifications'
 import { auth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -71,50 +71,76 @@ export async function POST(req: NextRequest) {
     })
 
     const results = {
-      total: checks.length,
-      sent: 0,
+      totalChecks: checks.length,
+      usersNotified: 0,
+      checksSent: 0,
       failed: 0,
       skipped: 0,
       optedOut: 0,
       errors: [] as string[],
     }
 
+    // Group checks by assigned engineer
+    const checksByUser = new Map<string, {
+      userId: string
+      slackUserId: string | null
+      checks: Array<{
+        checkId: string
+        clientName: string
+        scheduledDate: Date
+        isOverdue: boolean
+      }>
+    }>()
+
     for (const check of checks) {
-      // Skip if no assigned engineer or no Slack ID
+      // Skip if no assigned engineer
       if (!check.assignedEngineer?.id) {
         results.skipped++
         continue
       }
 
-      if (!check.assignedEngineer.slackUserId) {
-        results.skipped++
+      const userId = check.assignedEngineer.id
+      const isOverdue = check.scheduledDate < todayStart
+
+      if (!checksByUser.has(userId)) {
+        checksByUser.set(userId, {
+          userId,
+          slackUserId: check.assignedEngineer.slackUserId,
+          checks: [],
+        })
+      }
+
+      checksByUser.get(userId)!.checks.push({
+        checkId: check.id,
+        clientName: check.client.name,
+        scheduledDate: check.scheduledDate,
+        isOverdue,
+      })
+    }
+
+    // Send batched reminders per user
+    for (const [userId, userData] of checksByUser) {
+      if (!userData.slackUserId) {
+        results.skipped += userData.checks.length
         continue
       }
 
-      const isOverdue = check.scheduledDate < todayStart
-
-      const result = await sendCheckReminder(
-        check.assignedEngineer.id,
-        check.id,
-        check.client.name,
-        check.scheduledDate,
-        isOverdue
-      )
+      const result = await sendBatchedReminders(userId, userData.checks)
 
       if (result.success) {
-        results.sent++
-      } else if (result.error?.includes('disabled')) {
-        // User opted out
-        results.optedOut++
+        results.usersNotified++
+        results.checksSent += userData.checks.length
+      } else if (result.error?.includes('disabled') || result.error?.includes('filtered')) {
+        results.optedOut += userData.checks.length
       } else {
-        results.failed++
-        results.errors.push(`${check.client.name}: ${result.error}`)
+        results.failed += userData.checks.length
+        results.errors.push(`${userData.checks.map(c => c.clientName).join(', ')}: ${result.error}`)
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Sent ${results.sent} reminders`,
+      message: `Notified ${results.usersNotified} users about ${results.checksSent} checks`,
       ...results,
     })
   } catch (error: any) {

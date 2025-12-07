@@ -112,15 +112,47 @@ export async function notifyCheckAssigned(
 }
 
 /**
- * Send a reminder about an upcoming check
- * Respects user notification preferences
+ * Format a single check reminder block
  */
-export async function sendCheckReminder(
-  userId: string,
+function formatCheckBlock(
   checkId: string,
   clientName: string,
   scheduledDate: Date,
-  isOverdue: boolean = false
+  isOverdue: boolean
+): string {
+  const dateStr = scheduledDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  })
+
+  const emoji = isOverdue ? '⚠️' : '⏰'
+  const title = isOverdue ? 'Overdue Check' : 'Check Reminder'
+  const urgency = isOverdue 
+    ? 'This check is now *overdue*. Please complete it as soon as possible.'
+    : 'This check is scheduled for today.'
+
+  const baseUrl = process.env.NEXTAUTH_URL
+  const startLink = `<${baseUrl}/checks/${checkId}|Start Check>`
+  const rescheduleLink = `<${baseUrl}/checks/${checkId}?action=reschedule|Reschedule>`
+
+  return `${emoji} *${title}*\n\nYou have an infrastructure check for *${clientName}*.\n\n📅 ${isOverdue ? 'Was due' : 'Due'}: ${dateStr}\n\n${urgency}\n\n${startLink}  •  ${rescheduleLink}`
+}
+
+interface CheckReminder {
+  checkId: string
+  clientName: string
+  scheduledDate: Date
+  isOverdue: boolean
+}
+
+/**
+ * Send batched reminders for multiple checks to a single user
+ * Groups all checks into one message with dividers
+ */
+export async function sendBatchedReminders(
+  userId: string,
+  checks: CheckReminder[]
 ): Promise<SlackMessageResult> {
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -141,29 +173,54 @@ export async function sendCheckReminder(
     return { success: false, error: 'User has disabled Slack reminders' }
   }
 
-  if (isOverdue && !user.notifyOverdueChecks) {
-    return { success: false, error: 'User has disabled overdue notifications' }
-  }
-
-  const dateStr = scheduledDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
+  // Filter out overdue checks if user has disabled overdue notifications
+  const filteredChecks = checks.filter(check => {
+    if (check.isOverdue && !user.notifyOverdueChecks) {
+      return false
+    }
+    return true
   })
 
-  const emoji = isOverdue ? '⚠️' : '⏰'
-  const title = isOverdue ? 'Overdue Check' : 'Check Reminder'
-  const urgency = isOverdue 
-    ? 'This check is now *overdue*. Please complete it as soon as possible.'
-    : 'This check is scheduled for today.'
+  if (filteredChecks.length === 0) {
+    return { success: false, error: 'All checks filtered by user preferences' }
+  }
 
-  const baseUrl = process.env.NEXTAUTH_URL
-  const startLink = `<${baseUrl}/checks/${checkId}|Start Check>`
-  const rescheduleLink = `<${baseUrl}/checks/${checkId}?action=reschedule|Reschedule>`
+  // Build message with dividers between checks
+  const divider = '\n\n━━━━━━━━━━━━━━━━━━━━\n\n'
+  
+  const messageBlocks = filteredChecks.map(check => 
+    formatCheckBlock(check.checkId, check.clientName, check.scheduledDate, check.isOverdue)
+  )
 
-  const message = `${emoji} *${title}*\n\nYou have an infrastructure check for *${clientName}*.\n\n📅 ${isOverdue ? 'Was due' : 'Due'}: ${dateStr}\n\n${urgency}\n\n${startLink}  •  ${rescheduleLink}`
+  // Add header if multiple checks
+  let message: string
+  if (filteredChecks.length > 1) {
+    message = `📋 *You have ${filteredChecks.length} checks requiring attention*\n${divider}${messageBlocks.join(divider)}`
+  } else {
+    message = messageBlocks[0]
+  }
 
   return sendSlackDM(user.slackUserId, message)
+}
+
+/**
+ * Send a reminder about an upcoming check (single check)
+ * Respects user notification preferences
+ */
+export async function sendCheckReminder(
+  userId: string,
+  checkId: string,
+  clientName: string,
+  scheduledDate: Date,
+  isOverdue: boolean = false
+): Promise<SlackMessageResult> {
+  // Use batched function for single check too (for consistency)
+  return sendBatchedReminders(userId, [{
+    checkId,
+    clientName,
+    scheduledDate,
+    isOverdue,
+  }])
 }
 
 /**
