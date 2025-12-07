@@ -1710,13 +1710,13 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         </div>
       )}
 
-      {/* Floating Save Button - Bottom Center */}
+      {/* Floating Save Button - Right side, vertically centered */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-scale-in">
+        <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40 animate-scale-in">
           <button
             onClick={saveCheckProgress}
             disabled={savingCheck}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
           >
             {savingCheck ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
