@@ -757,12 +757,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     
     // Debug: Log what we're using for the mention
     if (process.env.NODE_ENV === 'development') {
-      console.log('Slack mention debug:', {
-        slackUserId: check.assignedEngineer?.slackUserId,
-        slackUsername: check.assignedEngineer?.slackUsername,
-        name: check.assignedEngineer?.name,
-        finalMention: engineerSlackMention,
-      })
     }
     
     // Use <!here> for @here mention to work in Slack

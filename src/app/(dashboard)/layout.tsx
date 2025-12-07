@@ -3,23 +3,6 @@ import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/sidebar'
 import { db } from '@/lib/db'
 
-// Demo mode check (supports both naming conventions)
-const googleClientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID
-const isDemoMode = !googleClientId || googleClientId === 'placeholder'
-
-// Fallback user for when auth is not configured
-const demoUser: {
-  name: string
-  email: string
-  image: string | null
-  role: string
-} = {
-  name: 'Guest User',
-  email: 'guest@jonesit.com',
-  image: null,
-  role: 'IT_ENGINEER',
-}
-
 async function getCheckStats() {
   try {
     const [overdueCount, totalChecks] = await Promise.all([
@@ -37,22 +20,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  let user = demoUser
+  // Always require authentication
+  const session = await auth()
+  
+  if (!session?.user) {
+    redirect('/login')
+  }
 
-  // Try to get real session if not in demo mode
-  if (!isDemoMode) {
-    const session = await auth()
-    if (session?.user) {
-      user = {
-        name: session.user.name || 'User',
-        email: session.user.email || '',
-        image: session.user.image || null,
-        role: session.user.role as 'IT_ENGINEER' | 'ADMIN' | 'VIEWER',
-      }
-    } else {
-      // No session and not in demo mode - redirect to login
-      redirect('/login')
-    }
+  const user = {
+    name: session.user.name || 'User',
+    email: session.user.email || '',
+    image: session.user.image || null,
+    role: session.user.role as 'IT_ENGINEER' | 'ADMIN' | 'VIEWER',
   }
 
   const checkStats = await getCheckStats()

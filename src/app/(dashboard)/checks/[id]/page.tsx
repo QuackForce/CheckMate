@@ -130,9 +130,6 @@ export default async function CheckPage({ params }: { params: { id: string } }) 
     if (userByName) {
       slackUserId = userByName.slackUserId
       slackUsername = userByName.slackUsername
-      console.log(`Found user by name lookup: ${userByName.name}, slackUserId: ${slackUserId}`)
-    } else {
-      console.log(`No user found for assignedEngineerName: ${check.assignedEngineerName}`)
     }
   }
 
