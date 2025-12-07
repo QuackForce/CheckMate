@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { Bell, MessageSquare, Calendar, Loader2, CheckCircle2, User, Mail, Globe } from 'lucide-react'
 import { toast } from 'sonner'
+import { Combobox } from '@/components/ui/combobox'
 
 interface UserPreferences {
   timezone: string
@@ -15,14 +16,14 @@ interface UserPreferences {
 }
 
 const TIMEZONES = [
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)', offset: 'UTC-8' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)', offset: 'UTC-7' },
-  { value: 'America/Chicago', label: 'Central Time (CT)', offset: 'UTC-6' },
-  { value: 'America/New_York', label: 'Eastern Time (ET)', offset: 'UTC-5' },
-  { value: 'America/Phoenix', label: 'Arizona (MST)', offset: 'UTC-7' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)', offset: 'UTC-10' },
-  { value: 'America/Anchorage', label: 'Alaska (AKST)', offset: 'UTC-9' },
-  { value: 'UTC', label: 'UTC', offset: 'UTC' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)', description: 'UTC-8' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)', description: 'UTC-7' },
+  { value: 'America/Chicago', label: 'Central Time (CT)', description: 'UTC-6' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)', description: 'UTC-5' },
+  { value: 'America/Phoenix', label: 'Arizona (MST)', description: 'UTC-7' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)', description: 'UTC-10' },
+  { value: 'America/Anchorage', label: 'Alaska (AKST)', description: 'UTC-9' },
+  { value: 'UTC', label: 'UTC', description: 'Coordinated Universal Time' },
 ]
 
 export default function ProfilePreferencesPage() {
@@ -173,35 +174,27 @@ export default function ProfilePreferencesPage() {
         </div>
 
         <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
               <p className="text-sm font-medium text-white">Your timezone</p>
               <p className="text-xs text-surface-500">
                 Dates in Slack reminders will be shown in this timezone
               </p>
             </div>
-            <div className="relative">
-              <select
+            <div className="w-64 relative">
+              <Combobox
+                options={TIMEZONES}
                 value={preferences.timezone}
-                onChange={(e) => handleTimezoneChange(e.target.value)}
+                onChange={handleTimezoneChange}
+                placeholder="Select timezone..."
                 disabled={savingTimezone}
-                className="appearance-none bg-surface-800 border border-surface-600 text-white text-sm rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 disabled:opacity-50"
-              >
-                {TIMEZONES.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label} ({tz.offset})
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                {savingTimezone ? (
+                searchable={true}
+              />
+              {savingTimezone && (
+                <div className="absolute right-10 top-1/2 -translate-y-1/2">
                   <Loader2 className="w-4 h-4 text-surface-400 animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4 text-surface-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
