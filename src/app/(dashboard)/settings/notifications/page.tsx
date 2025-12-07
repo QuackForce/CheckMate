@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, MessageSquare, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Bell, MessageSquare, Send, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function NotificationsPage() {
@@ -9,6 +9,7 @@ export default function NotificationsPage() {
   const [lastResult, setLastResult] = useState<any>(null)
   const [previewing, setPreviewing] = useState(false)
   const [preview, setPreview] = useState<any>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   const handlePreviewReminders = async () => {
     setPreviewing(true)
@@ -24,10 +25,7 @@ export default function NotificationsPage() {
   }
 
   const handleSendReminders = async () => {
-    if (!confirm('Send Slack reminders to all assigned engineers with checks due today or overdue?')) {
-      return
-    }
-
+    setShowConfirmModal(false)
     setSendingReminders(true)
     setLastResult(null)
     
@@ -92,7 +90,7 @@ export default function NotificationsPage() {
             </button>
             
             <button
-              onClick={handleSendReminders}
+              onClick={() => setShowConfirmModal(true)}
               disabled={sendingReminders}
               className="btn-primary text-sm flex items-center gap-2"
             >
@@ -104,6 +102,51 @@ export default function NotificationsPage() {
               Send Reminders Now
             </button>
           </div>
+
+          {/* Confirmation Modal */}
+          {showConfirmModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div 
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setShowConfirmModal(false)}
+              />
+              <div className="relative bg-surface-800 border border-surface-700 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="absolute top-4 right-4 text-surface-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-purple-500/20">
+                    <Send className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">Send Reminders</h3>
+                </div>
+                
+                <p className="text-surface-300 mb-6">
+                  Send Slack DM reminders to all assigned engineers with checks due today or overdue?
+                </p>
+                
+                <div className="flex items-center gap-3 justify-end">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendReminders}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    Send Reminders
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Preview Results */}
           {preview && (
