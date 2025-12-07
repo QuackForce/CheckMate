@@ -845,6 +845,22 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Save Button - appears when there are unsaved changes */}
+              {hasUnsavedChanges && (
+                <button
+                  onClick={saveCheckProgress}
+                  disabled={savingCheck}
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg transition-all disabled:opacity-70 animate-in fade-in slide-in-from-right-2 duration-200"
+                >
+                  {savingCheck ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {savingCheck ? 'Saving...' : 'Save'}
+                </button>
+              )}
+
               {/* Timer */}
               <div className="flex items-center gap-2 bg-surface-800 rounded-xl px-4 py-2">
                 <Clock className="w-4 h-4 text-surface-400" />
@@ -1710,23 +1726,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         </div>
       )}
 
-      {/* Floating Save Button - Centered in right gutter, near bottom */}
-      {hasUnsavedChanges && (
-        <div className="fixed bottom-8 right-[2%] z-40 animate-scale-in">
-          <button
-            onClick={saveCheckProgress}
-            disabled={savingCheck}
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg shadow-lg shadow-brand-500/25 transition-all hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
-          >
-            {savingCheck ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            {savingCheck ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

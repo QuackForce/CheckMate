@@ -157,3 +157,4 @@ pg_dump $DATABASE_URL > backup_$(date +%Y%m%d).sql
 DATABASE_URL=$NEW_URL npx prisma migrate deploy
 ```
 
+
