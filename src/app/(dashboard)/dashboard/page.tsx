@@ -43,12 +43,14 @@ async function getDashboardData() {
     completedThisMonth,
   ] = await Promise.all([
     // Overdue: either status is OVERDUE OR scheduled date is in the past (and not completed/cancelled)
+    // Use lte (<=) for todayStart to handle timezone edge cases where midnight UTC 
+    // represents "yesterday evening" in western timezones (e.g., Dec 7 00:00 UTC = Dec 6 4pm Pacific)
     db.infraCheck.count({ 
       where: { 
         OR: [
           { status: 'OVERDUE' },
           { 
-            scheduledDate: { lt: todayStart },
+            scheduledDate: { lte: todayStart },
             status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
           }
         ]
@@ -56,10 +58,11 @@ async function getDashboardData() {
     }),
     db.client.count(),
     db.client.count({ where: { status: 'ACTIVE' } }),
-    // Due today
+    // Due today: strictly AFTER todayStart (to avoid overlap with overdue) up to todayEnd
+    // Use lte for todayEnd to catch timezone edge cases
     db.infraCheck.count({ 
       where: { 
-        scheduledDate: { gte: todayStart, lt: todayEnd },
+        scheduledDate: { gt: todayStart, lte: todayEnd },
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
       } 
     }),
