@@ -14,7 +14,7 @@ import {
   Settings,
   FileText,
   LogOut,
-  Link2,
+  User,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -215,17 +215,17 @@ export function Sidebar({ user, stats }: SidebarProps) {
           {isAccountOpen && (
             <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg bg-surface-900 border border-surface-700 shadow-lg overflow-hidden">
               <Link
-                href="/settings/my-integrations"
+                href="/profile"
                 onClick={() => setIsAccountOpen(false)}
                 className={cn(
                   'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors',
-                  pathname === '/settings/my-integrations'
+                  pathname.startsWith('/profile')
                     ? 'text-brand-400 bg-brand-500/10'
                     : 'text-surface-400 hover:text-white hover:bg-surface-800'
                 )}
               >
-                <Link2 className="w-4 h-4" />
-                <span>My Integrations</span>
+                <User className="w-4 h-4" />
+                <span>Profile Settings</span>
               </Link>
               <div className="border-t border-surface-700 my-1" />
               <button

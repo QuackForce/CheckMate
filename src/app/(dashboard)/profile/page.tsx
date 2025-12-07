@@ -13,10 +13,9 @@ interface UserPreferences {
   slackUserId: string | null
 }
 
-export default function ProfilePage() {
-  const { data: session, update: updateSession } = useSession()
+export default function ProfilePreferencesPage() {
+  const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [preferences, setPreferences] = useState<UserPreferences>({
     notifySlackReminders: true,
     notifyOverdueChecks: true,
@@ -77,13 +76,6 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-white">Profile</h2>
-        <p className="text-sm text-surface-400 mt-1">
-          Your account and notification preferences
-        </p>
-      </div>
-
       {/* Account Info */}
       <div className="card">
         <div className="p-4 border-b border-surface-700/50">

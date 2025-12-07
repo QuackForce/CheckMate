@@ -3,30 +3,19 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { 
-  Boxes, 
-  Link2, 
-  FileText, 
-  Bell,
-  Shield,
-  Users,
-} from 'lucide-react'
+import { User, Link2 } from 'lucide-react'
 
-const settingsTabs = [
-  { name: 'Systems', href: '/settings/systems', icon: Boxes, description: 'Manage check systems and items' },
-  { name: 'Frameworks', href: '/settings/frameworks', icon: Shield, description: 'Compliance frameworks' },
-  { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
-  { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },
-  { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Send reminders' },
-  { name: 'Users', href: '/settings/users', icon: Users, description: 'Manage team' },
+const profileTabs = [
+  { name: 'Preferences', href: '/profile', icon: User, description: 'Notification settings' },
+  { name: 'My Integrations', href: '/profile/integrations', icon: Link2, description: 'Personal integrations' },
 ]
 
-export function SettingsNav() {
+export function ProfileNav() {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-2 border-b border-surface-700/50 pb-4">
-      {settingsTabs.map((tab) => {
+      {profileTabs.map((tab) => {
         const isActive = pathname === tab.href
         return (
           <Link
