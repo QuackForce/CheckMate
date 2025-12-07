@@ -1,34 +1,36 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Health check endpoint - use this for keep-warm pings
-// No auth required so monitoring services can access it
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const start = Date.now()
-  
+/**
+ * GET /api/health
+ * 
+ * Simple health check endpoint that pings the database.
+ * Use with a cron job to keep Supabase free tier from pausing.
+ * 
+ * Can be called with or without CRON_SECRET (it's just a ping)
+ */
+export async function GET(req: NextRequest) {
   try {
-    // Quick database ping - just count 1 row to verify connection
-    await db.client.findFirst({ select: { id: true } })
-    
-    const dbLatency = Date.now() - start
+    // Simple database ping
+    await db.$queryRaw`SELECT 1`
     
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
       database: 'connected',
-      latency: `${dbLatency}ms`,
     })
   } catch (error: any) {
-    return NextResponse.json({
-      status: 'unhealthy', 
-      timestamp: new Date().toISOString(),
-      database: 'disconnected',
-      error: error.message,
-    }, { status: 503 })
+    console.error('Health check failed:', error)
+    return NextResponse.json(
+      {
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: error.message,
+      },
+      { status: 503 }
+    )
   }
 }
-
-
-
