@@ -1710,9 +1710,9 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         </div>
       )}
 
-      {/* Floating Save Button - Bottom right gutter */}
+      {/* Floating Save Button - Centered in right gutter, near bottom */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-8 right-8 z-40 animate-scale-in">
+        <div className="fixed bottom-8 right-[4%] z-40 animate-scale-in">
           <button
             onClick={saveCheckProgress}
             disabled={savingCheck}
