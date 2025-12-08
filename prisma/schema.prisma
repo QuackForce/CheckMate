@@ -54,6 +54,8 @@ model VerificationToken {
 enum UserRole {
   ADMIN
   IT_ENGINEER
+  IT_MANAGER
+  CONSULTANT
   VIEWER
 }
 
@@ -64,6 +66,14 @@ model User {
   emailVerified DateTime?
   image         String?
   role          UserRole  @default(VIEWER)
+  jobTitle      String?
+  team          String?   // comma-separated teams from Notion
+  managerId     String?
+  manager       User?     @relation("Manager", fields: [managerId], references: [id])
+  directReports User[]    @relation("Manager")
+  systemEngineerClients Client[] @relation("SystemEngineer")
+  grceEngineerClients   Client[] @relation("GrceEngineer")
+  itManagerClients      Client[] @relation("ItManager")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -171,6 +181,12 @@ model Client {
   primaryEngineer     User?   @relation("PrimaryEngineer", fields: [primaryEngineerId], references: [id])
   secondaryEngineerId String?
   secondaryEngineer   User?   @relation("SecondaryEngineer", fields: [secondaryEngineerId], references: [id])
+  systemEngineerId    String?
+  systemEngineer      User?   @relation("SystemEngineer", fields: [systemEngineerId], references: [id])
+  grceEngineerId      String?
+  grceEngineer        User?   @relation("GrceEngineer", fields: [grceEngineerId], references: [id])
+  itManagerId         String?
+  itManager           User?   @relation("ItManager", fields: [itManagerId], references: [id])
 
   // From Notion - Contact & Location
   pocEmail      String?
@@ -237,6 +253,9 @@ model Client {
   @@index([status])
   @@index([primaryEngineerId])
   @@index([secondaryEngineerId])
+  @@index([systemEngineerId])
+  @@index([grceEngineerId])
+  @@index([itManagerId])
 }
 
 // ============================================

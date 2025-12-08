@@ -13,6 +13,9 @@ interface UserPreferences {
   notifyWeeklySummary: boolean
   slackUsername: string | null
   slackUserId: string | null
+   jobTitle?: string | null
+   team?: string | null
+   manager?: { id: string; name: string | null; email: string | null; jobTitle: string | null } | null
 }
 
 const TIMEZONES = [
@@ -36,6 +39,9 @@ export default function ProfilePreferencesPage() {
     notifyWeeklySummary: false,
     slackUsername: null,
     slackUserId: null,
+    jobTitle: null,
+    team: null,
+    manager: null,
   })
   const [savingTimezone, setSavingTimezone] = useState(false)
 
@@ -132,28 +138,63 @@ export default function ProfilePreferencesPage() {
         </div>
 
         <div className="p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <User className="w-4 h-4 text-surface-500" />
-            <span className="text-sm text-surface-400">Name:</span>
-            <span className="text-sm text-white">{session?.user?.name || 'Not set'}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Mail className="w-4 h-4 text-surface-500" />
-            <span className="text-sm text-surface-400">Email:</span>
-            <span className="text-sm text-white">{session?.user?.email || 'Not set'}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <MessageSquare className="w-4 h-4 text-surface-500" />
-            <span className="text-sm text-surface-400">Slack:</span>
-            {preferences.slackUserId ? (
-              <span className="text-sm text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Connected ({preferences.slackUsername || preferences.slackUserId})
-              </span>
-            ) : (
-              <span className="text-sm text-yellow-400">Not connected</span>
-            )}
-          </div>
+          {[
+            {
+              icon: <User className="w-4 h-4 text-surface-500" />,
+              label: 'Name:',
+              value: session?.user?.name || 'Not set',
+              valueClass: 'text-white',
+            },
+            {
+              icon: <Mail className="w-4 h-4 text-surface-500" />,
+              label: 'Email:',
+              value: session?.user?.email || 'Not set',
+              valueClass: 'text-white',
+            },
+            {
+              icon: <User className="w-4 h-4 text-surface-500" />,
+              label: 'Title:',
+              value: preferences.jobTitle || 'Not set',
+              valueClass: 'text-white',
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-surface-500" />,
+              label: 'Team:',
+              value: preferences.team || 'Not set',
+              valueClass: 'text-white',
+            },
+            {
+              icon: <User className="w-4 h-4 text-surface-500" />,
+              label: 'Manager:',
+              value: preferences.manager?.name
+                ? `${preferences.manager.name}${preferences.manager.jobTitle ? ` — ${preferences.manager.jobTitle}` : ''}`
+                : 'Not set',
+              valueClass: 'text-white',
+            },
+            {
+              icon: <MessageSquare className="w-4 h-4 text-surface-500" />,
+              label: 'Slack:',
+              value: preferences.slackUserId ? (
+                <span className="text-sm text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Connected ({preferences.slackUsername || preferences.slackUserId})
+                </span>
+              ) : (
+                <span className="text-sm text-yellow-400">Not connected</span>
+              ),
+              valueClass: '',
+            },
+          ].map((row, idx) => (
+            <div className="flex items-center gap-3" key={idx}>
+              {row.icon}
+              <span className="text-sm text-surface-400 w-16 shrink-0">{row.label}</span>
+              {typeof row.value === 'string' ? (
+                <span className={`text-sm ${row.valueClass}`}>{row.value}</span>
+              ) : (
+                row.value
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

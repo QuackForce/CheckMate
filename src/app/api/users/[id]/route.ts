@@ -45,31 +45,56 @@ export async function PATCH(
 ) {
   try {
     const session = await auth()
-    
-    // Check if user is admin
-    if (session?.user?.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 403 }
-      )
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const isAdmin = session.user.role === 'ADMIN'
     const body = await request.json()
-
-    // Only allow updating certain fields
-    const allowedFields = ['name', 'email', 'role', 'notionTeamMemberId', 'notionTeamMemberName', 'slackUsername', 'slackUserId']
     const updateData: any = {}
-    
-    for (const field of allowedFields) {
-      if (body[field] !== undefined) {
-        updateData[field] = body[field]
+
+    // Manager can be updated by any authenticated user (but not to self)
+    if (body.managerId !== undefined) {
+      if (body.managerId === params.id) {
+        return NextResponse.json({ error: 'User cannot be their own manager' }, { status: 400 })
+      }
+      updateData.managerId = body.managerId || null
+    }
+
+    // Admin-only fields
+    if (isAdmin) {
+      const allowedAdminFields = [
+        'name',
+        'email',
+        'role',
+        'notionTeamMemberId',
+        'notionTeamMemberName',
+        'slackUsername',
+        'slackUserId',
+        'jobTitle',
+        'team',
+      ]
+      for (const field of allowedAdminFields) {
+        if (body[field] !== undefined) {
+          updateData[field] = body[field]
+        }
+      }
+
+      // Handle unlinking from Notion
+      if (body.notionTeamMemberId === null) {
+        updateData.notionTeamMemberId = null
+        updateData.notionTeamMemberName = null
+      }
+    } else {
+      // If non-admin tries to update other fields, block
+      const nonManagerFields = Object.keys(body).filter((k) => k !== 'managerId')
+      if (nonManagerFields.length > 0) {
+        return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 })
       }
     }
-    
-    // Handle unlinking from Notion
-    if (body.notionTeamMemberId === null) {
-      updateData.notionTeamMemberId = null
-      updateData.notionTeamMemberName = null
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
     const user = await db.user.update({

@@ -16,6 +16,14 @@ import {
   LogOut,
   User,
 } from 'lucide-react'
+import {
+  hasPermission,
+  hasAnyPermission,
+  hasAnySettingsAccess,
+  roleDisplayNames,
+  type Role,
+  type PermissionKey,
+} from '@/lib/permissions'
 
 interface SidebarProps {
   user: {
@@ -30,20 +38,25 @@ interface SidebarProps {
   }
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Clients', href: '/clients', icon: Building2 },
-  { name: 'Checks', href: '/checks', icon: ClipboardCheck },
-  { name: 'Schedule', href: '/schedule', icon: Calendar },
-  { name: 'Team', href: '/team', icon: Users },
-  { name: 'Reports', href: '/reports', icon: FileText },
+type NavItem =
+  | { name: string; href: string; icon: any; permission: PermissionKey }
+  | { name: string; href: string; icon: any; permissions: PermissionKey[] }
+
+const navigation: NavItem[] = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
+  { name: 'Clients', href: '/clients', icon: Building2, permissions: ['clients:view_all', 'clients:view_own'] },
+  { name: 'Checks', href: '/checks', icon: ClipboardCheck, permissions: ['checks:view_all', 'checks:view_own'] },
+  { name: 'Schedule', href: '/schedule', icon: Calendar, permission: 'schedule:view' },
+  { name: 'Team', href: '/team', icon: Users, permission: 'team:view' },
+  { name: 'Org Chart', href: '/org-chart', icon: Users, permission: 'org_chart:view' },
+  { name: 'Reports', href: '/reports', icon: FileText, permission: 'reports:view' },
 ]
 
 // Keep for potential future admin-only pages
 const adminNavigation: { name: string; href: string; icon: any }[] = []
 
-const settingsNavigation = [
-  { name: 'Settings', href: '/settings', icon: Settings },
+const settingsNavigation: NavItem[] = [
+  { name: 'Settings', href: '/settings', icon: Settings, permission: 'settings:view' },
 ]
 
 export function Sidebar({ user, stats }: SidebarProps) {
@@ -51,8 +64,9 @@ export function Sidebar({ user, stats }: SidebarProps) {
   const router = useRouter()
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement>(null)
-  const isAdmin = user.role === 'ADMIN'
-  const isEngineer = user.role === 'IT_ENGINEER' || isAdmin
+  const userRole = user.role as Role
+  const isAdmin = userRole === 'ADMIN'
+  const showSettings = hasAnySettingsAccess(userRole)
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -95,37 +109,43 @@ export function Sidebar({ user, stats }: SidebarProps) {
           <p className="px-3 text-xs font-medium text-surface-500 uppercase tracking-wider mb-2">
             Main
           </p>
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-            const isChecksLink = item.href === '/checks'
-            const showOverdueBadge = isChecksLink && stats?.overdueCount && stats.overdueCount > 0
-            const showTotalCount = isChecksLink && stats?.totalChecks !== undefined
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 min-w-0',
-                  isActive
-                    ? 'bg-brand-500/10 text-brand-400'
-                    : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
-                )}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className="whitespace-nowrap">{item.name}</span>
-                {showOverdueBadge ? (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded-full">
-                    {stats.overdueCount}
-                  </span>
-                ) : showTotalCount ? (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-surface-700 text-surface-400 rounded-full">
-                    {stats.totalChecks}
-                  </span>
-                ) : null}
-              </Link>
+          {navigation
+            .filter((item) =>
+              'permission' in item
+                ? hasPermission(userRole, item.permission)
+                : hasAnyPermission(userRole, item.permissions)
             )
-          })}
+            .map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+              const isChecksLink = item.href === '/checks'
+              const showOverdueBadge = isChecksLink && stats?.overdueCount && stats.overdueCount > 0
+              const showTotalCount = isChecksLink && stats?.totalChecks !== undefined
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 min-w-0',
+                    isActive
+                      ? 'bg-brand-500/10 text-brand-400'
+                      : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
+                  )}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">{item.name}</span>
+                  {showOverdueBadge ? (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded-full">
+                      {stats.overdueCount}
+                    </span>
+                  ) : showTotalCount ? (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-surface-700 text-surface-400 rounded-full">
+                      {stats.totalChecks}
+                    </span>
+                  ) : null}
+                </Link>
+              )
+            })}
         </div>
 
         {isAdmin && adminNavigation.length > 0 && (
@@ -155,30 +175,32 @@ export function Sidebar({ user, stats }: SidebarProps) {
           </div>
         )}
 
-        {isEngineer && (
+        {showSettings && (
           <div>
             <p className="px-3 text-xs font-medium text-surface-500 uppercase tracking-wider mb-2">
               Configure
             </p>
-            {settingsNavigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            {settingsNavigation
+              .filter((item) => ('permission' in item ? hasPermission(userRole, item.permission) : true))
+              .map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
 
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
-                    isActive
-                      ? 'bg-brand-500/10 text-brand-400'
-                      : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
-                  )}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="whitespace-nowrap">{item.name}</span>
-                </Link>
-              )
-            })}
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                      isActive
+                        ? 'bg-brand-500/10 text-brand-400'
+                        : 'text-surface-400 hover:text-surface-100 hover:bg-surface-800'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{item.name}</span>
+                  </Link>
+                )
+              })}
           </div>
         )}
       </nav>
@@ -206,7 +228,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
                 {user.name || 'User'}
               </p>
               <p className="text-xs text-surface-500 truncate">
-                {user.role === 'ADMIN' ? 'Admin' : user.role === 'IT_ENGINEER' ? 'IT Engineer' : 'Viewer'}
+                {roleDisplayNames[userRole] || user.role}
               </p>
             </div>
           </button>

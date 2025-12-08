@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { Clock, LogOut, RefreshCw } from 'lucide-react'
+import { X, RefreshCw } from 'lucide-react'
 
 // Configuration
 const SESSION_TIMEOUT = 8 * 60 * 60 * 1000  // 8 hours
@@ -157,75 +157,67 @@ export function SessionTimeoutWarning() {
     return null
   }
 
-  // Format time remaining
-  const formatTime = (ms: number) => {
+  // Format time for display (e.g., "2:10 minutes")
+  const formatTimeDisplay = (ms: number) => {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000))
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+    
+    if (minutes > 0) {
+      return `${minutes}:${seconds.toString().padStart(2, '0')} minutes`
+    }
+    return `${seconds} second${seconds !== 1 ? 's' : ''}`
+  }
+
+  // Handle close (same as stay signed in)
+  const handleClose = () => {
+    handleStaySignedIn()
   }
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-amber-500/20 rounded-lg">
-            <Clock className="w-6 h-6 text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Session Expiring Soon</h2>
-            <p className="text-sm text-zinc-400">Your session will expire due to inactivity</p>
+      <div className="bg-surface-900 border border-surface-700 rounded-lg shadow-xl max-w-md w-full mx-4 relative">
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={handleClose}
+          className="absolute top-4 right-4 p-1 text-surface-400 hover:text-surface-200 transition-colors"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Content */}
+        <div className="p-8">
+          {/* Main message */}
+          <h2 className="text-2xl font-bold text-white mb-4 pr-8">
+            You will be signed out due to inactivity
+          </h2>
+
+          {/* Time remaining */}
+          <p className="text-base text-surface-300 mb-8">
+            Time remaining: <span className="text-brand-400 font-medium">{formatTimeDisplay(timeRemaining)}</span>
+          </p>
+
+          {/* Action button */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleStaySignedIn}
+              disabled={isRefreshing}
+              className="btn-primary px-6 py-2.5 flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                'Keep me signed in'
+              )}
+            </button>
           </div>
         </div>
-
-        {/* Countdown */}
-        <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 mb-6">
-          <div className="text-center">
-            <div className="text-4xl font-mono font-bold text-amber-400 mb-1">
-              {formatTime(timeRemaining)}
-            </div>
-            <p className="text-sm text-zinc-400">until automatic logout</p>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="mt-3 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-amber-400 transition-all duration-1000 ease-linear"
-              style={{ width: `${(timeRemaining / WARNING_BEFORE) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-lg text-zinc-300 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            Log Out
-          </button>
-          <button
-            type="button"
-            onClick={handleStaySignedIn}
-            disabled={isRefreshing}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-medium transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            {isRefreshing ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
-            )}
-            Stay Signed In
-          </button>
-        </div>
-
-        {/* User info */}
-        <p className="text-xs text-zinc-500 text-center mt-4">
-          Signed in as {session.user?.email}
-        </p>
       </div>
     </div>
   )

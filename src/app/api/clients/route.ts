@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
+  const assignee = searchParams.get('assignee')
+  const managerTeam = searchParams.get('managerTeam')
   
   // Build where clause
   const where: any = {};
@@ -48,6 +50,45 @@ export async function GET(request: NextRequest) {
       { name: { contains: search, mode: 'insensitive' } },
       { pocEmail: { contains: search, mode: 'insensitive' } },
     ];
+  }
+
+  // Filter: my clients
+  if (assignee === 'me' && session?.user?.id) {
+    where.OR = [
+      ...(where.OR || []),
+      { primaryEngineerId: session.user.id },
+      { secondaryEngineerId: session.user.id },
+      { systemEngineerId: session.user.id },
+      { grceEngineerId: session.user.id },
+      { itManagerId: session.user.id },
+    ]
+  }
+
+  // Filter: manager team views
+  if (managerTeam) {
+    if (managerTeam === 'se') {
+      where.OR = [
+        ...(where.OR || []),
+        { systemEngineerId: { not: null } },
+      ]
+    } else if (managerTeam === 'grc') {
+      where.OR = [
+        ...(where.OR || []),
+        { grceEngineerId: { not: null } },
+      ]
+    } else if (managerTeam.startsWith('consultant-team-')) {
+      const teamNum = managerTeam.replace('consultant-team-', '')
+      const teamName = `Consultant Team ${teamNum}`
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { teams: { has: teamName } },
+            { teams: { hasSome: [`Team ${teamNum}`, teamName] } },
+          ],
+        },
+      ]
+    }
   }
   
   try {

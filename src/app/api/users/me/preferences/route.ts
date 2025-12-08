@@ -24,6 +24,16 @@ export async function GET() {
       notifyWeeklySummary: true,
       slackUsername: true,
       slackUserId: true,
+      jobTitle: true,
+      team: true,
+      manager: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          jobTitle: true,
+        },
+      },
     },
   })
 

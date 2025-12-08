@@ -20,6 +20,7 @@ import {
   Merge,
   Unlink,
   Search,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -29,8 +30,12 @@ interface TeamMember {
   id: string
   name: string
   email: string | null
-  role: 'ADMIN' | 'IT_ENGINEER' | 'VIEWER'
+  role: 'ADMIN' | 'IT_ENGINEER' | 'VIEWER' | 'IT_MANAGER' | 'CONSULTANT'
   image: string | null
+  jobTitle?: string | null
+  team?: string | null
+  managerId?: string | null
+  manager?: { id: string; name: string | null; email: string | null; jobTitle: string | null } | null
   notionTeamMemberId: string | null
   notionTeamMemberName: string | null
   slackUsername: string | null
@@ -56,11 +61,23 @@ const roleConfig = {
     color: 'text-purple-400',
     bg: 'bg-purple-500/20 border-purple-500/30',
   },
+  IT_MANAGER: {
+    label: 'IT Manager',
+    icon: Users,
+    color: 'text-amber-300',
+    bg: 'bg-amber-500/20 border-amber-500/30',
+  },
   IT_ENGINEER: {
     label: 'IT Engineer',
     icon: Wrench,
     color: 'text-brand-400',
     bg: 'bg-brand-500/20 border-brand-500/30',
+  },
+  CONSULTANT: {
+    label: 'Consultant',
+    icon: Users,
+    color: 'text-surface-300',
+    bg: 'bg-surface-700/50 border-surface-600',
   },
   VIEWER: {
     label: 'Viewer',
@@ -75,6 +92,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [editingUser, setEditingUser] = useState<TeamMember | null>(null)
   const [mergeTarget, setMergeTarget] = useState<string>('')
+  const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [slackUsername, setSlackUsername] = useState<string>('')
@@ -91,6 +109,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   useEffect(() => {
     if (editingUser) {
       setSlackUsername(editingUser.slackUsername || '')
+      setSelectedManagerId(editingUser.managerId || null)
     }
   }, [editingUser])
 
@@ -132,7 +151,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       member.name?.toLowerCase().includes(query) ||
       member.email?.toLowerCase().includes(query) ||
       member.slackUsername?.toLowerCase().includes(query) ||
-      member.role.toLowerCase().includes(query)
+      member.role.toLowerCase().includes(query) ||
+      (member.jobTitle || '').toLowerCase().includes(query) ||
+      (member.team || '').toLowerCase().includes(query)
     )
   })
 
@@ -159,6 +180,24 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       window.location.reload()
     } catch (err: any) {
       toast.error('Failed to update role', { description: err.message })
+    }
+  }
+
+  const handleUpdateManager = async (userId: string, managerId: string | null) => {
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ managerId }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      toast.success('Manager updated')
+      window.location.reload()
+    } catch (err: any) {
+      toast.error('Failed to update manager', { description: err.message })
     }
   }
 
@@ -289,7 +328,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
             options={[
               { value: 'all', label: 'All Roles' },
               { value: 'ADMIN', label: 'Admins' },
+              { value: 'IT_MANAGER', label: 'IT Managers' },
               { value: 'IT_ENGINEER', label: 'IT Engineers' },
+              { value: 'CONSULTANT', label: 'Consultants' },
               { value: 'VIEWER', label: 'Viewers' },
             ]}
             placeholder="Filter by role..."
@@ -304,7 +345,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
         {sortedTeam.map((member, index) => {
           const isTop = member.id === topPerformer?.id && member.stats.completedThisMonth > 0
           const isCurrentUser = member.id === currentUserId
-          const role = roleConfig[member.role]
+          const role = roleConfig[member.role] || {
+            label: member.role || 'Unknown',
+            icon: Users,
+            color: 'text-surface-400',
+            bg: 'bg-surface-700',
+          }
           const RoleIcon = role.icon
           const isEditingThis = editingRole === member.id
 
@@ -348,7 +394,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                             onChange={setSelectedRole}
                             options={[
                               { value: 'ADMIN', label: 'Admin' },
+                              { value: 'IT_MANAGER', label: 'IT Manager' },
                               { value: 'IT_ENGINEER', label: 'IT Engineer' },
+                              { value: 'CONSULTANT', label: 'Consultant' },
                               { value: 'VIEWER', label: 'Viewer' },
                             ]}
                             placeholder="Select role..."
@@ -410,6 +458,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                       </span>
                     )}
                   </div>
+                  {member.jobTitle && (
+                    <p className="text-xs text-surface-400 mt-0.5 truncate">{member.jobTitle}</p>
+                  )}
                   <div className="flex items-center gap-1 text-sm text-surface-400">
                     <Mail className="w-3.5 h-3.5" />
                     {member.email}
@@ -600,6 +651,40 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                     {saving ? 'Merging...' : 'Merge Users'}
                   </button>
                 )}
+              </div>
+
+              {/* Manager selection */}
+              <div className="space-y-2">
+                <label className="label flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Manager
+                </label>
+                <p className="text-xs text-surface-500 mb-2">
+                  Select a manager for this user.
+                </p>
+                <Combobox
+                  value={selectedManagerId || ''}
+                  onChange={(val) => setSelectedManagerId(val || null)}
+                  options={[
+                    { value: '', label: 'No manager' },
+                    ...team
+                      .filter((t) => t.id !== editingUser.id)
+                      .map((t) => ({
+                        value: t.id,
+                        label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
+                      })),
+                  ]}
+                  allowClear
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => handleUpdateManager(editingUser.id, selectedManagerId)}
+                    className="btn-primary"
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Manager'}
+                  </button>
+                </div>
               </div>
 
               {/* Slack Username */}

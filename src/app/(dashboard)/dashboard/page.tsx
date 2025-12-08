@@ -2,8 +2,12 @@ import { Header } from '@/components/layout/header'
 import { StatsCards } from '@/components/dashboard/stats-cards'
 import { UpcomingChecks } from '@/components/dashboard/upcoming-checks'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
+import { MyTeamClients } from '@/components/dashboard/my-team-clients'
+import { MyClients } from '@/components/dashboard/my-clients'
+import { RecentCheckResults } from '@/components/dashboard/recent-check-results'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { hasPermission, hasAnyPermission } from '@/lib/permissions'
 
 // Helper to format relative time
 function formatRelativeTime(date: Date): string {
@@ -233,7 +237,10 @@ export default async function DashboardPage() {
   
   const { stats, checks, recentActivity } = dashboardData
   const userName = session?.user?.name?.split(' ')[0] || 'there'
-  const canEdit = session?.user?.role === 'ADMIN' || session?.user?.role === 'IT_ENGINEER'
+  const role = session?.user?.role || 'VIEWER'
+  const canEdit = hasAnyPermission(role, ['checks:view_all', 'checks:view_own'])
+  const canSeeOwnClients = hasAnyPermission(role, ['clients:view_all', 'clients:view_own'])
+  const canSeeTeamClients = hasPermission(role, 'team:view')
 
   return (
     <>
@@ -258,8 +265,14 @@ export default async function DashboardPage() {
             <UpcomingChecks checks={checks} />
           </div>
 
-          {/* Sidebar widget */}
+          {/* Sidebar widgets */}
           <div className="space-y-6">
+            {canSeeOwnClients && <MyClients />}
+            {/* My Team's Clients - shows for managers */}
+            {canSeeTeamClients && <MyTeamClients />}
+
+            <RecentCheckResults />
+            
             <RecentActivity activities={recentActivity} />
           </div>
         </div>
