@@ -46,7 +46,7 @@ function buildHomeTabView(): object {
           text: '*🔗 Quick Links*',
         },
       },
-      // Main Navigation Buttons
+      // Navigation Buttons
       {
         type: 'actions',
         elements: [
@@ -80,12 +80,6 @@ function buildHomeTabView(): object {
             url: `${APP_URL}/schedule`,
             action_id: 'link_schedule',
           },
-        ],
-      },
-      // Secondary Navigation
-      {
-        type: 'actions',
-        elements: [
           {
             type: 'button',
             text: {
@@ -95,26 +89,6 @@ function buildHomeTabView(): object {
             },
             url: `${APP_URL}/clients`,
             action_id: 'link_clients',
-          },
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: '👥 Team',
-              emoji: true,
-            },
-            url: `${APP_URL}/team`,
-            action_id: 'link_team',
-          },
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: '⚙️ Settings',
-              emoji: true,
-            },
-            url: `${APP_URL}/settings`,
-            action_id: 'link_settings',
           },
         ],
       },
