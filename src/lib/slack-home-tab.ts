@@ -114,7 +114,7 @@ function buildHomeTabView(): object {
         elements: [
           {
             type: 'mrkdwn',
-            text: '🛠️ Built by Jones IT | <' + APP_URL + '|Open CheckMate>',
+            text: '🛠️ Built by Quackforce | <' + APP_URL + '|Open CheckMate>',
           },
         ],
       },
