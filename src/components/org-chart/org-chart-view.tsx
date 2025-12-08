@@ -363,20 +363,20 @@ export function OrgChartView({ roots, groupedRoots, canEdit = false }: OrgChartV
               
               if (consultantTeamMatch) {
                 // If person is in "Other" or has no team, replace with consultant team
-                if (currentTeams.length === 0 || currentTeams.some(t => t.toLowerCase() === 'other')) {
+                if (currentTeams.length === 0 || currentTeams.some((t: string) => t.toLowerCase() === 'other')) {
                   newTeam = consultantTeamMatch
                   teamUpdated = true
-                } else if (!currentTeams.some(t => t === consultantTeamMatch)) {
+                } else if (!currentTeams.some((t: string) => t === consultantTeamMatch)) {
                   // Add the consultant team if not already present, remove "Other"
-                  const filteredTeams = currentTeams.filter(t => t.toLowerCase() !== 'other')
+                  const filteredTeams = currentTeams.filter((t: string) => t.toLowerCase() !== 'other')
                   newTeam = [...filteredTeams, consultantTeamMatch].join(', ')
                   teamUpdated = true
                 }
               } else if (managerTeams.length > 0) {
                 // For other teams, merge them (but remove "Other" if present)
-                const filteredCurrent = currentTeams.filter(t => t.toLowerCase() !== 'other')
-                const allTeams = [...new Set([...filteredCurrent, ...managerTeams])]
-                if (allTeams.length > filteredCurrent.length || currentTeams.some(t => t.toLowerCase() === 'other')) {
+                const filteredCurrent = currentTeams.filter((t: string) => t.toLowerCase() !== 'other')
+                const allTeams = Array.from(new Set([...filteredCurrent, ...managerTeams]))
+                if (allTeams.length > filteredCurrent.length || currentTeams.some((t: string) => t.toLowerCase() === 'other')) {
                   newTeam = allTeams.join(', ')
                   teamUpdated = true
                 }
