@@ -100,7 +100,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           try {
             const existingUser = await db.user.findUnique({
               where: { email: user.email },
-              select: { id: true, role: true, email: true },
+              select: { id: true, role: true, email: true, name: true, image: true },
             })
 
             if (existingUser) {
@@ -119,8 +119,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               await db.user.update({
                 where: { id: existingUser.id },
                 data: {
-                  name: user.name || existingUser.name,
-                  image: user.image || undefined,
+                  name: user.name || existingUser.name || undefined,
+                  image: user.image || existingUser.image || undefined,
                   emailVerified: new Date(), // Mark email as verified when they sign in with Google
                 },
               })
