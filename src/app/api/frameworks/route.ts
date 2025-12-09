@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +31,15 @@ export async function GET(request: NextRequest) {
 // POST /api/frameworks - Create a new framework
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { name, category, description, source } = body
 
