@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
-import path from 'path'
-import { promises as fs } from 'fs'
 
 // POST /api/users/[id]/avatar - Upload/replace user avatar
 // Force dynamic rendering for this route
@@ -51,32 +49,20 @@ export async function POST(
       return NextResponse.json({ error: 'Image is too large (max 2MB)' }, { status: 400 })
     }
 
-    const ext = file.type === 'image/png'
-      ? 'png'
-      : file.type === 'image/jpeg'
-      ? 'jpg'
-      : file.type === 'image/gif'
-      ? 'gif'
-      : 'png'
-
-    const fileName = `avatar-${userId}-${Date.now()}.${ext}`
-    const avatarsDir = path.join(process.cwd(), 'public', 'avatars')
-
-    await fs.mkdir(avatarsDir, { recursive: true })
-
-    const filePath = path.join(avatarsDir, fileName)
-    await fs.writeFile(filePath, buffer)
-
-    const publicPath = `/avatars/${fileName}`
+    // Convert image to base64 data URL for storage in database
+    // This works in serverless environments (Vercel) where filesystem is read-only
+    const base64 = buffer.toString('base64')
+    const mimeType = file.type || 'image/png'
+    const dataUrl = `data:${mimeType};base64,${base64}`
 
     const user = await db.user.update({
       where: { id: userId },
-      data: { image: publicPath },
+      data: { image: dataUrl },
     })
 
     return NextResponse.json({
       success: true,
-      image: publicPath,
+      image: dataUrl,
       user: {
         id: user.id,
         image: user.image,

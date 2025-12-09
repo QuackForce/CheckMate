@@ -54,6 +54,18 @@ export async function GET(request: NextRequest) {
 
   // Filter: my clients
   if (assignee === 'me' && session?.user?.id) {
+    // Get client IDs where user has infra checks assigned
+    const clientsWithMyChecks = await db.infraCheck.findMany({
+      where: {
+        assignedEngineerId: session.user.id,
+      },
+      select: {
+        clientId: true,
+      },
+      distinct: ['clientId'],
+    })
+    const clientIdsWithMyChecks = clientsWithMyChecks.map(c => c.clientId)
+
     where.OR = [
       ...(where.OR || []),
       { primaryEngineerId: session.user.id },
@@ -61,6 +73,8 @@ export async function GET(request: NextRequest) {
       { systemEngineerId: session.user.id },
       { grceEngineerId: session.user.id },
       { itManagerId: session.user.id },
+      // Also include clients where user has infra checks assigned
+      ...(clientIdsWithMyChecks.length > 0 ? [{ id: { in: clientIdsWithMyChecks } }] : []),
     ]
   }
 
