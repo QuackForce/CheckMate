@@ -152,7 +152,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                       scope: account.scope,
                       id_token: account.id_token,
                       refresh_token: account.refresh_token,
-                      session_state: account.session_state,
+                      session_state: typeof account.session_state === 'string' ? account.session_state : null,
                     },
                   })
                   console.log(`[Auth] ✅ Manually linked Google account to user ${existingUser.id}`)
