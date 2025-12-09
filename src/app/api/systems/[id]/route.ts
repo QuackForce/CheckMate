@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 
 // GET /api/systems/[id] - Get a single system
 // Force dynamic rendering for this route
@@ -34,6 +36,15 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { name, category, icon, description, isActive } = body
 
@@ -64,6 +75,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // First remove from all clients
     await db.clientSystem.deleteMany({
       where: { systemId: params.id },

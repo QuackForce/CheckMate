@@ -13,6 +13,7 @@ export type PermissionKey =
   | 'org_chart:edit'
   | 'reports:view'
   | 'settings:view'
+  | 'settings:edit'
 
 const rolePermissions: Record<Role, Set<PermissionKey>> = {
   ADMIN: new Set<PermissionKey>([
@@ -27,6 +28,7 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
     'org_chart:edit',
     'reports:view',
     'settings:view',
+    'settings:edit',
   ]),
   IT_MANAGER: new Set<PermissionKey>([
     'dashboard:view',
@@ -40,6 +42,7 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
     'org_chart:edit',
     'reports:view',
     'settings:view',
+    // IT Managers have view-only access to settings (no edit)
   ]),
   IT_ENGINEER: new Set<PermissionKey>([
     'dashboard:view',
@@ -49,6 +52,8 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
     'team:view',
     'org_chart:view',
     'reports:view',
+    'settings:view',
+    'settings:edit',
   ]),
   CONSULTANT: new Set<PermissionKey>([
     'dashboard:view',

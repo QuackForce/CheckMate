@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { 
   Plus, 
   Edit, 
@@ -27,6 +28,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Combobox } from '@/components/ui/combobox'
 import { SearchInput } from '@/components/ui/search-input'
+import { hasPermission } from '@/lib/permissions'
 
 interface SystemCheckItem {
   id: string
@@ -90,6 +92,9 @@ const sourceLabels: Record<string, { label: string; icon: any; color: string }> 
 }
 
 export default function SystemsSettingsPage() {
+  const { data: session } = useSession()
+  const canEdit = hasPermission(session?.user?.role, 'settings:edit')
+  
   const [systems, setSystems] = useState<System[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedSystem, setExpandedSystem] = useState<string | null>(null)
@@ -301,13 +306,15 @@ export default function SystemsSettingsPage() {
             placeholder="Search systems..."
             className="w-64"
           />
-          <button
-            onClick={() => setShowNewSystemModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add System
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setShowNewSystemModal(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add System
+            </button>
+          )}
         </div>
       </div>
 
@@ -361,28 +368,30 @@ export default function SystemsSettingsPage() {
                             {system.checkItems.length} items
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openEditModal(system)
-                            }}
-                            className="p-2 hover:bg-surface-700 rounded-lg transition-colors"
-                            title="Edit system"
-                          >
-                            <Edit className="w-4 h-4 text-surface-400" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteSystem(system.id)
-                            }}
-                            className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-                            title="Delete system"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-400" />
-                          </button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openEditModal(system)
+                              }}
+                              className="p-2 hover:bg-surface-700 rounded-lg transition-colors"
+                              title="Edit system"
+                            >
+                              <Edit className="w-4 h-4 text-surface-400" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteSystem(system.id)
+                              }}
+                              className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                              title="Delete system"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Expanded: Check Items */}
@@ -408,23 +417,27 @@ export default function SystemsSettingsPage() {
                                     <p className="text-xs text-surface-500 mt-1">{item.description}</p>
                                   )}
                                 </div>
-                                <button
-                                  onClick={() => deleteCheckItem(system.id, item.id)}
-                                  className="p-1 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all"
-                                >
-                                  <X className="w-3 h-3 text-red-400" />
-                                </button>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => deleteCheckItem(system.id, item.id)}
+                                    className="p-1 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all"
+                                  >
+                                    <X className="w-3 h-3 text-red-400" />
+                                  </button>
+                                )}
                               </div>
                             ))
                           )}
 
-                          <button
-                            onClick={() => setShowNewItemModal(system.id)}
-                            className="flex items-center gap-2 text-sm text-brand-400 hover:text-brand-300 p-2"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add Check Item
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => setShowNewItemModal(system.id)}
+                              className="flex items-center gap-2 text-sm text-brand-400 hover:text-brand-300 p-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Add Check Item
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

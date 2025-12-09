@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 
 // PATCH /api/systems/[id]/items/[itemId] - Update a check item
 // Force dynamic rendering for this route
@@ -10,6 +12,15 @@ export async function PATCH(
   { params }: { params: { id: string; itemId: string } }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { text, description, isOptional, order } = body
 
@@ -38,6 +49,15 @@ export async function DELETE(
   { params }: { params: { id: string; itemId: string } }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     await db.systemCheckItem.delete({
       where: { id: params.itemId },
     })

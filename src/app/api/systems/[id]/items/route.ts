@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 
 // POST /api/systems/[id]/items - Add a check item to a system
 // Force dynamic rendering for this route
@@ -10,6 +12,15 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!hasPermission(session.user.role, 'settings:edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { text, description, isOptional } = body
 

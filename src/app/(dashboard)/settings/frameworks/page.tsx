@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { 
   Plus, 
   Edit, 
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
 import { SearchInput } from '@/components/ui/search-input'
+import { hasPermission } from '@/lib/permissions'
 
 interface Framework {
   id: string
@@ -63,6 +65,9 @@ const sourceLabels: Record<string, { label: string; icon: any; color: string }> 
 }
 
 export default function FrameworksSettingsPage() {
+  const { data: session } = useSession()
+  const canEdit = hasPermission(session?.user?.role, 'settings:edit')
+  
   const [frameworks, setFrameworks] = useState<Framework[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewModal, setShowNewModal] = useState(false)
@@ -259,7 +264,7 @@ export default function FrameworksSettingsPage() {
             placeholder="Search frameworks..."
             className="w-64"
           />
-          {frameworks.length === 0 && (
+          {frameworks.length === 0 && canEdit && (
             <button
               onClick={handleSeedFrameworks}
               disabled={seeding}
@@ -269,16 +274,18 @@ export default function FrameworksSettingsPage() {
               {seeding ? 'Loading...' : 'Load Presets'}
             </button>
           )}
-          <button
-            onClick={() => {
-              setFormData({ name: '', category: 'SECURITY', description: '' })
-              setShowNewModal(true)
-            }}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Framework
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => {
+                setFormData({ name: '', category: 'SECURITY', description: '' })
+                setShowNewModal(true)
+              }}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Framework
+            </button>
+          )}
         </div>
       </div>
 
@@ -333,33 +340,46 @@ export default function FrameworksSettingsPage() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 ml-2">
-                        <button
-                          onClick={() => openEditModal(framework)}
-                          className="p-1.5 hover:bg-surface-700 rounded transition-colors"
-                        >
-                          <Edit className="w-3.5 h-3.5 text-surface-400" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(framework.id)}
-                          className="p-1.5 hover:bg-red-500/20 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => openEditModal(framework)}
+                            className="p-1.5 hover:bg-surface-700 rounded transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-surface-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(framework.id)}
+                            className="p-1.5 hover:bg-red-500/20 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <button
-                        onClick={() => handleToggleActive(framework)}
-                        className={cn(
+                      {canEdit ? (
+                        <button
+                          onClick={() => handleToggleActive(framework)}
+                          className={cn(
+                            "text-xs px-2 py-1 rounded",
+                            framework.isActive 
+                              ? "bg-green-500/20 text-green-400" 
+                              : "bg-surface-700 text-surface-400"
+                          )}
+                        >
+                          {framework.isActive ? 'Active' : 'Inactive'}
+                        </button>
+                      ) : (
+                        <span className={cn(
                           "text-xs px-2 py-1 rounded",
                           framework.isActive 
                             ? "bg-green-500/20 text-green-400" 
                             : "bg-surface-700 text-surface-400"
-                        )}
-                      >
-                        {framework.isActive ? 'Active' : 'Inactive'}
-                      </button>
+                        )}>
+                          {framework.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
@@ -374,15 +394,17 @@ export default function FrameworksSettingsPage() {
           <Shield className="w-12 h-12 text-surface-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No frameworks yet</h3>
           <p className="text-surface-400 mb-4">
-            Load preset frameworks or create your own to get started.
+            {canEdit ? 'Load preset frameworks or create your own to get started.' : 'No frameworks have been configured yet.'}
           </p>
-          <button
-            onClick={handleSeedFrameworks}
-            disabled={seeding}
-            className="btn-primary"
-          >
-            {seeding ? 'Loading...' : 'Load Preset Frameworks'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleSeedFrameworks}
+              disabled={seeding}
+              className="btn-primary"
+            >
+              {seeding ? 'Loading...' : 'Load Preset Frameworks'}
+            </button>
+          )}
         </div>
       )}
 
