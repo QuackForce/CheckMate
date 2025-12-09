@@ -11,12 +11,18 @@ const hasGoogleAuth = googleClientId &&
   googleClientSecret &&
   googleClientSecret !== 'placeholder'
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; [key: string]: string | string[] | undefined }
+}) {
   const session = await auth()
   
   if (session) {
     redirect('/dashboard')
   }
+
+  const error = searchParams.error
 
   return (
     <div className="min-h-screen bg-surface-950 flex flex-col items-center justify-center p-4">
@@ -52,6 +58,17 @@ export default async function LoginPage() {
               <h2 className="text-xl font-semibold text-white mb-6 text-center">
                 Sign in to continue
               </h2>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <p className="text-sm text-red-400 text-center">
+                    {error === 'Configuration' && 'Authentication configuration error. Please contact support.'}
+                    {error === 'AccessDenied' && 'Access denied. Your email domain may not be allowed.'}
+                    {error === 'Verification' && 'Verification error. Please try again.'}
+                    {!['Configuration', 'AccessDenied', 'Verification'].includes(error) && `Login error: ${error}`}
+                  </p>
+                </div>
+              )}
 
               <form
                 action={async () => {

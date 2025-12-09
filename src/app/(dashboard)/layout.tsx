@@ -27,11 +27,14 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  // Ensure user has a role, default to CONSULTANT if missing
+  const userRole = session.user.role || 'CONSULTANT'
+  
   const user = {
     name: session.user.name || 'User',
     email: session.user.email || '',
     image: session.user.image || null,
-    role: session.user.role as 'IT_ENGINEER' | 'ADMIN' | 'VIEWER',
+    role: userRole as 'IT_ENGINEER' | 'ADMIN' | 'VIEWER' | 'IT_MANAGER' | 'CONSULTANT',
   }
 
   const checkStats = await getCheckStats()
