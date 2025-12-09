@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { Bell, MessageSquare, Calendar, Loader2, CheckCircle2, User, Mail, Globe } from 'lucide-react'
+import { Bell, MessageSquare, Calendar, Loader2, CheckCircle2, User, Mail, Globe, Camera, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
+import { cn } from '@/lib/utils'
 
 interface UserPreferences {
   timezone: string
@@ -44,6 +45,8 @@ export default function ProfilePreferencesPage() {
     manager: null,
   })
   const [savingTimezone, setSavingTimezone] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchPreferences()
@@ -113,6 +116,54 @@ export default function ProfilePreferencesPage() {
     }
   }
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be smaller than 2MB')
+      return
+    }
+
+    setUploadingAvatar(true)
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch(`/api/users/${session?.user?.id}/avatar`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        toast.success('Avatar updated successfully')
+        // Update session to reflect new avatar
+        window.location.reload() // Simple refresh to update session
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to upload avatar')
+      }
+    } catch (error) {
+      toast.error('Failed to upload avatar')
+    } finally {
+      setUploadingAvatar(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -127,8 +178,43 @@ export default function ProfilePreferencesPage() {
       <div className="card">
         <div className="p-4 border-b border-surface-700/50">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-brand-500/20">
-              <User className="w-5 h-5 text-brand-400" />
+            {/* Avatar - clickable to upload */}
+            <div className="relative group">
+              <button
+                onClick={handleAvatarClick}
+                disabled={uploadingAvatar}
+                className={cn(
+                  'relative w-12 h-12 rounded-lg bg-brand-500/20 flex items-center justify-center overflow-hidden',
+                  'hover:bg-brand-500/30 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+                title="Click to update avatar"
+              >
+                {session?.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name || 'Avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-6 h-6 text-brand-400" />
+                )}
+                {uploadingAvatar ? (
+                  <div className="absolute inset-0 bg-surface-900/80 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-brand-400 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 bg-surface-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
             </div>
             <div>
               <h3 className="font-medium text-white">Account</h3>

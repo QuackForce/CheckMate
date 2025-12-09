@@ -48,7 +48,6 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
     'schedule:view',
     'team:view',
     'org_chart:view',
-    'org_chart:edit',
     'reports:view',
   ]),
   CONSULTANT: new Set<PermissionKey>([

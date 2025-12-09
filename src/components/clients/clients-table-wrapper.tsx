@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { 
   Building2, 
@@ -14,6 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  CheckSquare,
+  Square,
 } from 'lucide-react'
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
@@ -59,6 +61,8 @@ function getLogoUrl(websiteUrl: string | null): string | null {
 
 export function ClientsTableWrapper() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -71,12 +75,38 @@ export function ClientsTableWrapper() {
   // Read URL query parameters
   const assigneeParam = searchParams.get('assignee')
   const managerTeamParam = searchParams.get('managerTeam')
+  
+  // Initialize checkbox state from URL param
+  const [showMyClientsOnly, setShowMyClientsOnly] = useState(assigneeParam === 'me')
+  
+  // Sync checkbox with URL param changes
+  useEffect(() => {
+    setShowMyClientsOnly(assigneeParam === 'me')
+  }, [assigneeParam])
+  
+  // If showMyClientsOnly is true, use 'me' as assignee, otherwise use URL param
+  const effectiveAssignee = showMyClientsOnly ? 'me' : assigneeParam
+  
+  // Handle checkbox toggle - update URL
+  const handleMyClientsToggle = () => {
+    const newValue = !showMyClientsOnly
+    setShowMyClientsOnly(newValue)
+    setPage(1) // Reset to first page when toggling
+    
+    // Update URL
+    const params = new URLSearchParams(searchParams.toString())
+    if (newValue) {
+      params.set('assignee', 'me')
+    } else {
+      params.delete('assignee')
+    }
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const totalPages = Math.ceil(total / CLIENTS_PER_PAGE)
 
   // Get filter label for active filters
   const getActiveFilterLabel = () => {
-    if (assigneeParam === 'me') return 'My Clients'
     if (managerTeamParam === 'se') return 'SE Manager Team'
     if (managerTeamParam === 'grc') return 'GRC Manager Team'
     if (managerTeamParam?.startsWith('consultant-team-')) {
@@ -106,8 +136,8 @@ export function ClientsTableWrapper() {
       }
 
       // Add URL query parameters
-      if (assigneeParam) {
-        params.set('assignee', assigneeParam)
+      if (effectiveAssignee) {
+        params.set('assignee', effectiveAssignee)
       }
       
       if (managerTeamParam) {
@@ -126,7 +156,7 @@ export function ClientsTableWrapper() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter, assigneeParam, managerTeamParam])
+  }, [page, search, statusFilter, effectiveAssignee, managerTeamParam])
 
   useEffect(() => {
     fetchClients()
@@ -221,6 +251,24 @@ export function ClientsTableWrapper() {
               onOpenChange={setIsStatusFilterOpen}
             />
           </div>
+
+          {/* My Clients Only Checkbox - moved to right */}
+          <button
+            onClick={handleMyClientsToggle}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
+              showMyClientsOnly
+                ? 'bg-brand-500/10 text-brand-400 border-brand-500/30 hover:bg-brand-500/20'
+                : 'text-surface-400 border-surface-700 hover:bg-surface-800 hover:text-white'
+            )}
+          >
+            {showMyClientsOnly ? (
+              <CheckSquare className="w-4 h-4" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
+            <span className="text-sm font-medium">My Clients Only</span>
+          </button>
 
           {/* Results count */}
           {!loading && (
