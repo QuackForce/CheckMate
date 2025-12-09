@@ -50,6 +50,7 @@ function getLogoUrl(websiteUrl: string | null): string | null {
 
 export function MyClients() {
   const [clients, setClients] = useState<Client[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -57,11 +58,14 @@ export function MyClients() {
 
     const fetchClients = async () => {
       try {
+        // Fetch preview of 8 clients for display
         const res = await fetch('/api/clients?assignee=me&limit=8')
         if (cancelled) return
         if (res.ok) {
           const json = await res.json()
           setClients(json.clients || [])
+          // Use the pagination total if available, otherwise use clients length
+          setTotalCount(json.pagination?.total || json.clients?.length || 0)
         }
       } catch (err) {
         console.error('Failed to load my clients', err)
@@ -91,7 +95,7 @@ export function MyClients() {
       <div className="p-4 border-b border-surface-700/50 flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-white">My Clients</h3>
-          <p className="text-xs text-surface-500">{clients.length} assigned</p>
+          <p className="text-xs text-surface-500">{totalCount} assigned</p>
         </div>
         <Link href="/clients?assignee=me" className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1">
           View all
@@ -100,7 +104,7 @@ export function MyClients() {
       </div>
 
       <div className="divide-y divide-surface-700/50 max-h-72 overflow-y-auto">
-        {clients.slice(0, 8).map((client) => {
+        {clients.map((client) => {
           return (
             <Link
               key={client.id}
