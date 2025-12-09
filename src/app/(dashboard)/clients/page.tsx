@@ -24,7 +24,6 @@ export default async function ClientsPage() {
     <>
       <Header 
         title="Clients"
-        subtitle={`${stats.active} active of ${stats.total} total clients`}
         action={{ label: 'Add Client', href: '/clients/new' }}
         extraAction={<RefreshButton />}
       />

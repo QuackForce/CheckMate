@@ -97,7 +97,6 @@ export default async function ReportsPage() {
     <>
       <Header 
         title="Reports"
-        subtitle="View completed infrastructure check reports"
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">

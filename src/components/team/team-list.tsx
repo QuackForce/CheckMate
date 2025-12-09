@@ -21,6 +21,7 @@ import {
   Unlink,
   Search,
   Users,
+  Save,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -98,6 +99,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [slackUsername, setSlackUsername] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false)
 
   // For portal - need to wait for client-side mount
@@ -201,6 +203,44 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     }
   }
 
+  const handleSaveAll = async () => {
+    if (!editingUser) return
+    setSaving(true)
+    try {
+      // Save manager and slack username together
+      const updates: any = {}
+      if (selectedManagerId !== (editingUser.managerId || null)) {
+        updates.managerId = selectedManagerId
+      }
+      if (slackUsername !== (editingUser.slackUsername || '')) {
+        updates.slackUsername = slackUsername.trim() || null
+      }
+
+      if (Object.keys(updates).length === 0) {
+        toast.info('No changes to save')
+        setSaving(false)
+        return
+      }
+
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error)
+      }
+      toast.success('Changes saved')
+      setEditingUser(null)
+      window.location.reload()
+    } catch (err: any) {
+      toast.error('Failed to save changes', { description: err.message })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDeleteUser = async (userId: string, userName: string) => {
     try {
       const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
@@ -209,9 +249,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
         throw new Error(data.error)
       }
       toast.success('User deleted')
+      setShowDeleteConfirm(null)
+      setEditingUser(null)
       window.location.reload()
     } catch (err: any) {
       toast.error('Failed to delete user', { description: err.message })
+      setShowDeleteConfirm(null)
     }
   }
 
@@ -525,7 +568,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                     </button>
                     {!isCurrentUser ? (
                       <button
-                        onClick={() => handleDeleteUser(member.id, member.name || 'this user')}
+                        onClick={() => setShowDeleteConfirm(member.id)}
                         className="p-2 text-surface-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                         title="Delete User"
                       >
@@ -558,13 +601,39 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
           }}
         >
           <div 
-            className="card w-full max-w-md p-6 space-y-4 shadow-2xl"
+            className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">
-                Edit User: {editingUser.name}
-              </h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <label className="relative cursor-pointer group">
+                  {editingUser.image ? (
+                    <img src={editingUser.image} alt="" className="w-12 h-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-semibold">
+                      {editingUser.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] text-white transition-opacity">
+                    Change
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleAvatarUpload(editingUser.id, e.target.files?.[0] || null)}
+                  />
+                </label>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{editingUser.name || 'No name'}</h3>
+                  <p className="text-sm text-surface-400">{editingUser.email || 'No email'}</p>
+                </div>
+                {editingUser.notionTeamMemberId && (
+                  <span className="badge bg-green-500/20 text-green-400 border-green-500/30 text-xs flex items-center gap-1">
+                    <Link2 className="w-3 h-3" /> Notion Linked
+                  </span>
+                )}
+              </div>
               <button
                 onClick={() => { setEditingUser(null); setMergeTarget('') }}
                 className="p-1 text-surface-400 hover:text-white rounded hover:bg-surface-700"
@@ -574,202 +643,230 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
             </div>
 
             <div className="space-y-4">
-              {/* User Info + Avatar Upload */}
-              <div className="p-3 bg-surface-800 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <label className="relative cursor-pointer group">
-                    {editingUser.image ? (
-                      <img src={editingUser.image} alt="" className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-semibold">
-                        {editingUser.name?.charAt(0) || '?'}
-                      </div>
-                    )}
-                    <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] text-white transition-opacity">
-                      Change
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleAvatarUpload(editingUser.id, e.target.files?.[0] || null)}
-                    />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Manager Selection */}
+                <div className="flex flex-col">
+                  <label className="label flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4" />
+                    Manager
                   </label>
-                  <div>
-                    <p className="font-medium text-white">{editingUser.name || 'No name'}</p>
-                    <p className="text-sm text-surface-400">{editingUser.email || 'No email'}</p>
-                  </div>
-                  {editingUser.notionTeamMemberId && (
-                    <span className="ml-auto badge bg-green-500/20 text-green-400 border-green-500/30 text-xs flex items-center gap-1">
-                      <Link2 className="w-3 h-3" /> Notion Linked
-                    </span>
-                  )}
+                  <Combobox
+                    value={selectedManagerId || ''}
+                    onChange={(val) => setSelectedManagerId(val || null)}
+                    options={[
+                      { value: '', label: 'No manager' },
+                      ...team
+                        .filter((t) => t.id !== editingUser.id)
+                        .map((t) => ({
+                          value: t.id,
+                          label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
+                        })),
+                    ]}
+                    allowClear
+                    className="w-full"
+                  />
                 </div>
-                <p className="mt-2 text-xs text-surface-500">
-                  Click your avatar to upload a new photo (max 2MB).
-                </p>
-              </div>
 
-              {/* Merge Section */}
-              <div className="space-y-2">
-                <label className="label flex items-center gap-2">
-                  <Merge className="w-4 h-4" />
-                  Merge into another user
-                </label>
-                <p className="text-xs text-surface-500 mb-2">
-                  This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
-                </p>
-                <Combobox
-                  value={mergeTarget}
-                  onChange={setMergeTarget}
-                  options={team
-                    // Can't merge into yourself (the source user)
-                    .filter(t => t.id !== editingUser.id)
-                    // If this editing user is the Notion-linked placeholder, only show targets
-                    // that are NOT already linked to Notion (so you can't "link" someone twice)
-                    .filter(t => {
-                      if (editingUser.notionTeamMemberId) {
-                        return !t.notionTeamMemberId
-                      }
-                      return true
-                    })
-                    .map(t => ({
-                      value: t.id,
-                      label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
-                      description: t.notionTeamMemberId ? 'Notion Linked' : undefined,
-                    }))}
-                  placeholder="Select user to merge into..."
-                  allowClear
-                />
-                {mergeTarget && (
-                  <button
-                    onClick={handleMergeUsers}
-                    disabled={saving}
-                    className="btn-primary w-full flex items-center justify-center gap-2"
-                  >
-                    <Merge className="w-4 h-4" />
-                    {saving ? 'Merging...' : 'Merge Users'}
-                  </button>
-                )}
-              </div>
-
-              {/* Manager selection */}
-              <div className="space-y-2">
-                <label className="label flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Manager
-                </label>
-                <p className="text-xs text-surface-500 mb-2">
-                  Select a manager for this user.
-                </p>
-                <Combobox
-                  value={selectedManagerId || ''}
-                  onChange={(val) => setSelectedManagerId(val || null)}
-                  options={[
-                    { value: '', label: 'No manager' },
-                    ...team
-                      .filter((t) => t.id !== editingUser.id)
-                      .map((t) => ({
-                        value: t.id,
-                        label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
-                      })),
-                  ]}
-                  allowClear
-                />
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => handleUpdateManager(editingUser.id, selectedManagerId)}
-                    className="btn-primary"
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving...' : 'Save Manager'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Slack Username */}
-              <div className="space-y-2">
-                <label className="label flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Slack Username
-                </label>
-                <div className="flex gap-2">
+                {/* Slack Username */}
+                <div className="flex flex-col">
+                  <label className="label flex items-center gap-2 mb-2">
+                    <Mail className="w-4 h-4" />
+                    Slack Username
+                  </label>
                   <input
                     type="text"
                     value={slackUsername}
                     onChange={(e) => setSlackUsername(e.target.value)}
                     placeholder="john.doe (without @)"
-                    className="input flex-1"
+                    className="input w-full"
                   />
-                  <button
-                    onClick={handleUpdateSlackUsername}
-                    disabled={saving || slackUsername === (editingUser.slackUsername || '')}
-                    className="btn-primary px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
                 </div>
-                <p className="text-xs text-surface-500">
-                  Enter Slack username without @ (e.g., "john.doe"). This will be used to @mention users in Slack messages.
-                </p>
               </div>
 
-              {/* Quick Actions */}
-              <div className="pt-4 border-t border-surface-700 space-y-2">
+              {/* Merge Section - Only show if user has Notion link */}
+              {editingUser.notionTeamMemberId && (
+                <div className="space-y-2 pt-4 border-t border-surface-700">
+                  <label className="label flex items-center gap-2">
+                    <Merge className="w-4 h-4" />
+                    Merge into another user
+                  </label>
+                  <p className="text-xs text-surface-500 mb-2">
+                    This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
+                  </p>
+                  <Combobox
+                    value={mergeTarget}
+                    onChange={setMergeTarget}
+                    options={team
+                      .filter(t => t.id !== editingUser.id && !t.notionTeamMemberId)
+                      .map(t => ({
+                        value: t.id,
+                        label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
+                      }))}
+                    placeholder="Select user to merge into..."
+                    allowClear
+                  />
+                  {mergeTarget && (
+                    <button
+                      onClick={handleMergeUsers}
+                      disabled={saving}
+                      className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
+                    >
+                      <Merge className="w-4 h-4" />
+                      {saving ? 'Merging...' : 'Merge Users'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="pt-4 border-t border-surface-700">
                 <button
-                  onClick={() => {
-                    window.location.href = '/api/harvest/auth'
-                  }}
-                  className="w-full text-left p-3 rounded-lg hover:bg-surface-800 transition-colors flex items-center gap-3 text-surface-300"
+                  onClick={handleSaveAll}
+                  disabled={saving}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
                 >
-                  <Clock className="w-4 h-4" />
-                  <span>{editingUser.hasHarvest ? 'Re-connect Harvest' : 'Connect Harvest for time tracking'}</span>
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 pt-4 border-t border-surface-700">
+              <h4 className="text-sm font-medium text-surface-400 mb-3">Quick Actions</h4>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative group">
+                  <button
+                    onClick={() => {
+                      window.location.href = '/api/harvest/auth'
+                    }}
+                    className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-surface-300"
+                  >
+                    <Clock className="w-5 h-5" />
+                  </button>
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    {editingUser.hasHarvest ? 'Reconnect Harvest' : 'Connect Harvest'}
+                  </div>
+                </div>
 
                 {editingUser.notionTeamMemberId && (
                   <>
-                    <button
-                      onClick={async () => {
-                        try {
-                          toast.info('Attaching clients from Notion…')
-                          const res = await fetch(`/api/users/${editingUser.id}/clients`, {
-                            method: 'POST',
-                          })
-                          const data = await res.json()
-                          if (!res.ok) {
-                            throw new Error(data.error || 'Failed to attach clients')
+                    <div className="relative group">
+                      <button
+                        onClick={async () => {
+                          try {
+                            toast.info('Attaching clients from Notion…')
+                            const res = await fetch(`/api/users/${editingUser.id}/clients`, {
+                              method: 'POST',
+                            })
+                            const data = await res.json()
+                            if (!res.ok) {
+                              throw new Error(data.error || 'Failed to attach clients')
+                            }
+                            toast.success('Clients attached', {
+                              description: `Primary: ${data.primaryAttached}, Secondary: ${data.secondaryAttached}`,
+                            })
+                            setEditingUser(null)
+                            window.location.reload()
+                          } catch (err: any) {
+                            toast.error('Failed to attach clients', { description: err.message })
                           }
-                          toast.success('Clients attached', {
-                            description: `Primary: ${data.primaryAttached}, Secondary: ${data.secondaryAttached}`,
-                          })
-                          setEditingUser(null)
-                          window.location.reload()
-                        } catch (err: any) {
-                          toast.error('Failed to attach clients', { description: err.message })
-                        }
-                      }}
-                      className="w-full text-left p-3 rounded-lg hover:bg-surface-800 transition-colors flex items-center gap-3 text-green-400"
-                    >
-                      <Merge className="w-4 h-4" />
-                      <span>Attach clients from Notion (by name)</span>
-                    </button>
-                    <button
-                      onClick={() => { handleUnlinkNotion(editingUser.id); setEditingUser(null) }}
-                      className="w-full text-left p-3 rounded-lg hover:bg-surface-800 transition-colors flex items-center gap-3 text-amber-400"
-                    >
-                      <Unlink className="w-4 h-4" />
-                      <span>Unlink from Notion</span>
-                    </button>
+                        }}
+                        className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-green-400"
+                      >
+                        <Merge className="w-5 h-5" />
+                      </button>
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        Attach clients from Notion
+                      </div>
+                    </div>
+                    <div className="relative group">
+                      <button
+                        onClick={() => { handleUnlinkNotion(editingUser.id); setEditingUser(null) }}
+                        className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-amber-400"
+                      >
+                        <Unlink className="w-5 h-5" />
+                      </button>
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        Unlink from Notion
+                      </div>
+                    </div>
                   </>
                 )}
-                <button
-                  onClick={() => { handleDeleteUser(editingUser.id, editingUser.name || 'this user'); setEditingUser(null) }}
-                  className="w-full text-left p-3 rounded-lg hover:bg-red-500/10 transition-colors flex items-center gap-3 text-red-400"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete User</span>
-                </button>
+                <div className="relative group">
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirm(editingUser.id)
+                      setEditingUser(null)
+                    }}
+                    className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-400"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    Delete User
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {mounted && showDeleteConfirm && createPortal(
+        <div 
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setShowDeleteConfirm(null)}
+        >
+          <div 
+            className="card w-full max-w-md p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white">Delete User</h3>
+                <p className="text-sm text-surface-400 mt-1">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-surface-800 rounded-lg">
+              <p className="text-sm text-surface-300">
+                Are you sure you want to delete <span className="font-semibold text-white">
+                  {team.find(u => u.id === showDeleteConfirm)?.name || 'this user'}
+                </span>?
+              </p>
+              <p className="text-xs text-surface-500 mt-2">
+                This will permanently remove the user and all associated data.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const user = team.find(u => u.id === showDeleteConfirm)
+                  if (user) {
+                    handleDeleteUser(user.id, user.name || 'this user')
+                  }
+                }}
+                className="btn-primary flex-1 bg-red-500 hover:bg-red-600 border-red-500"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete User
+              </button>
             </div>
           </div>
         </div>,

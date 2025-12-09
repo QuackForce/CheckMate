@@ -18,6 +18,7 @@ const BUCKET_ORDER = [
   'C Suite',
   'System Engineers',
   'Network Engineers',
+  'Software Engineers',
   'GRC Engineers',
   'Facilities',
   'Other',
@@ -32,8 +33,19 @@ function getBucket(jobTitle: string | null, team: string | null): string {
   const teamStr = teams.join(' ').toLowerCase()
 
   // C Suite / Directors - but they can also appear in teams they manage
-  const isCLevel = ['ceo', 'cto', 'coo', 'cfo', 'cpo', 'chief', 'c-suite', 'c suite'].some((k) => title.includes(k)) ||
-    title.includes('director')
+  // Use word boundaries to avoid false positives (e.g., "coordinator" contains "coo" but shouldn't match)
+  const cLevelPatterns = [
+    /\bceo\b/,
+    /\bcto\b/,
+    /\bcoo\b/,
+    /\bcfo\b/,
+    /\bcpo\b/,
+    /\bchief\s+(executive|technology|operating|financial|product|officer)/i,
+    /\bc-suite\b/,
+    /\bc suite\b/,
+  ]
+  const isCLevel = cLevelPatterns.some((pattern) => pattern.test(title)) ||
+    /\bdirector\b/.test(title)
 
   // Managers go to their respective teams
   if (title.includes('se manager') || title.includes('systems engineering manager')) {
@@ -41,6 +53,10 @@ function getBucket(jobTitle: string | null, team: string | null): string {
   }
   if (title.includes('grc manager')) {
     return 'GRC Engineers'
+  }
+  if (title.includes('software engineering manager') || title.includes('software engineer manager') || 
+      (title.includes('software engineer') && teamStr.includes('software engineering') && title.includes('manager'))) {
+    return 'Software Engineers'
   }
   // IT Managers always go to IT Managers bucket (they can also appear in Consultant Teams via manager relationships)
   if (title.includes('it manager')) {
@@ -63,27 +79,42 @@ function getBucket(jobTitle: string | null, team: string | null): string {
     return 'C Suite'
   }
 
+  // Engineers (but not managers) - check these BEFORE consultant teams
+  if ((title.includes('system engineer') || title.includes('systems engineer')) && !title.includes('manager')) {
+    return 'System Engineers'
+  }
+  if (title.includes('network engineer') && !title.includes('manager')) {
+    return 'Network Engineers'
+  }
+  if ((title.includes('software engineer') || teamStr.includes('software engineering')) && !title.includes('manager')) {
+    return 'Software Engineers'
+  }
+  if (title.includes('grc') && title.includes('engineer') && !title.includes('manager')) {
+    return 'GRC Engineers'
+  }
+
   // Consultants by team number (check both job title and team field)
+  // First, check if team field contains a consultant team number (but only if not already classified as engineer/manager)
+  const teamMatch = (team || '').match(/consultant\s*team\s*(\d)/i)
+  if (teamMatch) {
+    return `Consultant Team ${teamMatch[1]}`
+  }
+  // Also check the joined team string
+  const teamStrMatch = teamStr.match(/consultant\s*team\s*(\d)/i)
+  if (teamStrMatch) {
+    return `Consultant Team ${teamStrMatch[1]}`
+  }
+  
+  // If job title indicates consultant, check for team number in various places
   if ((title.includes('consultant') || title.includes('it consultant')) && !title.includes('manager')) {
-    // First check the original team field (before splitting) for consultant team number
-    // This handles cases like "Consultant Team 1, Athena"
-    const teamMatch = (team || '').match(/consultant\s*team\s*(\d)/i)
-    if (teamMatch) {
-      return `Consultant Team ${teamMatch[1]}`
-    }
-    // Also check the joined team string
-    const teamStrMatch = teamStr.match(/consultant\s*team\s*(\d)/i)
-    if (teamStrMatch) {
-      return `Consultant Team ${teamStrMatch[1]}`
-    }
     // Check job title for team number
     const titleMatch = title.match(/consultant\s*(?:team\s*)?(\d)/i)
     if (titleMatch) {
       return `Consultant Team ${titleMatch[1]}`
     }
-    // Check team string for any team number pattern
+    // Check team string for any team number pattern (but only if it's clearly a consultant team)
     const teamNumMatch = teamStr.match(/team\s*(\d)/i)
-    if (teamNumMatch) {
+    if (teamNumMatch && (teamStr.includes('consultant') || (team || '').toLowerCase().includes('consultant'))) {
       return `Consultant Team ${teamNumMatch[1]}`
     }
     // If they have a team field that mentions consultant but no number, try to infer
@@ -94,19 +125,8 @@ function getBucket(jobTitle: string | null, team: string | null): string {
         return `Consultant Team ${anyNumMatch[1]}`
       }
     }
-    // Last resort: default to Consultant Team 1
-    return 'Consultant Team 1'
-  }
-
-  // Engineers (but not managers)
-  if ((title.includes('system engineer') || title.includes('systems engineer')) && !title.includes('manager')) {
-    return 'System Engineers'
-  }
-  if (title.includes('network engineer') && !title.includes('manager')) {
-    return 'Network Engineers'
-  }
-  if (title.includes('grc') && title.includes('engineer') && !title.includes('manager')) {
-    return 'GRC Engineers'
+    // Don't default to Consultant Team 1 - if we can't find a team number, they should go to "Other"
+    // This prevents consultants without a specific team assignment from being incorrectly grouped
   }
 
   // Facilities - check team field and job title
@@ -134,6 +154,11 @@ function filterTreeByBucket(node: OrgUserNode, bucket: string, bucketForId: Map<
 
 export default async function OrgChartPage() {
   const users = await db.user.findMany({
+    where: {
+      email: {
+        not: null,
+      },
+    },
     orderBy: { name: 'asc' },
     select: {
       id: true,
@@ -211,6 +236,10 @@ export default async function OrgChartPage() {
       if (match && bucket === `Consultant Team ${match[1]}`) {
         return true
       }
+      // IT Managers should also be in Facilities if they manage it
+      if (teamStr.includes('facilities') && bucket === 'Facilities') {
+        return true
+      }
     }
     
     // C-level executives should also be in teams they manage
@@ -243,16 +272,102 @@ export default async function OrgChartPage() {
     // Find nearest ancestor in same bucket
     let parentId = u.managerId
     let placed = false
-    while (parentId) {
-      // Check if parent should be in this bucket (primary or secondary)
-      if (shouldBeInBucket(parentId, bucket)) {
-        const parentNode = createNode(parentId, bucket)
-        parentNode.children.push(node)
-        placed = true
-        break
+    
+    // For Facilities, ALWAYS check direct manager first and use them if they're IT Manager with Facilities
+    // This prevents walking up to C-level executives
+    if (bucket === 'Facilities' && parentId) {
+      const directManager = users.find(usr => usr.id === parentId)
+      if (directManager) {
+        const managerTitle = directManager.jobTitle?.toLowerCase() || ''
+        const managerTeam = (directManager.team || '').toLowerCase()
+        // If direct manager is IT Manager with Facilities in team, use them directly
+        if (managerTitle.includes('it manager') && managerTeam.includes('facilities')) {
+          const parentNode = createNode(directManager.id, bucket)
+          parentNode.children.push(node)
+          placed = true
+        }
       }
-      const parentUser = users.find((usr) => usr.id === parentId)
-      parentId = parentUser?.managerId || null
+    }
+    
+    // If not placed yet, walk up the manager chain (for other buckets or if direct manager check failed)
+    // BUT for Facilities, NEVER walk up past the direct manager - if direct manager isn't IT Manager with Facilities,
+    // just make them a root in Facilities
+    if (!placed && bucket !== 'Facilities') {
+      while (parentId) {
+        // Check if parent should be in this bucket (primary or secondary)
+        if (shouldBeInBucket(parentId, bucket)) {
+          const parentNode = createNode(parentId, bucket)
+          parentNode.children.push(node)
+          placed = true
+          break
+        }
+        const parentUser = users.find((usr) => usr.id === parentId)
+        parentId = parentUser?.managerId || null
+      }
+    }
+
+    // If not placed and this is a Consultant Team, try to find an IT Manager in the same team
+    if (!placed && bucket.startsWith('Consultant Team ')) {
+      const title = u.jobTitle?.toLowerCase() || ''
+      // Only auto-nest consultants (not IT Managers themselves)
+      if ((title.includes('consultant') || title.includes('it consultant')) && !title.includes('manager')) {
+        // Find IT Manager in the same Consultant Team
+        const itManager = users.find((usr) => {
+          const usrTitle = usr.jobTitle?.toLowerCase() || ''
+          const usrTeam = usr.team || ''
+          return (
+            usrTitle.includes('it manager') &&
+            shouldBeInBucket(usr.id, bucket) &&
+            usr.id !== userId // Don't nest under self
+          )
+        })
+        
+        if (itManager) {
+          const parentNode = createNode(itManager.id, bucket)
+          parentNode.children.push(node)
+          placed = true
+        }
+      }
+    }
+
+    // If not placed and this is Facilities, try to find an IT Manager who manages Facilities
+    if (!placed && bucket === 'Facilities') {
+      const title = u.jobTitle?.toLowerCase() || ''
+      // Auto-nest Facilities team members (coordinators, etc.) under their IT Manager
+      // Check if they have a managerId first, and if that manager should be in Facilities
+      if (u.managerId) {
+        const manager = users.find(usr => usr.id === u.managerId)
+        if (manager) {
+          const managerTitle = manager.jobTitle?.toLowerCase() || ''
+          const managerTeam = (manager.team || '').toLowerCase()
+          // Check if manager is IT Manager with Facilities in team - use them directly, don't check shouldBeInBucket
+          // because we know they should be in Facilities if they have it in their team
+          if (managerTitle.includes('it manager') && managerTeam.includes('facilities')) {
+            const parentNode = createNode(manager.id, bucket)
+            parentNode.children.push(node)
+            placed = true
+          }
+        }
+      }
+      
+      // Fallback: If still not placed, find any IT Manager who manages Facilities
+      if (!placed && (title.includes('facilities') || title.includes('coordinator')) && !title.includes('manager')) {
+        const itManager = users.find((usr) => {
+          const usrTitle = usr.jobTitle?.toLowerCase() || ''
+          const usrTeam = (usr.team || '').toLowerCase()
+          return (
+            usrTitle.includes('it manager') &&
+            usrTeam.includes('facilities') &&
+            usr.id !== userId // Don't nest under self
+          )
+        })
+        
+        if (itManager) {
+          const parentNode = createNode(itManager.id, bucket)
+          parentNode.children.push(node)
+          placed = true
+        }
+      }
     }
 
     if (!placed) {
@@ -275,6 +390,11 @@ export default async function OrgChartPage() {
         const consultantTeam = `Consultant Team ${match[1]}`
         // Place them in their Consultant Team bucket FIRST
         placeUserInBucket(u.id, consultantTeam)
+      }
+      
+      // IT Managers should ALSO appear in Facilities if they manage it
+      if (teamStr.includes('facilities')) {
+        placeUserInBucket(u.id, 'Facilities')
       }
     }
     
@@ -316,7 +436,7 @@ export default async function OrgChartPage() {
   if (!canView) {
     return (
       <>
-        <Header title="Org Chart" subtitle="Team hierarchy by manager relationship" />
+        <Header title="Org Chart" />
         <div className="p-6">
           <div className="card p-6 text-center">
             <p className="text-surface-400">You don't have permission to view the org chart.</p>
@@ -328,7 +448,7 @@ export default async function OrgChartPage() {
 
   return (
     <>
-      <Header title="Org Chart" subtitle="Team hierarchy by manager relationship" />
+      <Header title="Org Chart" />
       <div className="p-6 space-y-6">
         <OrgChartView groupedRoots={groupedRoots} canEdit={canEdit} />
       </div>

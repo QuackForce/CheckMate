@@ -1,10 +1,5 @@
 import { Header } from '@/components/layout/header'
-import { StatsCards } from '@/components/dashboard/stats-cards'
-import { UpcomingChecks } from '@/components/dashboard/upcoming-checks'
-import { RecentActivity } from '@/components/dashboard/recent-activity'
-import { MyTeamClients } from '@/components/dashboard/my-team-clients'
-import { MyClients } from '@/components/dashboard/my-clients'
-import { RecentCheckResults } from '@/components/dashboard/recent-check-results'
+import { DashboardTabs } from '@/components/dashboard/dashboard-tabs'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission, hasAnyPermission } from '@/lib/permissions'
@@ -24,7 +19,7 @@ function formatRelativeTime(date: Date): string {
   return new Date(date).toLocaleDateString()
 }
 
-async function getDashboardData() {
+async function getDashboardData(userId?: string, isManager?: boolean) {
   // Calculate date ranges
   const now = new Date()
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -37,20 +32,37 @@ async function getDashboardData() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
-  // Get counts
+  // Base where clause for "My Work" (filtered by user)
+  const myWorkFilter = userId ? {
+    OR: [
+      { assignedEngineerId: userId },
+      { completedById: userId },
+    ]
+  } : undefined
+
+  // Base where clause for "My Team" (all checks if manager, otherwise empty)
+  const myTeamFilter = isManager ? undefined : { id: 'never-match' }
+
+  // Helper to combine filters
+  const combineWhere = (baseFilter: any, additionalConditions: any) => {
+    if (!baseFilter) return additionalConditions
+    return {
+      AND: [
+        baseFilter,
+        additionalConditions
+      ]
+    }
+  }
+
+  // Get "My Work" stats
   const [
-    overdueCount,
-    totalClients,
-    activeClients,
-    todayCount,
-    thisWeekCount,
-    completedThisMonth,
+    myOverdueCount,
+    myTodayCount,
+    myThisWeekCount,
+    myCompletedThisMonth,
   ] = await Promise.all([
-    // Overdue: either status is OVERDUE OR scheduled date is in the past (and not completed/cancelled)
-    // Use lte (<=) for todayStart to handle timezone edge cases where midnight UTC 
-    // represents "yesterday evening" in western timezones (e.g., Dec 7 00:00 UTC = Dec 6 4pm Pacific)
     db.infraCheck.count({ 
-      where: { 
+      where: combineWhere(myWorkFilter, {
         OR: [
           { status: 'OVERDUE' },
           { 
@@ -58,44 +70,76 @@ async function getDashboardData() {
             status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
           }
         ]
-      } 
+      })
     }),
-    db.client.count(),
-    db.client.count({ where: { status: 'ACTIVE' } }),
-    // Due today: strictly AFTER todayStart (to avoid overlap with overdue) up to todayEnd
-    // Use lte for todayEnd to catch timezone edge cases
     db.infraCheck.count({ 
-      where: { 
+      where: combineWhere(myWorkFilter, {
         scheduledDate: { gt: todayStart, lte: todayEnd },
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
-      } 
+      })
     }),
-    // All scheduled checks
     db.infraCheck.count({ 
-      where: { 
+      where: combineWhere(myWorkFilter, {
         status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
-      } 
+      })
     }),
-    // Completed this month
     db.infraCheck.count({ 
-      where: { 
+      where: combineWhere(myWorkFilter, {
         status: 'COMPLETED',
         completedAt: { gte: monthStart, lt: monthEnd }
-      } 
+      })
     }),
   ])
 
-  // Get upcoming checks
-  const upcomingChecks = await db.infraCheck.findMany({
-    where: {
+  // Get "My Team" stats (only if manager)
+  const [
+    teamOverdueCount,
+    teamTodayCount,
+    teamThisWeekCount,
+    teamCompletedThisMonth,
+  ] = await Promise.all([
+    db.infraCheck.count({ 
+      where: combineWhere(myTeamFilter, {
+        OR: [
+          { status: 'OVERDUE' },
+          { 
+            scheduledDate: { lte: todayStart },
+            status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
+          }
+        ]
+      })
+    }),
+    db.infraCheck.count({ 
+      where: combineWhere(myTeamFilter, {
+        scheduledDate: { gt: todayStart, lte: todayEnd },
+        status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
+      })
+    }),
+    db.infraCheck.count({ 
+      where: combineWhere(myTeamFilter, {
+        status: { in: ['SCHEDULED', 'IN_PROGRESS'] }
+      })
+    }),
+    db.infraCheck.count({ 
+      where: combineWhere(myTeamFilter, {
+        status: 'COMPLETED',
+        completedAt: { gte: monthStart, lt: monthEnd }
+      })
+    }),
+  ])
+
+  // Get "My Work" upcoming checks
+  const myUpcomingChecks = await db.infraCheck.findMany({
+    where: combineWhere(myWorkFilter, {
       status: { in: ['SCHEDULED', 'OVERDUE', 'IN_PROGRESS'] },
-    },
+    }),
     select: {
       id: true,
       scheduledDate: true,
       status: true,
       cadence: true,
       assignedEngineerName: true,
+      assignedEngineerId: true,
       client: { select: { id: true, name: true } },
       assignedEngineer: { select: { name: true, image: true } },
     },
@@ -103,11 +147,29 @@ async function getDashboardData() {
     take: 10,
   })
 
-  // Get recent activity (completed, in progress, scheduled, slack posted)
-  const [recentCompleted, recentInProgress, recentScheduled, recentSlackPosted] = await Promise.all([
-    // Recently completed checks
+  // Get "My Team" upcoming checks
+  const teamUpcomingChecks = await db.infraCheck.findMany({
+    where: combineWhere(myTeamFilter, {
+      status: { in: ['SCHEDULED', 'OVERDUE', 'IN_PROGRESS'] },
+    }),
+    select: {
+      id: true,
+      scheduledDate: true,
+      status: true,
+      cadence: true,
+      assignedEngineerName: true,
+      assignedEngineerId: true,
+      client: { select: { id: true, name: true } },
+      assignedEngineer: { select: { name: true, image: true } },
+    },
+    orderBy: { scheduledDate: 'asc' },
+    take: 10,
+  })
+
+  // Get "My Work" recent activity
+  const [myRecentCompleted, myRecentInProgress, myRecentScheduled, myRecentSlackPosted] = await Promise.all([
     db.infraCheck.findMany({
-      where: { status: 'COMPLETED' },
+      where: combineWhere(myWorkFilter, { status: 'COMPLETED' }),
       select: {
         id: true,
         completedAt: true,
@@ -119,9 +181,8 @@ async function getDashboardData() {
       orderBy: { completedAt: 'desc' },
       take: 5,
     }),
-    // Recently started checks (IN_PROGRESS)
     db.infraCheck.findMany({
-      where: { status: 'IN_PROGRESS' },
+      where: combineWhere(myWorkFilter, { status: 'IN_PROGRESS' }),
       select: {
         id: true,
         updatedAt: true,
@@ -132,9 +193,8 @@ async function getDashboardData() {
       orderBy: { updatedAt: 'desc' },
       take: 5,
     }),
-    // Recently scheduled checks
     db.infraCheck.findMany({
-      where: { status: 'SCHEDULED' },
+      where: combineWhere(myWorkFilter, { status: 'SCHEDULED' }),
       select: {
         id: true,
         createdAt: true,
@@ -145,11 +205,10 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
-    // Checks with Slack messages posted
     db.infraCheck.findMany({
-      where: { 
+      where: combineWhere(myWorkFilter, {
         slackMessageTs: { not: null },
-      },
+      }),
       select: {
         id: true,
         updatedAt: true,
@@ -163,84 +222,187 @@ async function getDashboardData() {
     }),
   ])
 
-  // Format recent activity
-  const recentActivity = [
-    ...recentCompleted.map(check => ({
-      id: `completed-${check.id}`,
-      type: 'completed' as const,
-      client: check.client.name,
-      user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
-      time: check.completedAt ? formatRelativeTime(check.completedAt) : 'Recently',
-      timestamp: check.completedAt || new Date(),
-    })),
-    ...recentInProgress.map(check => ({
-      id: `started-${check.id}`,
-      type: 'started' as const,
-      client: check.client.name,
-      user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
-      time: formatRelativeTime(check.updatedAt),
-      timestamp: check.updatedAt,
-    })),
-    ...recentScheduled.map(check => ({
-      id: `scheduled-${check.id}`,
-      type: 'scheduled' as const,
-      client: check.client.name,
-      user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
-      time: formatRelativeTime(check.createdAt),
-      timestamp: check.createdAt,
-    })),
-    ...recentSlackPosted.map(check => ({
-      id: `slack-${check.id}`,
-      type: 'slack' as const,
-      client: check.client.name,
-      user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
-      time: formatRelativeTime(check.updatedAt),
-      timestamp: check.updatedAt,
-    })),
-  ]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    // Remove duplicates (same check might appear in multiple lists)
-    .filter((activity, index, self) => 
-      index === self.findIndex(a => a.id === activity.id)
-    )
-    .slice(0, 8)
+  // Get "My Team" recent activity
+  const [teamRecentCompleted, teamRecentInProgress, teamRecentScheduled, teamRecentSlackPosted] = await Promise.all([
+    db.infraCheck.findMany({
+      where: combineWhere(myTeamFilter, { status: 'COMPLETED' }),
+      select: {
+        id: true,
+        completedAt: true,
+        client: { select: { name: true } },
+        completedBy: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 5,
+    }),
+    db.infraCheck.findMany({
+      where: combineWhere(myTeamFilter, { status: 'IN_PROGRESS' }),
+      select: {
+        id: true,
+        updatedAt: true,
+        client: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+    }),
+    db.infraCheck.findMany({
+      where: combineWhere(myTeamFilter, { status: 'SCHEDULED' }),
+      select: {
+        id: true,
+        createdAt: true,
+        client: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+    db.infraCheck.findMany({
+      where: combineWhere(myTeamFilter, {
+        slackMessageTs: { not: null },
+      }),
+      select: {
+        id: true,
+        updatedAt: true,
+        client: { select: { name: true } },
+        completedBy: { select: { name: true } },
+        assignedEngineer: { select: { name: true } },
+        assignedEngineerName: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+    }),
+  ])
+
+  // Format "My Work" recent activity
+  const formatActivity = (
+    completed: any[],
+    inProgress: any[],
+    scheduled: any[],
+    slackPosted: any[]
+  ) => {
+    return [
+      ...completed.map(check => ({
+        id: `completed-${check.id}`,
+        type: 'completed' as const,
+        client: check.client.name,
+        user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+        time: check.completedAt ? formatRelativeTime(check.completedAt) : 'Recently',
+        timestamp: check.completedAt || new Date(),
+      })),
+      ...inProgress.map(check => ({
+        id: `started-${check.id}`,
+        type: 'started' as const,
+        client: check.client.name,
+        user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+        time: formatRelativeTime(check.updatedAt),
+        timestamp: check.updatedAt,
+      })),
+      ...scheduled.map(check => ({
+        id: `scheduled-${check.id}`,
+        type: 'scheduled' as const,
+        client: check.client.name,
+        user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+        time: formatRelativeTime(check.createdAt),
+        timestamp: check.createdAt,
+      })),
+      ...slackPosted.map(check => ({
+        id: `slack-${check.id}`,
+        type: 'slack' as const,
+        client: check.client.name,
+        user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
+        time: formatRelativeTime(check.updatedAt),
+        timestamp: check.updatedAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .filter((activity, index, self) => 
+        index === self.findIndex(a => a.id === activity.id)
+      )
+      .slice(0, 8)
+  }
+
+  const myRecentActivity = formatActivity(
+    myRecentCompleted,
+    myRecentInProgress,
+    myRecentScheduled,
+    myRecentSlackPosted
+  )
+
+  const teamRecentActivity = formatActivity(
+    teamRecentCompleted,
+    teamRecentInProgress,
+    teamRecentScheduled,
+    teamRecentSlackPosted
+  )
 
   return {
-    stats: {
-      overdueCount,
-      todayCount,
-      thisWeekCount,
-      completedThisMonth,
-      totalClients,
-      activeClients,
-    },
-    checks: upcomingChecks.map(check => ({
-      id: check.id,
-      client: { id: check.client.id, name: check.client.name },
-      scheduledDate: check.scheduledDate,
-      status: check.status,
-      cadence: check.cadence,
-      assignedEngineer: { 
-        name: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned', 
-        image: check.assignedEngineer?.image || null
+    myWork: {
+      stats: {
+        overdueCount: myOverdueCount,
+        todayCount: myTodayCount,
+        thisWeekCount: myThisWeekCount,
+        completedThisMonth: myCompletedThisMonth,
+        totalClients: 0, // Will be calculated client-side from MyClients
+        activeClients: 0, // Will be calculated client-side from MyClients
       },
-    })),
-    recentActivity,
+      checks: myUpcomingChecks.map(check => ({
+        id: check.id,
+        client: { id: check.client.id, name: check.client.name },
+        scheduledDate: check.scheduledDate,
+        status: check.status,
+        cadence: check.cadence,
+        assignedEngineer: { 
+          name: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned', 
+          image: check.assignedEngineer?.image || null
+        },
+      })),
+      recentActivity: myRecentActivity,
+    },
+    myTeam: {
+      stats: {
+        overdueCount: teamOverdueCount,
+        todayCount: teamTodayCount,
+        thisWeekCount: teamThisWeekCount,
+        completedThisMonth: teamCompletedThisMonth,
+        totalClients: 0, // Will be calculated client-side from MyTeamClients
+        activeClients: 0, // Will be calculated client-side from MyTeamClients
+      },
+      checks: teamUpcomingChecks.map(check => ({
+        id: check.id,
+        client: { id: check.client.id, name: check.client.name },
+        scheduledDate: check.scheduledDate,
+        status: check.status,
+        cadence: check.cadence,
+        assignedEngineer: { 
+          name: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned', 
+          image: check.assignedEngineer?.image || null
+        },
+      })),
+      recentActivity: teamRecentActivity,
+    },
   }
 }
 
 export default async function DashboardPage() {
-  const [session, dashboardData] = await Promise.all([
-    auth(),
-    getDashboardData(),
-  ])
-  
-  const { stats, checks, recentActivity } = dashboardData
+  const session = await auth()
+  const userId = session?.user?.id
   const userName = session?.user?.name?.split(' ')[0] || 'there'
   const role = session?.user?.role || 'VIEWER'
   const canEdit = hasAnyPermission(role, ['checks:view_all', 'checks:view_own'])
   const canSeeOwnClients = hasAnyPermission(role, ['clients:view_all', 'clients:view_own'])
   const canSeeTeamClients = hasPermission(role, 'team:view')
+
+  // Determine if user is a manager (for team view filtering)
+  const isManager = canSeeTeamClients
+
+  const dashboardData = await getDashboardData(userId, isManager)
+  
+  const { myWork, myTeam } = dashboardData
 
   return (
     <>
@@ -256,26 +418,12 @@ export default async function DashboardPage() {
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Stats Cards */}
-        <StatsCards stats={stats} />
-
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Upcoming Checks - Takes 2 columns */}
-          <div className="lg:col-span-2">
-            <UpcomingChecks checks={checks} />
-          </div>
-
-          {/* Sidebar widgets */}
-          <div className="space-y-6">
-            {canSeeOwnClients && <MyClients />}
-            {/* My Team's Clients - shows for managers */}
-            {canSeeTeamClients && <MyTeamClients />}
-
-            <RecentCheckResults />
-            
-            <RecentActivity activities={recentActivity} />
-          </div>
-        </div>
+        <DashboardTabs 
+          canViewTeam={canSeeTeamClients}
+          canSeeOwnClients={canSeeOwnClients}
+          myWorkData={myWork}
+          myTeamData={myTeam}
+        />
       </div>
     </>
   )

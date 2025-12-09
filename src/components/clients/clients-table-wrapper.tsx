@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { 
   Building2, 
@@ -12,6 +13,7 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react'
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
@@ -56,6 +58,7 @@ function getLogoUrl(websiteUrl: string | null): string | null {
 }
 
 export function ClientsTableWrapper() {
+  const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -65,7 +68,25 @@ export function ClientsTableWrapper() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false)
 
+  // Read URL query parameters
+  const assigneeParam = searchParams.get('assignee')
+  const managerTeamParam = searchParams.get('managerTeam')
+
   const totalPages = Math.ceil(total / CLIENTS_PER_PAGE)
+
+  // Get filter label for active filters
+  const getActiveFilterLabel = () => {
+    if (assigneeParam === 'me') return 'My Clients'
+    if (managerTeamParam === 'se') return 'SE Manager Team'
+    if (managerTeamParam === 'grc') return 'GRC Manager Team'
+    if (managerTeamParam?.startsWith('consultant-team-')) {
+      const teamNum = managerTeamParam.replace('consultant-team-', '')
+      return `Consultant Team ${teamNum}`
+    }
+    return null
+  }
+
+  const activeFilterLabel = getActiveFilterLabel()
 
   // Fetch clients with pagination
   const fetchClients = useCallback(async () => {
@@ -84,6 +105,15 @@ export function ClientsTableWrapper() {
         params.set('status', statusFilter)
       }
 
+      // Add URL query parameters
+      if (assigneeParam) {
+        params.set('assignee', assigneeParam)
+      }
+      
+      if (managerTeamParam) {
+        params.set('managerTeam', managerTeamParam)
+      }
+
       const res = await fetch(`/api/clients?${params}`)
       const data = await res.json()
       
@@ -96,7 +126,7 @@ export function ClientsTableWrapper() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter])
+  }, [page, search, statusFilter, assigneeParam, managerTeamParam])
 
   useEffect(() => {
     fetchClients()
@@ -146,6 +176,23 @@ export function ClientsTableWrapper() {
     <div className={cn("card relative", isStatusFilterOpen && "z-[100]", !isStatusFilterOpen && "overflow-hidden")}>
       {/* Search & Filters Bar */}
       <div className={cn("p-4 border-b border-surface-700/50", isStatusFilterOpen && "overflow-visible")}>
+        {/* Active filter badge */}
+        {activeFilterLabel && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-400 text-sm border border-brand-500/30">
+              <Filter className="w-3.5 h-3.5" />
+              {activeFilterLabel}
+              <Link
+                href="/clients"
+                className="hover:text-brand-300 transition-colors"
+                title="Clear filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </Link>
+            </span>
+          </div>
+        )}
+        
         <div className="flex flex-wrap items-center gap-3">
           <SearchInput
             value={searchInput}

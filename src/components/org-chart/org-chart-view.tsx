@@ -27,6 +27,7 @@ function getTeamIcon(teamName: string) {
   if (name.includes('system engineer') || name.includes('se')) return Wrench
   if (name.includes('grc')) return Shield
   if (name.includes('network')) return Network
+  if (name.includes('software engineer')) return Wrench
   if (name.includes('consultant') || name.includes('it manager')) return Briefcase
   if (name.includes('c suite') || name.includes('c-suite')) return Crown
   if (name.includes('facilities')) return Building2
@@ -60,10 +61,16 @@ function PersonCard({
   onDuplicate?: (node: OrgUserNode) => void
   onRemoveManager?: (userId: string, userName: string) => void
 }) {
-  // Only show manager styling if they actually have children
+  // Show manager styling if they have children OR if they have "manager" in their title
   const hasChildren = node.children && node.children.length > 0
-  const showManagerStyle = isManager && hasChildren
-  const canAcceptDrop = isManager && hasChildren // Only managers with reports can accept drops
+  const isManagerByTitle = node.jobTitle?.toLowerCase().includes('manager') || 
+                          node.jobTitle?.toLowerCase().includes('director') ||
+                          ['ceo', 'cto', 'coo', 'cfo', 'cpo'].some(title => 
+                            node.jobTitle?.toLowerCase().includes(title)
+                          )
+  const showManagerStyle = isManager && (hasChildren || isManagerByTitle)
+  // Allow dropping on manager cards even if they don't have children yet (for initial assignment)
+  const canAcceptDrop = isManager // Managers can always accept drops, even without children yet
   
   return (
     <div
@@ -134,7 +141,13 @@ function PersonCard({
   )
 }
 
-function TreeNode({ node, level = 0, searchQuery = '' }: { node: OrgUserNode; level?: number; searchQuery?: string }) {
+function TreeNode({ node, level = 0, searchQuery = '', isLast = false, parentIsLast = [] }: { 
+  node: OrgUserNode
+  level?: number
+  searchQuery?: string
+  isLast?: boolean
+  parentIsLast?: boolean[]
+}) {
   const hasChildren = node.children && node.children.length > 0
   const matchesSearch = !searchQuery || 
     node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,51 +168,143 @@ function TreeNode({ node, level = 0, searchQuery = '' }: { node: OrgUserNode; le
   
   if (!showNode) return null
   
+  // Filter children by search if needed
+  const childrenToShow = hasChildren ? (searchQuery ? matchingChildren : node.children) : []
+  
+  const indentWidth = 24
+  const connectorX = level > 0 ? (level - 1) * indentWidth + 11 : 0
+  const horizontalConnectorY = 24 // Y position where horizontal connector connects (center of card)
+  const cardHeight = 48 // Height of the card
+  
   return (
-    <div className="relative">
-      <div className={cn(
-        'flex items-center gap-3 mb-2',
-        level === 0 && 'mb-4'
-      )}>
-        {/* Connector line */}
-        {level > 0 && (
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-surface-700" style={{ marginLeft: `${(level - 1) * 24}px` }} />
-        )}
-        
-        {/* Node circle */}
-        <div className={cn(
-          'w-3 h-3 rounded-full flex-shrink-0 z-10',
-          level === 0 ? 'bg-blue-500' : level === 1 ? 'bg-orange-500' : 'bg-yellow-500'
-        )} />
-        
-        {/* Card */}
-        <div className={cn(
-          'card p-3 border-surface-700 flex-1',
-          hasChildren ? 'bg-brand-500/10 border-brand-500/30' : 'bg-surface-800/60'
-        )}>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <p className={cn('font-semibold text-white text-sm', hasChildren && 'text-brand-300')}>
-                {node.name}
-              </p>
-              {node.jobTitle && (
-                <p className={cn('text-xs mt-0.5', hasChildren ? 'text-brand-200' : 'text-surface-400')}>
-                  {node.jobTitle}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Children */}
-      {hasChildren && (
-        <div className="ml-6 space-y-1">
-          {node.children.map((child) => (
-            <TreeNode key={child.id} node={child} level={level + 1} searchQuery={searchQuery} />
-          ))}
+    <div className="flex relative">
+      {/* Vertical lines and connectors - positioned in the indent area */}
+      {level > 0 && (
+        <div className="flex-shrink-0 relative" style={{ width: `${level * indentWidth}px` }}>
+          {/* Draw continuous vertical lines for each parent level that isn't last */}
+          {parentIsLast.map((parentLast, idx) => {
+            if (parentLast) return null // Skip if parent is last
+            const parentLevel = idx
+            const parentConnectorX = parentLevel * indentWidth + 11
+            return (
+              <div
+                key={`parent-${idx}`}
+                className="absolute w-0.5 bg-surface-600"
+                style={{
+                  left: `${parentConnectorX}px`,
+                  top: 0,
+                  bottom: 0,
+                  zIndex: 0,
+                }}
+              />
+            )
+          })}
+          
+          {/* Continuous vertical line for this level - runs through ALL siblings */}
+          {/* Only draw if not the last sibling, so it continues to next sibling */}
+          {!isLast && (
+            <div 
+              className="absolute w-0.5 bg-surface-600"
+              style={{ 
+                left: `${connectorX}px`,
+                top: 0,
+                bottom: 0, // Full height to connect all siblings
+                zIndex: 0,
+              }}
+            />
+          )}
+          
+          {/* Vertical line segment from top to horizontal connector */}
+          <div 
+            className="absolute w-0.5 bg-surface-600"
+            style={{ 
+              left: `${connectorX}px`,
+              top: 0,
+              height: `${horizontalConnectorY}px`, // Stop at horizontal connector
+              zIndex: 0,
+            }}
+          />
+          
+          {/* Horizontal connector line to this node */}
+          <div 
+            className="absolute h-0.5 bg-surface-600"
+            style={{ 
+              left: `${connectorX}px`,
+              top: `${horizontalConnectorY}px`,
+              width: '12px',
+              zIndex: 0,
+            }}
+          />
+          
+          {/* Vertical line segment after the card - connects to next sibling */}
+          {/* Only draw if not the last sibling */}
+          {!isLast && (
+            <div 
+              className="absolute w-0.5 bg-surface-600"
+              style={{ 
+                left: `${connectorX}px`,
+                top: `${cardHeight}px`, // Start after the card
+                bottom: 0, // Continue to bottom to connect with next sibling
+                zIndex: 0,
+              }}
+            />
+          )}
         </div>
       )}
+      
+      {/* Node content - positioned above the lines with higher z-index */}
+      <div className="flex-1 min-w-0 relative" style={{ zIndex: 10 }}>
+        <div 
+          className={cn(
+            'flex items-center gap-3 py-2 px-3 rounded-lg transition-colors mb-1 relative',
+            hasChildren 
+              ? 'bg-brand-500/10 border border-brand-500/30' 
+              : 'bg-surface-800/40 hover:bg-surface-800/60'
+          )}
+          style={{ zIndex: 10, position: 'relative' }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className={cn(
+              'font-semibold text-sm',
+              hasChildren ? 'text-brand-300' : 'text-white'
+            )}>
+              {node.name}
+            </p>
+            {node.jobTitle && (
+              <p className={cn(
+                'text-xs mt-0.5',
+                hasChildren ? 'text-brand-200' : 'text-surface-400'
+              )}>
+                {node.jobTitle}
+              </p>
+            )}
+          </div>
+          {hasChildren && (
+            <div className="text-xs text-surface-500 font-medium">
+              {childrenToShow.length}
+            </div>
+          )}
+        </div>
+        
+        {/* Children */}
+        {hasChildren && childrenToShow.length > 0 && (
+          <div className="relative">
+            {childrenToShow.map((child, index) => {
+              const childIsLast = index === childrenToShow.length - 1
+              return (
+                <TreeNode 
+                  key={child.id} 
+                  node={child} 
+                  level={level + 1} 
+                  searchQuery={searchQuery}
+                  isLast={childIsLast}
+                  parentIsLast={[...parentIsLast, isLast]}
+                />
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -215,6 +320,79 @@ export function OrgChartView({ roots, groupedRoots, canEdit = false }: OrgChartV
   const [dragOverNode, setDragOverNode] = useState<string | null>(null)
   const [pendingChange, setPendingChange] = useState<{ userId: string; userName: string; newManagerId: string | null; managerName: string } | null>(null)
   const [showRemoveZone, setShowRemoveZone] = useState(false)
+  
+  // Build unified hierarchy for tree view (all users in one tree, no team groupings)
+  const unifiedTreeRoots = useMemo(() => {
+    if (!groupedRoots) return roots ?? []
+    
+    // First, filter by selected team if not "all"
+    let groupsToUse = groupedRoots
+    if (selectedTeam !== 'all') {
+      groupsToUse = groupedRoots.filter(g => g.team === selectedTeam)
+    }
+    
+    // Flatten all nodes from filtered groups into a single map
+    const allNodes = new Map<string, OrgUserNode>()
+    
+    // Collect all nodes recursively
+    const collectNodes = (node: OrgUserNode) => {
+      if (!allNodes.has(node.id)) {
+        allNodes.set(node.id, { ...node, children: [] })
+      }
+      node.children.forEach(child => collectNodes(child))
+    }
+    
+    groupsToUse.forEach(group => {
+      group.nodes.forEach(root => collectNodes(root))
+    })
+    
+    // Build unified hierarchy based on managerName relationships
+    const nodeMap = new Map<string, OrgUserNode>()
+    const treeRoots: OrgUserNode[] = []
+    
+    // Create fresh nodes with empty children
+    allNodes.forEach((node, id) => {
+      nodeMap.set(id, { ...node, children: [] })
+    })
+    
+    // Build parent-child relationships based on managerName
+    allNodes.forEach((node, id) => {
+      const unifiedNode = nodeMap.get(id)!
+      
+      if (node.managerName) {
+        // Find manager by name (only if manager is also in our filtered set)
+        const manager = Array.from(nodeMap.values()).find(n => 
+          n.name === node.managerName && n.id !== id
+        )
+        
+        if (manager) {
+          // Add to manager's children
+          manager.children.push(unifiedNode)
+        } else {
+          // Manager not found in filtered dataset, treat as root
+          treeRoots.push(unifiedNode)
+        }
+      } else {
+        // No manager, it's a root
+        treeRoots.push(unifiedNode)
+      }
+    })
+    
+    // Remove nodes from roots that are already children of someone
+    const childIds = new Set<string>()
+    const markChildren = (node: OrgUserNode) => {
+      node.children.forEach(child => {
+        childIds.add(child.id)
+        markChildren(child)
+      })
+    }
+    treeRoots.forEach(root => markChildren(root))
+    
+    // Filter out roots that are actually children
+    const finalRoots = treeRoots.filter(root => !childIds.has(root.id))
+    
+    return finalRoots.length > 0 ? finalRoots : (roots ?? [])
+  }, [groupedRoots, roots, selectedTeam])
   
   const rootsToRender = groupedRoots?.flatMap((g) => g.nodes) ?? roots ?? []
   if (!rootsToRender.length) return <div className="text-surface-500 text-sm">No org data available</div>
@@ -682,35 +860,60 @@ export function OrgChartView({ roots, groupedRoots, canEdit = false }: OrgChartV
           </div>
         )}
 
-        {/* Tree View */}
+        {/* Tree View - Unified Company Hierarchy */}
         {viewMode === 'tree' && (
-          <div className="space-y-6">
-            {filteredGroupedRoots.map((group) => {
-              const TeamIcon = getTeamIcon(group.team)
-              const managers = group.nodes.filter(n => n.children.length > 0)
-              
-              return (
-                <div key={group.team} className="card p-6 bg-surface-900/50 border-surface-700">
-                  <div className="flex items-center gap-4 mb-6 pb-4 border-b border-surface-700">
-                    <div className="p-3 rounded-lg bg-brand-500/20 border border-brand-500/30">
-                      <TeamIcon className="w-6 h-6 text-brand-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-white">{group.team}</h2>
-                      <p className="text-sm text-surface-400 mt-0.5">
-                        {group.nodes.length} {group.nodes.length === 1 ? 'member' : 'members'}
-                      </p>
-                    </div>
-                  </div>
+          <div className="card p-6 bg-surface-900/50 border-surface-700">
+            <div className="flex items-center gap-4 mb-6 pb-4 border-b border-surface-700">
+              <div className="p-3 rounded-lg bg-brand-500/20 border border-brand-500/30">
+                <Users className="w-6 h-6 text-brand-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  {selectedTeam !== 'all' ? `${selectedTeam} Hierarchy` : 'Company Hierarchy'}
+                </h2>
+                <p className="text-sm text-surface-400 mt-0.5">
+                  {selectedTeam !== 'all' 
+                    ? `Organizational structure for ${selectedTeam}`
+                    : 'Full organizational structure'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              {unifiedTreeRoots
+                .filter(root => {
+                  // Filter by search query (TreeNode component also handles this internally)
+                  if (!searchQuery) return true
+                  const query = searchQuery.toLowerCase()
+                  const matches = root.name.toLowerCase().includes(query) ||
+                    root.jobTitle?.toLowerCase().includes(query) ||
+                    root.team?.toLowerCase().includes(query)
                   
-                  <div className="space-y-4">
-                    {group.nodes.map((root) => (
-                      <TreeNode key={root.id} node={root} searchQuery={searchQuery} />
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+                  // Also include if any children match (recursively)
+                  const hasMatchingDescendant = (node: OrgUserNode): boolean => {
+                    if (node.name.toLowerCase().includes(query) ||
+                        node.jobTitle?.toLowerCase().includes(query) ||
+                        node.team?.toLowerCase().includes(query)) {
+                      return true
+                    }
+                    return node.children.some(child => hasMatchingDescendant(child))
+                  }
+                  
+                  return matches || hasMatchingDescendant(root)
+                })
+                .map((root, index, array) => {
+                  const isLast = index === array.length - 1
+                  return (
+                    <TreeNode 
+                      key={root.id} 
+                      node={root} 
+                      searchQuery={searchQuery}
+                      isLast={isLast}
+                      parentIsLast={[]}
+                    />
+                  )
+                })}
+            </div>
           </div>
         )}
 
@@ -718,8 +921,16 @@ export function OrgChartView({ roots, groupedRoots, canEdit = false }: OrgChartV
         {viewMode === 'cards' && (
           <div className="space-y-6">
             {filteredGroupedRoots.map((group) => {
-              // Find managers (only those with children - actual managers)
-              const managers = group.nodes.filter(n => n.children.length > 0)
+              // Find managers: those with children OR those with manager job titles
+              const managers = group.nodes.filter(n => {
+                const hasChildren = n.children.length > 0
+                const isManagerByTitle = n.jobTitle?.toLowerCase().includes('manager') || 
+                                       n.jobTitle?.toLowerCase().includes('director') ||
+                                       ['ceo', 'cto', 'coo', 'cfo', 'cpo'].some(title => 
+                                         n.jobTitle?.toLowerCase().includes(title)
+                                       )
+                return hasChildren || isManagerByTitle
+              })
               const teamMembers = group.nodes.filter(n => !managers.includes(n))
 
               const TeamIcon = getTeamIcon(group.team)

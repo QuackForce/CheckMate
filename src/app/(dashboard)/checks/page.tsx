@@ -25,10 +25,6 @@ export default async function ChecksPage() {
     <>
       <Header 
         title="Infrastructure Checks"
-        subtitle={stats.total > 0 
-          ? `${stats.overdue} overdue, ${stats.inProgress} in progress`
-          : 'Manage your infrastructure checks'
-        }
         action={{ label: 'New Check', href: '/checks/new' }}
       />
 

@@ -7,7 +7,6 @@ export default function SchedulePage() {
     <>
       <Header 
         title="Schedule"
-        subtitle="Plan and manage infrastructure check schedules"
         action={{ label: 'Schedule Check', href: '/checks/new' }}
       />
 

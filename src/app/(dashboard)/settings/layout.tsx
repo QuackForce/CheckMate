@@ -10,7 +10,6 @@ export default function SettingsLayout({
     <>
       <Header
         title="Settings"
-        subtitle="Configure systems, integrations, and application settings"
       />
 
       <div className="flex-1 p-6 overflow-y-auto">

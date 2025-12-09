@@ -10,7 +10,6 @@ export default function ProfileLayout({
     <>
       <Header
         title="Profile Settings"
-        subtitle="Your personal preferences and integrations"
       />
 
       <div className="flex-1 p-6 overflow-y-auto">
