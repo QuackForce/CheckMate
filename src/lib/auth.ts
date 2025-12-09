@@ -95,16 +95,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
           }
 
-          // Ensure user exists and has proper setup
-          // The PrismaAdapter should handle account linking, but we'll ensure the user is ready
+          // Ensure user exists and account is linked
+          // The PrismaAdapter should handle this, but we'll ensure it works
           try {
-            const existingUser = await db.user.findUnique({
-              where: { email: user.email },
-              select: { id: true, role: true, email: true, name: true, image: true },
+            // Normalize email for matching (lowercase, trim)
+            const normalizedEmail = user.email?.toLowerCase().trim()
+            
+            const existingUser = await db.user.findFirst({
+              where: {
+                email: {
+                  equals: normalizedEmail,
+                  mode: 'insensitive',
+                },
+              },
+              include: {
+                accounts: {
+                  where: { provider: 'google' },
+                  select: { id: true },
+                },
+              },
             })
 
             if (existingUser) {
               console.log(`[Auth] Found existing user ${existingUser.id} for ${user.email}`)
+              
+              // Ensure email matches exactly (case-sensitive match for PrismaAdapter)
+              if (existingUser.email?.toLowerCase() !== normalizedEmail) {
+                console.log(`[Auth] Updating email to match Google's: ${normalizedEmail}`)
+                await db.user.update({
+                  where: { id: existingUser.id },
+                  data: { email: normalizedEmail },
+                })
+              }
+              
+              // Check if Google account is already linked
+              if (existingUser.accounts.length === 0 && account) {
+                console.log(`[Auth] ⚠️ User exists but no Google account linked`)
+                console.log(`[Auth] PrismaAdapter should automatically link by email match`)
+              } else {
+                console.log(`[Auth] ✅ Google account already linked`)
+              }
               
               // Ensure role is set
               if (!existingUser.role) {
@@ -125,7 +155,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 },
               })
 
-              console.log(`[Auth] User ${existingUser.id} is ready - PrismaAdapter will link the account`)
+              console.log(`[Auth] User ${existingUser.id} is ready - PrismaAdapter will link account`)
             } else {
               console.log(`[Auth] No existing user found for ${user.email} - PrismaAdapter will create new user`)
             }

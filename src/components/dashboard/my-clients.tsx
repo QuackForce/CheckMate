@@ -5,6 +5,24 @@ import Link from 'next/link'
 import { Building2, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+function ClientLogo({ websiteUrl }: { websiteUrl: string | null }) {
+  const [logoError, setLogoError] = useState(false)
+  const logoUrl = getLogoUrl(websiteUrl)
+
+  if (!logoUrl || logoError) {
+    return <Building2 className="w-4 h-4 text-surface-500" />
+  }
+
+  return (
+    <img
+      src={logoUrl}
+      alt=""
+      className="w-6 h-6 object-contain"
+      onError={() => setLogoError(true)}
+    />
+  )
+}
+
 interface Client {
   id: string
   name: string
@@ -16,7 +34,8 @@ function getLogoUrl(websiteUrl: string | null): string | null {
   if (!websiteUrl) return null
   try {
     const url = new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`)
-    return `https://logo.clearbit.com/${url.hostname}`
+    // Use Google's favicon service (more reliable than Clearbit)
+    return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=128`
   } catch {
     return null
   }
@@ -75,26 +94,14 @@ export function MyClients() {
 
       <div className="divide-y divide-surface-700/50 max-h-72 overflow-y-auto">
         {clients.slice(0, 8).map((client) => {
-          const logoUrl = getLogoUrl(client.websiteUrl)
           return (
             <Link
               key={client.id}
               href={`/clients/${client.id}`}
               className="flex items-center gap-3 p-3 hover:bg-surface-800/40 transition-colors"
             >
-              <div className="w-8 h-8 rounded-lg bg-surface-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt=""
-                    className="w-6 h-6 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <Building2 className="w-4 h-4 text-surface-500" />
-                )}
+              <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <ClientLogo websiteUrl={client.websiteUrl} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{client.name}</p>
