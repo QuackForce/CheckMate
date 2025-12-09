@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Combobox } from '@/components/ui/combobox'
+import { SearchInput } from '@/components/ui/search-input'
 
 interface SystemCheckItem {
   id: string
@@ -96,6 +97,7 @@ export default function SystemsSettingsPage() {
   const [showEditSystemModal, setShowEditSystemModal] = useState<System | null>(null)
   const [showNewItemModal, setShowNewItemModal] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Form state for new system
   const [newSystem, setNewSystem] = useState({
@@ -229,8 +231,23 @@ export default function SystemsSettingsPage() {
     setShowEditSystemModal(system)
   }
 
+  // Filter systems based on search query
+  const filteredSystems = searchQuery
+    ? systems.filter((system) => {
+        const query = searchQuery.toLowerCase()
+        const matchesName = system.name.toLowerCase().includes(query)
+        const matchesDescription = system.description?.toLowerCase().includes(query) || false
+        const matchesCheckItems = system.checkItems.some(
+          (item) =>
+            item.text.toLowerCase().includes(query) ||
+            item.description?.toLowerCase().includes(query)
+        )
+        return matchesName || matchesDescription || matchesCheckItems
+      })
+    : systems
+
   // Group systems by category
-  const groupedSystems = systems.reduce((acc, system) => {
+  const groupedSystems = filteredSystems.reduce((acc, system) => {
     if (!acc[system.category]) acc[system.category] = []
     acc[system.category].push(system)
     return acc
@@ -270,20 +287,28 @@ export default function SystemsSettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1">
           <h2 className="text-xl font-semibold text-white">Systems Database</h2>
           <p className="text-sm text-surface-400 mt-1">
-            {systems.length} systems with {systems.reduce((acc, s) => acc + s.checkItems.length, 0)} total check items
+            {filteredSystems.length} {searchQuery ? 'matching' : ''} systems with {filteredSystems.reduce((acc, s) => acc + s.checkItems.length, 0)} total check items
           </p>
         </div>
-        <button
-          onClick={() => setShowNewSystemModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add System
-        </button>
+        <div className="flex items-center gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search systems..."
+            className="w-64"
+          />
+          <button
+            onClick={() => setShowNewSystemModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add System
+          </button>
+        </div>
       </div>
 
       {/* Systems by Category */}

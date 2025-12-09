@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
+import { SearchInput } from '@/components/ui/search-input'
 
 interface Framework {
   id: string
@@ -68,6 +69,7 @@ export default function FrameworksSettingsPage() {
   const [editingFramework, setEditingFramework] = useState<Framework | null>(null)
   const [saving, setSaving] = useState(false)
   const [seeding, setSeeding] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Form state
   const [formData, setFormData] = useState({
@@ -209,8 +211,18 @@ export default function FrameworksSettingsPage() {
     setEditingFramework(framework)
   }
 
+  // Filter frameworks based on search query
+  const filteredFrameworks = searchQuery
+    ? frameworks.filter((framework) => {
+        const query = searchQuery.toLowerCase()
+        const matchesName = framework.name.toLowerCase().includes(query)
+        const matchesDescription = framework.description?.toLowerCase().includes(query) || false
+        return matchesName || matchesDescription
+      })
+    : frameworks
+
   // Group frameworks by category
-  const groupedFrameworks = frameworks.reduce((acc, framework) => {
+  const groupedFrameworks = filteredFrameworks.reduce((acc, framework) => {
     const cat = framework.category
     if (!acc[cat]) acc[cat] = []
     acc[cat].push(framework)
@@ -233,14 +245,20 @@ export default function FrameworksSettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1">
           <h2 className="text-xl font-semibold text-white">Compliance Frameworks</h2>
           <p className="text-sm text-surface-400 mt-1">
-            Manage compliance frameworks that can be assigned to clients
+            {filteredFrameworks.length} {searchQuery ? 'matching' : ''} frameworks
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search frameworks..."
+            className="w-64"
+          />
           {frameworks.length === 0 && (
             <button
               onClick={handleSeedFrameworks}

@@ -240,14 +240,22 @@ export function ClientsTableWrapper() {
                     <td className="table-cell">
                       <div className="flex items-center gap-3">
                         {getLogoUrl(client.websiteUrl) ? (
-                          <img 
-                            src={getLogoUrl(client.websiteUrl)!} 
-                            alt=""
-                            className="w-10 h-10 rounded-lg bg-white p-1.5 object-contain flex-shrink-0"
-                            onError={(e) => {
-                              e.currentTarget.outerHTML = '<div class="w-10 h-10 rounded-lg bg-surface-700/50 flex items-center justify-center flex-shrink-0"><svg class="w-5 h-5 text-surface-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></div>'
-                            }}
-                          />
+                          <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center flex-shrink-0">
+                            <img 
+                              src={getLogoUrl(client.websiteUrl)!} 
+                              alt=""
+                              className="w-full h-full object-contain"
+                              loading="lazy"
+                              onError={(e) => {
+                                // Silently handle errors (ad blockers, network issues, etc.)
+                                e.currentTarget.style.display = 'none'
+                                const parent = e.currentTarget.parentElement
+                                if (parent) {
+                                  parent.innerHTML = '<svg class="w-5 h-5 text-surface-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
+                                }
+                              }}
+                            />
+                          </div>
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-surface-700/50 flex items-center justify-center flex-shrink-0">
                             <Building2 className="w-5 h-5 text-surface-400" />

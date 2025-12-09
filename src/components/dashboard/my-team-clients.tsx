@@ -43,10 +43,9 @@ function getLogoUrl(websiteUrl: string | null): string | null {
 }
 
 function ClientLogo({ websiteUrl }: { websiteUrl: string | null }) {
-  const [logoError, setLogoError] = useState(false)
   const logoUrl = getLogoUrl(websiteUrl)
 
-  if (!logoUrl || logoError) {
+  if (!logoUrl) {
     return <Building2 className="w-4 h-4 text-surface-500" />
   }
 
@@ -54,8 +53,16 @@ function ClientLogo({ websiteUrl }: { websiteUrl: string | null }) {
     <img
       src={logoUrl}
       alt=""
-      className="w-6 h-6 object-contain"
-      onError={() => setLogoError(true)}
+      className="w-full h-full object-contain"
+      loading="lazy"
+      onError={(e) => {
+        // Replace with fallback icon on error
+        e.currentTarget.style.display = 'none'
+        const parent = e.currentTarget.parentElement
+        if (parent) {
+          parent.innerHTML = '<svg class="w-4 h-4 text-surface-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
+        }
+      }}
     />
   )
 }
@@ -192,7 +199,7 @@ export function MyTeamClients() {
               href={`/clients/${client.id}`}
               className="flex items-center gap-3 p-3 hover:bg-surface-800/50 transition-colors"
             >
-              <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center flex-shrink-0">
                 <ClientLogo websiteUrl={client.websiteUrl} />
               </div>
 
