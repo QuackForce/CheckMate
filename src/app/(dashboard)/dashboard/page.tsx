@@ -396,9 +396,12 @@ export default async function DashboardPage() {
   const canEdit = hasAnyPermission(role, ['checks:view_all', 'checks:view_own'])
   const canSeeOwnClients = hasAnyPermission(role, ['clients:view_all', 'clients:view_own'])
   const canSeeTeamClients = hasPermission(role, 'team:view')
+  
+  // Only ADMIN and IT_MANAGER can see "My Team" view (managers only)
+  const canViewTeam = role === 'ADMIN' || role === 'IT_MANAGER'
 
   // Determine if user is a manager (for team view filtering)
-  const isManager = canSeeTeamClients
+  const isManager = canViewTeam
 
   const dashboardData = await getDashboardData(userId, isManager)
   
@@ -419,7 +422,7 @@ export default async function DashboardPage() {
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
         <DashboardTabs 
-          canViewTeam={canSeeTeamClients}
+          canViewTeam={canViewTeam}
           canSeeOwnClients={canSeeOwnClients}
           myWorkData={myWork}
           myTeamData={myTeam}
