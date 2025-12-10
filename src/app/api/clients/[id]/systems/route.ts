@@ -121,6 +121,3 @@ export async function DELETE(
   }
 }
 
-
-
-
