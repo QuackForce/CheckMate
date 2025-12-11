@@ -148,9 +148,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Get return URL from cookie (where user was before OAuth)
-    const returnTo = request.cookies.get('harvest_oauth_return_to')?.value || '/team'
+    const returnToCookie = request.cookies.get('harvest_oauth_return_to')?.value
+    // Decode the return URL if it was encoded
+    const returnTo = returnToCookie ? decodeURIComponent(returnToCookie) : '/team'
     
-    const redirectUrl = new URL(returnTo, request.url)
+    // Ensure returnTo is a valid path (starts with /)
+    const returnPath = returnTo.startsWith('/') ? returnTo : `/${returnTo}`
+    
+    const redirectUrl = new URL(returnPath, request.url)
     redirectUrl.searchParams.set('harvest_connected', 'success')
     
     const response = NextResponse.redirect(redirectUrl.toString())

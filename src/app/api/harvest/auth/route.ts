@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
   const state = crypto.randomUUID()
   
   // Get return URL from query params (where to redirect after OAuth)
-  const returnTo = request.nextUrl.searchParams.get('returnTo') || '/team'
+  // Decode if already encoded, or use as-is
+  const returnToParam = request.nextUrl.searchParams.get('returnTo')
+  const returnTo = returnToParam ? decodeURIComponent(returnToParam) : '/team'
 
   // Build OAuth URL with proper encoding
   // Note: Harvest may use account-specific scopes (e.g., harvest:ACCOUNT_ID)
