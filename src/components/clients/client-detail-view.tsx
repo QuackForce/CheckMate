@@ -529,10 +529,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                             <img
                               src={avatarImage}
                               alt={assignee}
-                              className={cn(
-                                'w-10 h-10 rounded-full object-cover border-2',
-                                isOverride ? 'border-amber-500' : 'border-brand-500'
-                              )}
+                              className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
                             <div

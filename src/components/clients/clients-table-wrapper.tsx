@@ -436,10 +436,7 @@ export function ClientsTableWrapper() {
                                   <img
                                     src={avatarImage}
                                     alt={assignee}
-                                    className={cn(
-                                      'w-7 h-7 rounded-full object-cover border',
-                                      isOverride ? 'border-amber-500' : 'border-brand-500'
-                                    )}
+                                    className="w-7 h-7 rounded-full object-cover"
                                     title={isOverride ? `${assignee} (override)` : assignee}
                                   />
                                 ) : (

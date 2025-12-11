@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { withCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,12 +34,19 @@ export async function GET() {
 
   const { jobTitle, team } = currentUser
 
-  // Determine manager type and fetch appropriate clients
-  let clients: any[] = []
-  let managerType: string | null = null
-  let teamMembers: any[] = []
+  // Generate cache key for this user's team clients
+  const cacheKey = CACHE_KEYS.teamClients(session.user.id)
 
-  if (jobTitle === 'SE Manager') {
+  // Use cache wrapper - fetches from cache or database
+  const result = await withCache(
+    cacheKey,
+    async () => {
+      // Determine manager type and fetch appropriate clients
+      let clients: any[] = []
+      let managerType: string | null = null
+      let teamMembers: any[] = []
+
+      if (jobTitle === 'SE Manager') {
     managerType = 'SE Manager'
     teamMembers = await db.user.findMany({
       where: {
@@ -111,15 +119,20 @@ export async function GET() {
       },
       orderBy: { name: 'asc' },
     })
-  }
+      }
 
-  return NextResponse.json({
-    managerType,
-    team: team?.split(',')[0].trim() || null,
-    teamMemberCount: teamMembers.length,
-    teamMembers: teamMembers.slice(0, 10),
-    clientCount: clients.length,
-    clients: clients.slice(0, 20),
-  })
+      return {
+        managerType,
+        team: team?.split(',')[0].trim() || null,
+        teamMemberCount: teamMembers.length,
+        teamMembers: teamMembers.slice(0, 10),
+        clientCount: clients.length,
+        clients: clients.slice(0, 20),
+      }
+    },
+    CACHE_TTL.team
+  )
+
+  return NextResponse.json(result)
 }
 

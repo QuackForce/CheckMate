@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit';
+import { withCache, CACHE_KEYS, CACHE_TTL, generateCacheKey, invalidateClientCache } from '@/lib/cache';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -105,107 +106,131 @@ export async function GET(request: NextRequest) {
     }
   }
   
+  // Generate cache key from query parameters
+  const cacheKey = CACHE_KEYS.clients(
+    generateCacheKey('list', {
+      status: status || 'all',
+      team: team || 'all',
+      priority: priority || 'all',
+      search: search || '',
+      page: page.toString(),
+      limit: limit.toString(),
+      assignee: assignee || '',
+      managerTeam: managerTeam || '',
+      userId: session?.user?.id || '',
+    })
+  )
+  
   try {
-    // Get total count
-    const total = await db.client.count({ where });
-    
-    // Get clients
-    const clients = await db.client.findMany({
-      where,
-      include: {
-        primaryEngineer: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        secondaryEngineer: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        clientSystems: {
-          where: { isActive: true },
+    // Use cache wrapper - fetches from cache or database
+    const result = await withCache(
+      cacheKey,
+      async () => {
+        // Get total count
+        const total = await db.client.count({ where });
+        
+        // Get clients
+        const clients = await db.client.findMany({
+          where,
           include: {
-            system: {
-              select: { id: true, name: true, category: true },
+            primaryEngineer: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+            secondaryEngineer: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+            clientSystems: {
+              where: { isActive: true },
+              include: {
+                system: {
+                  select: { id: true, name: true, category: true },
+                },
+              },
             },
           },
-        },
-      },
-      orderBy: { name: 'asc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    
-    // Fetch all users once (instead of querying for each client - N+1 problem fix)
-    const allUsers = await db.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-      },
-    })
-    
-    // Create a lookup map for fast in-memory matching
-    const userMap = new Map<string, typeof allUsers[0]>()
-    allUsers.forEach(user => {
-      if (user.name) {
-        const normalizedName = user.name.toLowerCase().trim()
-        // Store both exact and lowercase versions for fast lookup
-        userMap.set(normalizedName, user)
-        // Also store by first word for partial matches
-        const firstName = normalizedName.split(' ')[0]
-        if (firstName && firstName.length > 2) {
-          if (!userMap.has(firstName)) {
-            userMap.set(firstName, user)
+          orderBy: { name: 'asc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        });
+        
+        // Fetch all users once (instead of querying for each client - N+1 problem fix)
+        const allUsers = await db.user.findMany({
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        })
+        
+        // Create a lookup map for fast in-memory matching
+        const userMap = new Map<string, typeof allUsers[0]>()
+        allUsers.forEach(user => {
+          if (user.name) {
+            const normalizedName = user.name.toLowerCase().trim()
+            // Store both exact and lowercase versions for fast lookup
+            userMap.set(normalizedName, user)
+            // Also store by first word for partial matches
+            const firstName = normalizedName.split(' ')[0]
+            if (firstName && firstName.length > 2) {
+              if (!userMap.has(firstName)) {
+                userMap.set(firstName, user)
+              }
+            }
           }
-        }
-      }
-    })
-    
-    // Look up infraCheckAssigneeUser for each client (now using in-memory lookup)
-    const clientsWithAssignee = clients.map((client) => {
-      let infraCheckAssigneeUser = null
-      const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
-      
-      if (assigneeName) {
-        const normalizedAssigneeName = assigneeName.toLowerCase()
+        })
         
-        // First try exact match
-        let user = userMap.get(normalizedAssigneeName)
-        
-        // If no exact match, try first word match
-        if (!user) {
-          const firstName = normalizedAssigneeName.split(' ')[0]
-          if (firstName && firstName.length > 2) {
-            user = userMap.get(firstName)
+        // Look up infraCheckAssigneeUser for each client (now using in-memory lookup)
+        const clientsWithAssignee = clients.map((client) => {
+          let infraCheckAssigneeUser = null
+          const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
+          
+          if (assigneeName) {
+            const normalizedAssigneeName = assigneeName.toLowerCase()
+            
+            // First try exact match
+            let user = userMap.get(normalizedAssigneeName)
+            
+            // If no exact match, try first word match
+            if (!user) {
+              const firstName = normalizedAssigneeName.split(' ')[0]
+              if (firstName && firstName.length > 2) {
+                user = userMap.get(firstName)
+              }
+            }
+            
+            // If still no match, try contains search (but only if name is long enough)
+            if (!user && assigneeName.length > 3) {
+              user = allUsers.find(u => {
+                const userName = u.name?.toLowerCase() || ''
+                return userName.includes(normalizedAssigneeName) || 
+                       userName.startsWith(normalizedAssigneeName)
+              })
+            }
+            
+            infraCheckAssigneeUser = user ?? null
           }
-        }
+          
+          return {
+            ...client,
+            infraCheckAssigneeUser,
+          }
+        })
         
-        // If still no match, try contains search (but only if name is long enough)
-        if (!user && assigneeName.length > 3) {
-          user = allUsers.find(u => {
-            const userName = u.name?.toLowerCase() || ''
-            return userName.includes(normalizedAssigneeName) || 
-                   userName.startsWith(normalizedAssigneeName)
-          })
-        }
-        
-        infraCheckAssigneeUser = user ?? null
-      }
-      
-      return {
-        ...client,
-        infraCheckAssigneeUser,
-      }
-    })
-    
-    return NextResponse.json({
-      clients: clientsWithAssignee,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        return {
+          clients: clientsWithAssignee,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
       },
-    });
+      CACHE_TTL.clients
+    );
+    
+    return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message },
@@ -295,6 +320,9 @@ export async function POST(request: NextRequest) {
         console.error('Failed to lookup trust center:', error)
       }
     }
+
+    // Invalidate client cache when a new client is created
+    await invalidateClientCache()
 
     return NextResponse.json({
       success: true,

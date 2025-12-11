@@ -4,22 +4,27 @@ import { TeamStats } from '@/components/team/team-stats'
 import { TeamActions } from '@/components/team/team-actions'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { withCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 
 async function getTeamData() {
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
+  // Use cache wrapper - fetches from cache or database
+  return await withCache(
+    CACHE_KEYS.team(),
+    async () => {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
 
-  // Fetch all data in parallel (5 queries instead of 192!)
-  const [
-    users,
-    overdueByUser,
-    completedByUser,
-    clientsByPrimary,
-    clientsBySecondary,
-    clientsBySystemEngineer,
-    clientsByGrcEngineer,
-  ] = await Promise.all([
+      // Fetch all data in parallel (5 queries instead of 192!)
+      const [
+        users,
+        overdueByUser,
+        completedByUser,
+        clientsByPrimary,
+        clientsBySecondary,
+        clientsBySystemEngineer,
+        clientsByGrcEngineer,
+      ] = await Promise.all([
     // Get all users with manager relationship
     db.user.findMany({
       orderBy: { createdAt: 'asc' },
@@ -122,7 +127,10 @@ async function getTeamData() {
     }
   })
 
-  return teamWithStats
+      return teamWithStats
+    },
+    CACHE_TTL.team
+  )
 }
 
 export default async function TeamPage() {

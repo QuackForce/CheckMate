@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireEngineer, requireAdmin } from '@/lib/auth-utils'
+import { withCache, CACHE_KEYS, CACHE_TTL, invalidateClientCache } from '@/lib/cache'
 
 // GET /api/clients/[id] - Get a single client
 // Force dynamic rendering for this route
@@ -11,29 +12,37 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const client = await db.client.findUnique({
-      where: { id: params.id },
-      include: {
-        primaryEngineer: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        secondaryEngineer: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        clientSystems: {
-          where: { isActive: true },
+    const cacheKey = CACHE_KEYS.client(params.id)
+    
+    const client = await withCache(
+      cacheKey,
+      async () => {
+        return await db.client.findUnique({
+          where: { id: params.id },
           include: {
-            system: {
-              select: { id: true, name: true, category: true },
+            primaryEngineer: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+            secondaryEngineer: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+            clientSystems: {
+              where: { isActive: true },
+              include: {
+                system: {
+                  select: { id: true, name: true, category: true },
+                },
+              },
+            },
+            checks: {
+              take: 5,
+              orderBy: { scheduledDate: 'desc' },
             },
           },
-        },
-        checks: {
-          take: 5,
-          orderBy: { scheduledDate: 'desc' },
-        },
+        })
       },
-    })
+      CACHE_TTL.client
+    )
 
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -147,6 +156,9 @@ export async function PATCH(
       }
     }
 
+    // Invalidate cache when client is updated
+    await invalidateClientCache(params.id)
+
     return NextResponse.json(client)
   } catch (error: any) {
     console.error('Error updating client:', error)
@@ -168,6 +180,9 @@ export async function DELETE(
     await db.client.delete({
       where: { id: params.id },
     })
+
+    // Invalidate cache when client is deleted
+    await invalidateClientCache(params.id)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
