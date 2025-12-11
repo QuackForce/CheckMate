@@ -6,9 +6,6 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Clock,
-  Play,
-  Pause,
-  Square,
   MessageSquare,
   Save,
   Check,
@@ -30,7 +27,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { SiSlack, SiGooglecalendar } from 'react-icons/si'
-import { cn, formatTimerDisplay, getCadenceLabel } from '@/lib/utils'
+import { cn, getCadenceLabel } from '@/lib/utils'
 import { toast } from 'sonner'
 import { DatePicker } from '@/components/ui/date-picker'
 import { TimePicker } from '@/components/ui/time-picker'
@@ -102,9 +99,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const [expandedCategories, setExpandedCategories] = useState<string[]>(
     check.categories.map((c) => c.id)
   )
-  const [timerRunning, setTimerRunning] = useState(false)
-  const [timerPaused, setTimerPaused] = useState(false)
-  const [timerSeconds, setTimerSeconds] = useState(check.totalTimeSeconds)
   const [showSlackPreview, setShowSlackPreview] = useState(false)
   const [showHarvestPicker, setShowHarvestPicker] = useState(false)
   const [harvestConnected, setHarvestConnected] = useState(false)
@@ -126,10 +120,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     `Infra Check - ${check.client.name} - ${new Date().toLocaleDateString()}`
   )
   const [savingHarvest, setSavingHarvest] = useState(false)
-  const [harvestTimerId, setHarvestTimerId] = useState<number | null>(null) // ID of the running/paused Harvest timer
-  
-  // Log time mode (vs timer mode)
-  const [harvestMode, setHarvestMode] = useState<'timer' | 'log'>('timer')
   const [harvestLogHours, setHarvestLogHours] = useState(0)
   const [harvestLogMinutes, setHarvestLogMinutes] = useState(30)
   const [harvestLogDate, setHarvestLogDate] = useState(getLocalDateString())
@@ -199,7 +189,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     }
   }
 
-  // Check if user has Harvest connected and if there's a running timer
+  // Check if user has Harvest connected
   useEffect(() => {
     const checkHarvestConnection = async () => {
       try {
@@ -225,9 +215,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             setSelectedHarvestProjectId(matchedProject.id.toString())
             setHarvestProjectSearch(matchedProject.name)
           }
-          
-          // Note: Harvest's /running endpoint is unreliable, so we don't check for running timers
-          // Timer state is managed entirely locally and synced to Harvest on user actions
           
           // Check if we just connected (redirected back from OAuth)
           const urlParams = new URLSearchParams(window.location.search)
@@ -268,20 +255,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   }, [])
 
   // Projects are already loaded from the clients endpoint (which returns projects)
-
-  // Timer effect - increments local timer (only when running, not paused)
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (timerRunning && !timerPaused) {
-      interval = setInterval(() => {
-        setTimerSeconds((s) => s + 1)
-      }, 1000)
-    }
-    return () => clearInterval(interval)
-  }, [timerRunning, timerPaused])
-
-  // NOTE: Bidirectional polling disabled - timer is controlled locally and syncs to Harvest on user actions
-  // The Harvest timer will run independently, and when the user stops here, it stops in Harvest too
 
   // Calculate progress
   const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0)
@@ -406,134 +379,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     return taskName.includes(searchLower)
   })
 
-  // Start Harvest timer (new timer or resume paused)
-  const startHarvestTimer = async (resume: boolean = false) => {
-    // If resuming from pause, just resume locally (Harvest timer is still running)
-    if (resume && harvestTimerId) {
-      setTimerRunning(true)
-      setTimerPaused(false)
-      toast.success('Timer resumed!', {
-        description: 'Time will be logged when you stop',
-      })
-      return
-    }
-
-    // Starting a new timer - need project and task
-    if (!selectedHarvestProjectId) {
-      toast.error('Please select a Harvest project')
-      return
-    }
-
-    if (!selectedHarvestTaskId) {
-      toast.error('Please select a Harvest task')
-      return
-    }
-
-    try {
-      // Get the current page URL to include in Harvest timer
-      const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
-      
-      const res = await fetch('/api/harvest/timer/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId: selectedHarvestProjectId,
-          taskId: selectedHarvestTaskId,
-          notes: harvestNotes,
-          externalReference: currentUrl,
-        }),
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to start Harvest timer')
-      }
-
-      const timeEntry = await res.json()
-      setHarvestTimerId(timeEntry.id)
-      setTimerRunning(true)
-      setTimerPaused(false)
-      setTimerSeconds(0) // Reset timer when starting new
-      toast.success('Harvest timer started!', {
-        description: 'Timer is now live in Harvest',
-      })
-    } catch (error: any) {
-      toast.error('Failed to start Harvest timer', {
-        description: error.message,
-      })
-      throw error
-    }
-  }
-
-  // Pause timer (local only - Harvest doesn't support pause/resume)
-  const pauseHarvestTimer = async () => {
-    // Just pause locally - Harvest timer continues but we track time locally
-    setTimerPaused(true)
-    setTimerRunning(false)
-    toast.success('Timer paused', {
-      description: 'Resume when ready - time will be logged when you stop',
-    })
-  }
-
-  // Stop Harvest timer (stop in Harvest, reset local timer to zero)
-  const stopHarvestTimer = async () => {
-    // If no Harvest timer, just reset locally
-    if (!harvestTimerId) {
-      setHarvestTimerId(null)
-      setTimerRunning(false)
-      setTimerPaused(false)
-      setTimerSeconds(0)
-      return
-    }
-
-    setSavingHarvest(true)
-    try {
-      const res = await fetch('/api/harvest/timer/stop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          timerId: harvestTimerId,
-          elapsedSeconds: timerSeconds, // Pass current elapsed time
-        }),
-      })
-
-      const data = await res.json()
-      
-      if (!res.ok) {
-        if (res.status === 404) {
-          setHarvestTimerId(null)
-          setTimerRunning(false)
-          setTimerPaused(false)
-          setTimerSeconds(0)
-          return
-        }
-        throw new Error(data.error || 'Failed to stop Harvest timer')
-      }
-
-      // Timer stopped in Harvest - reset local timer
-      const hours = data.hours || (timerSeconds / 3600)
-      setHarvestTimerId(null)
-      setTimerRunning(false)
-      setTimerPaused(false)
-      setTimerSeconds(0)
-      toast.success('Timer stopped', {
-        description: `${parseFloat(hours).toFixed(2)} hours logged to Harvest`,
-      })
-    } catch (error: any) {
-      // Still reset locally even if Harvest fails
-      setHarvestTimerId(null)
-      setTimerRunning(false)
-      setTimerPaused(false)
-      setTimerSeconds(0)
-      toast.error('Failed to stop in Harvest', {
-        description: error.message,
-      })
-    } finally {
-      setSavingHarvest(false)
-    }
-  }
-
-  // Log time directly to Harvest (no timer)
+  // Log time directly to Harvest
   const logTimeToHarvest = async () => {
     if (!selectedHarvestProjectId) {
       toast.error('Please select a Harvest project')
@@ -594,7 +440,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scheduledDate,
-          totalTimeSeconds: timerSeconds,
+          totalTimeSeconds: check.totalTimeSeconds,
           categories: categories.map(cat => ({
             id: cat.id,
             name: cat.name,
@@ -861,67 +707,21 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                 </button>
               )}
 
-              {/* Timer */}
-              <div className="flex items-center gap-2 bg-surface-800 rounded-xl px-4 py-2">
+              {/* Log Time to Harvest */}
+              <button
+                onClick={() => {
+                  if (!harvestConnected) {
+                    setShowConnectHarvest(true)
+                  } else {
+                    setShowHarvestPicker(true)
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl transition-colors"
+                title="Log time to Harvest"
+              >
                 <Clock className="w-4 h-4 text-surface-400" />
-                <span className="font-mono text-lg text-white min-w-[80px]">
-                  {formatTimerDisplay(timerSeconds)}
-                </span>
-                <div className="flex items-center gap-1 ml-2">
-                  {!timerRunning && !timerPaused ? (
-                    // Stopped - show play button
-                    <button
-                      onClick={async () => {
-                        if (!harvestConnected) {
-                          // Show connect modal
-                          setShowConnectHarvest(true)
-                        } else {
-                          // Show Harvest picker modal - timer will start after project is selected
-                          setShowHarvestPicker(true)
-                        }
-                      }}
-                      className="p-1.5 bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors"
-                      title="Start timer"
-                    >
-                      <Play className="w-4 h-4 text-white" />
-                    </button>
-                  ) : timerPaused ? (
-                    // Paused - show play button to resume
-                    <button
-                      onClick={async () => {
-                        await startHarvestTimer(true) // Resume
-                      }}
-                      className="p-1.5 bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors"
-                      title="Resume timer"
-                      disabled={savingHarvest}
-                    >
-                      <Play className="w-4 h-4 text-white" />
-                    </button>
-                  ) : (
-                    // Running - show pause button
-                    <button
-                      onClick={async () => {
-                        await pauseHarvestTimer()
-                      }}
-                      className="p-1.5 bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors"
-                      title="Pause timer"
-                      disabled={savingHarvest}
-                    >
-                      <Pause className="w-4 h-4 text-white" />
-                    </button>
-                  )}
-                  <button
-                    onClick={async () => {
-                      await stopHarvestTimer()
-                    }}
-                    className="p-1.5 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Stop timer (reset to zero)"
-                    disabled={savingHarvest}
-                  >
-                    <Square className="w-4 h-4 text-surface-300" />
-                  </button>
-                </div>
-              </div>
+                <span className="text-sm text-surface-300">Log Time</span>
+              </button>
 
               {/* Actions */}
               <button
@@ -1146,34 +946,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               </button>
             </div>
             <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
-              {/* Mode Toggle */}
-              <div className="flex gap-2 p-1 bg-surface-800 rounded-lg">
-                <button
-                  onClick={() => setHarvestMode('timer')}
-                  className={cn(
-                    'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
-                    harvestMode === 'timer'
-                      ? 'bg-brand-500 text-white'
-                      : 'text-surface-400 hover:text-white hover:bg-surface-700'
-                  )}
-                >
-                  <Play className="w-4 h-4 inline mr-2" />
-                  Start Timer
-                </button>
-                <button
-                  onClick={() => setHarvestMode('log')}
-                  className={cn(
-                    'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
-                    harvestMode === 'log'
-                      ? 'bg-brand-500 text-white'
-                      : 'text-surface-400 hover:text-white hover:bg-surface-700'
-                  )}
-                >
-                  <Clock className="w-4 h-4 inline mr-2" />
-                  Log Time
-                </button>
-              </div>
-
               {/* Check Info */}
               <div className="p-4 bg-surface-800 rounded-lg">
                 <p className="text-sm text-surface-400 mb-1">Check</p>
@@ -1303,9 +1075,8 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                 />
               </div>
 
-              {/* Time and Date inputs (Log Time mode only) */}
-              {harvestMode === 'log' && (
-                <div className="grid grid-cols-2 gap-4">
+              {/* Time and Date inputs */}
+              <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="label">Time</label>
                     <div className="flex items-center gap-2">
@@ -1343,7 +1114,6 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                     label="Date"
                   />
                 </div>
-              )}
 
             </div>
             
@@ -1358,41 +1128,14 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               >
                 Cancel
               </button>
-              {harvestMode === 'timer' ? (
-                <button
-                  onClick={async () => {
-                    if (!selectedHarvestProjectId) {
-                      toast.error('Please select a Harvest project')
-                      return
-                    }
-                    if (!selectedHarvestTaskId) {
-                      toast.error('Please select a Harvest task')
-                      return
-                    }
-                    try {
-                      await startHarvestTimer(false)
-                      setShowHarvestPicker(false)
-                      setShowProjectDropdown(false)
-                    } catch (error) {
-                      // Error already shown
-                    }
-                  }}
-                  className="btn-primary whitespace-nowrap"
-                  disabled={savingHarvest || !selectedHarvestProjectId || !selectedHarvestTaskId}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Timer
-                </button>
-              ) : (
-                <button
-                  onClick={logTimeToHarvest}
-                  className="btn-primary whitespace-nowrap"
-                  disabled={savingHarvest || !selectedHarvestProjectId || !selectedHarvestTaskId || (harvestLogHours === 0 && harvestLogMinutes === 0)}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Entry
-                </button>
-              )}
+              <button
+                onClick={logTimeToHarvest}
+                className="btn-primary whitespace-nowrap"
+                disabled={savingHarvest || !selectedHarvestProjectId || !selectedHarvestTaskId || (harvestLogHours === 0 && harvestLogMinutes === 0)}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Entry
+              </button>
             </div>
           </div>
         </div>
