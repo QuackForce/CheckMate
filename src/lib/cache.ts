@@ -179,6 +179,12 @@ export async function withCache<T>(
   fetcher: () => Promise<T>,
   ttl: number = CACHE_TTL.default
 ): Promise<T> {
+  // If Redis is not configured, just execute the fetcher directly
+  const client = getRedisClient()
+  if (!client) {
+    return await fetcher()
+  }
+
   // Try to get from cache first
   const cached = await getCache<T>(key)
   if (cached !== null) {
