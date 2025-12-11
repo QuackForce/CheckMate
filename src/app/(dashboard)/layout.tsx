@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { Sidebar } from '@/components/layout/sidebar'
+import { MobileSidebarWrapper } from '@/components/layout/mobile-sidebar-wrapper'
 import { db } from '@/lib/db'
 
 async function getCheckStats() {
@@ -40,15 +40,9 @@ export default async function DashboardLayout({
   const checkStats = await getCheckStats()
 
   return (
-    <div className="flex min-h-screen bg-surface-950">
-      <Sidebar 
-        user={user}
-        stats={checkStats}
-      />
-      <main className="flex-1 flex flex-col min-h-screen">
-        {children}
-      </main>
-    </div>
+    <MobileSidebarWrapper user={user} stats={checkStats}>
+      {children}
+    </MobileSidebarWrapper>
   )
 }
 

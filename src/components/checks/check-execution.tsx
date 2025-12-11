@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -27,7 +27,8 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { SiSlack, SiGooglecalendar } from 'react-icons/si'
-import { cn, getCadenceLabel } from '@/lib/utils'
+import { cn, getCadenceLabel, calculateNextScheduledDate, formatDate } from '@/lib/utils'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 import { toast } from 'sonner'
 import { DatePicker } from '@/components/ui/date-picker'
 import { TimePicker } from '@/components/ui/time-picker'
@@ -56,6 +57,8 @@ interface CheckData {
     name: string
     slackChannelName: string | null
     slackChannelId?: string | null
+    customCadenceDays?: number | null
+    checkCadence?: string | null
   }
   assignedEngineer: {
     id: string
@@ -88,6 +91,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const router = useRouter()
   const [check, setCheck] = useState(initialCheck)
   const [categories, setCategories] = useState(initialCheck.categories)
+  const isCompleted = check.status === 'COMPLETED'
   
   // Track original state for dirty checking
   const originalCategoriesRef = useRef(JSON.stringify(
@@ -129,6 +133,29 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   
   // Check settings/edit
   const [showSettings, setShowSettings] = useState(false)
+  
+  // Schedule next check modal
+  const [showScheduleNextModal, setShowScheduleNextModal] = useState(false)
+  const [schedulingNext, setSchedulingNext] = useState(false)
+  
+  // Reopen check state
+  const [reopening, setReopening] = useState(false)
+  
+  // Calculate next scheduled date for modal
+  const nextCheckInfo = useMemo(() => {
+    if (!showScheduleNextModal) return null
+    const effectiveCadence = check.client.checkCadence || check.cadence
+    const nextDate = calculateNextScheduledDate(
+      new Date(),
+      effectiveCadence,
+      check.client.customCadenceDays
+    )
+    return {
+      effectiveCadence,
+      nextDate,
+      nextDateFormatted: formatDate(nextDate),
+    }
+  }, [showScheduleNextModal, check.client.checkCadence, check.cadence, check.client.customCadenceDays])
   // Format date in local timezone to avoid timezone shifts
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear()
@@ -176,12 +203,25 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   
+  // Prevent body scroll when any modal is open
+  useScrollLock(
+    showSlackPreview ||
+    showHarvestPicker ||
+    showConnectHarvest ||
+    showSettings ||
+    showScheduleNextModal ||
+    showAddItem ||
+    showDeleteModal ||
+    showUnsavedModal
+  )
+  
   // Saving from unsaved modal
   const [savingAndLeaving, setSavingAndLeaving] = useState(false)
   
   // Handle navigation with unsaved changes check
   const handleNavigation = (url: string) => {
-    if (hasUnsavedChanges) {
+    // Don't check for unsaved changes if check is completed (read-only)
+    if (hasUnsavedChanges && !isCompleted) {
       setPendingNavigation(url)
       setShowUnsavedModal(true)
     } else {
@@ -662,6 +702,89 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
 
   return (
     <div className="flex flex-col h-screen">
+      {/* Completed Banner */}
+      {isCompleted && (
+        <div className="bg-brand-500/10 border-b border-brand-500/30 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-brand-400" />
+            <div>
+              <p className="text-sm font-medium text-white">This check is completed and locked</p>
+              <p className="text-xs text-surface-400">All items and notes are read-only. Reopen the check to make changes.</p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              setReopening(true)
+              try {
+                const res = await fetch(`/api/checks/${check.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'IN_PROGRESS' }),
+                })
+                
+                if (!res.ok) {
+                  const errorData = await res.json().catch(() => ({ error: 'Failed to reopen check' }))
+                  throw new Error(errorData.error || `Failed to reopen check (${res.status})`)
+                }
+                
+                const data = await res.json()
+                console.log('Reopen check response:', data) // Debug log
+                
+                // Verify the status was actually updated
+                if (data.check) {
+                  const newStatus = data.check.status || 'IN_PROGRESS'
+                  
+                  // Update check state with the response
+                  setCheck(prev => ({ 
+                    ...prev, 
+                    status: newStatus,
+                    completedAt: data.check.completedAt || null,
+                  }))
+                  
+                  // Verify the update worked
+                  if (newStatus === 'IN_PROGRESS') {
+                    toast.success('Check reopened', {
+                      description: 'You can now edit items and notes',
+                    })
+                    
+                    // Use router refresh to update the page data
+                    router.refresh()
+                  } else {
+                    console.warn('Status update may have failed:', newStatus)
+                    toast.warning('Check may not have reopened', {
+                      description: 'Please refresh the page',
+                    })
+                  }
+                } else {
+                  throw new Error('Invalid response from server')
+                }
+              } catch (error: any) {
+                console.error('Reopen check error:', error)
+                toast.error('Failed to reopen check', { 
+                  description: error.message || 'An error occurred'
+                })
+              } finally {
+                setReopening(false)
+              }
+            }}
+            disabled={reopening}
+            className={cn(
+              "px-4 py-2 text-sm bg-surface-800 hover:bg-surface-700 text-white rounded-lg transition-colors flex items-center gap-2",
+              reopening && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            {reopening ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Reopening...
+              </>
+            ) : (
+              'Reopen Check'
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-surface-950/95 backdrop-blur-xl border-b border-surface-800">
         <div className="px-6 py-4">
@@ -691,8 +814,8 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Save Button - appears when there are unsaved changes */}
-              {hasUnsavedChanges && (
+              {/* Save Button - appears when there are unsaved changes (hidden when completed) */}
+              {hasUnsavedChanges && !isCompleted && (
                 <button
                   onClick={saveCheckProgress}
                   disabled={savingCheck}
@@ -707,47 +830,44 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                 </button>
               )}
 
-              {/* Log Time to Harvest */}
-              <button
-                onClick={() => {
-                  if (!harvestConnected) {
-                    setShowConnectHarvest(true)
-                  } else {
-                    setShowHarvestPicker(true)
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl transition-colors"
-                title="Log time to Harvest"
-              >
-                <Clock className="w-4 h-4 text-surface-400" />
-                <span className="text-sm text-surface-300">Log Time</span>
-              </button>
+              {/* Log Time to Harvest (disabled when completed) */}
+              {!isCompleted && (
+                <button
+                  onClick={() => {
+                    if (!harvestConnected) {
+                      setShowConnectHarvest(true)
+                    } else {
+                      setShowHarvestPicker(true)
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-xl transition-colors"
+                  title="Log time to Harvest"
+                >
+                  <Clock className="w-4 h-4 text-surface-400" />
+                  <span className="text-sm text-surface-300">Log Time</span>
+                </button>
+              )}
 
-              {/* Actions */}
-              <button
-                onClick={async () => {
-                  try {
-                    // Save progress first
-                    await saveCheckProgress()
-                    // Then mark as complete
-                    const res = await fetch(`/api/checks/${check.id}`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ status: 'COMPLETED' }),
-                    })
-                    if (!res.ok) throw new Error('Failed to complete check')
-                    toast.success('Check marked as complete!')
-                    window.location.href = '/checks'
-                  } catch (error: any) {
-                    toast.error('Failed to complete check', { description: error.message })
-                  }
-                }}
-                className="btn-primary"
-                disabled={progressPercent < 100}
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Complete
-              </button>
+              {/* Complete Button (hidden when already completed) */}
+              {!isCompleted && (
+                <button
+                  onClick={async () => {
+                    try {
+                      // Save progress first
+                      await saveCheckProgress()
+                      // Then show modal to schedule next check
+                      setShowScheduleNextModal(true)
+                    } catch (error: any) {
+                      toast.error('Failed to save check', { description: error.message })
+                    }
+                  }}
+                  className="btn-primary"
+                  disabled={progressPercent < 100}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Complete
+                </button>
+              )}
               {check.calendarEventLink && (
                 <a
                   href={check.calendarEventLink}
@@ -814,8 +934,13 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               >
                 {/* Category header */}
                 <button
-                  onClick={() => toggleCategory(category.id)}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-surface-800/50 transition-colors"
+                  onClick={() => !isCompleted && toggleCategory(category.id)}
+                  disabled={isCompleted}
+                  className={cn(
+                    'w-full flex items-center gap-4 p-4 transition-colors',
+                    !isCompleted && 'hover:bg-surface-800/50',
+                    isCompleted && 'cursor-default'
+                  )}
                 >
                   <div
                     className={cn(
@@ -864,12 +989,14 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                       >
                         <div className="flex items-start gap-3">
                           <button
-                            onClick={() => toggleItem(category.id, item.id)}
+                            onClick={() => !isCompleted && toggleItem(category.id, item.id)}
+                            disabled={isCompleted}
                             className={cn(
                               'mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
                               item.checked
                                 ? 'bg-brand-500 border-brand-500'
-                                : 'border-surface-500 hover:border-brand-500'
+                                : 'border-surface-500 hover:border-brand-500',
+                              isCompleted && 'opacity-50 cursor-not-allowed'
                             )}
                           >
                             {item.checked && (
@@ -898,9 +1025,13 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                                 placeholder="Add notes or findings..."
                                 value={item.notes}
                                 onChange={(e) =>
-                                  updateItemNotes(category.id, item.id, e.target.value)
+                                  !isCompleted && updateItemNotes(category.id, item.id, e.target.value)
                                 }
-                                className="w-full px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-sm text-surface-200 placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all resize-none"
+                                disabled={isCompleted}
+                                className={cn(
+                                  'w-full px-3 py-2 bg-surface-800 border border-surface-600 rounded-lg text-sm text-surface-200 placeholder:text-surface-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all resize-none',
+                                  isCompleted && 'opacity-50 cursor-not-allowed'
+                                )}
                                 rows={1}
                               />
                             </div>
@@ -909,18 +1040,20 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                       </div>
                     ))}
                     {/* Add Item Button */}
-                    <div className="p-4">
-                      <button
-                        onClick={() => {
-                          setAddItemCategoryId(category.id)
-                          setShowAddItem(true)
-                        }}
-                        className="w-full flex items-center justify-center gap-2 py-2 px-4 text-sm text-surface-400 hover:text-surface-200 hover:bg-surface-800/50 rounded-lg border border-dashed border-surface-600 hover:border-surface-500 transition-all"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Item
-                      </button>
-                    </div>
+                    {!isCompleted && (
+                      <div className="p-4">
+                        <button
+                          onClick={() => {
+                            setAddItemCategoryId(category.id)
+                            setShowAddItem(true)
+                          }}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-4 text-sm text-surface-400 hover:text-surface-200 hover:bg-surface-800/50 rounded-lg border border-dashed border-surface-600 hover:border-surface-500 transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Item
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1510,6 +1643,133 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                   disabled={deleting}
                 >
                   {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Next Check Modal */}
+      {showScheduleNextModal && nextCheckInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-md shadow-2xl">
+            <div className="p-6 border-b border-surface-700 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-brand-500/20 rounded-lg">
+                  <Calendar className="w-5 h-5 text-brand-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Schedule Next Check?</h3>
+              </div>
+              <button
+                onClick={() => setShowScheduleNextModal(false)}
+                className="p-1 hover:bg-surface-700 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-surface-400" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <p className="text-surface-300">
+                Would you like to automatically schedule the next infrastructure check for{' '}
+                <span className="font-semibold text-white">{check.client.name}</span>?
+              </p>
+              
+              <div className="bg-surface-900/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-surface-400">Next scheduled date:</span>
+                  <span className="text-sm font-medium text-white">{nextCheckInfo.nextDateFormatted}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-surface-400">Cadence:</span>
+                  <span className="text-sm font-medium text-white">{getCadenceLabel(nextCheckInfo.effectiveCadence)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-surface-400">Assigned engineer:</span>
+                  <span className="text-sm font-medium text-white">{check.assignedEngineer.name}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-surface-700">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    // Skip scheduling - just complete the check
+                    try {
+                      const res = await fetch(`/api/checks/${check.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'COMPLETED' }),
+                      })
+                      if (!res.ok) throw new Error('Failed to complete check')
+                      toast.success('Check marked as complete!')
+                      setShowScheduleNextModal(false)
+                      window.location.href = '/checks'
+                    } catch (error: any) {
+                      toast.error('Failed to complete check', { description: error.message })
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium bg-surface-700 hover:bg-surface-600 text-surface-200 rounded-lg transition-colors"
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={async () => {
+                    setSchedulingNext(true)
+                    try {
+                      // First complete the current check
+                      const completeRes = await fetch(`/api/checks/${check.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'COMPLETED' }),
+                      })
+                      if (!completeRes.ok) throw new Error('Failed to complete check')
+                      
+                      // Then create the next check
+                      // Preserve the time from the original scheduled date
+                      const originalTime = new Date(check.scheduledDate)
+                      nextCheckInfo.nextDate.setHours(originalTime.getHours(), originalTime.getMinutes(), 0, 0)
+                      
+                      const createRes = await fetch('/api/checks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          clientId: check.client.id,
+                          engineerName: check.assignedEngineer.name,
+                          cadence: nextCheckInfo.effectiveCadence,
+                          scheduledDate: nextCheckInfo.nextDate.toISOString(),
+                          createCalendarEvent: true,
+                          sendReminder: false,
+                        }),
+                      })
+                      
+                      if (!createRes.ok) {
+                        const errorData = await createRes.json()
+                        throw new Error(errorData.error || 'Failed to create next check')
+                      }
+                      
+                      toast.success('Check completed and next check scheduled!', {
+                        description: `Next check scheduled for ${nextCheckInfo.nextDateFormatted}`,
+                      })
+                      setShowScheduleNextModal(false)
+                      window.location.href = '/checks'
+                    } catch (error: any) {
+                      toast.error('Failed to schedule next check', { description: error.message })
+                      setSchedulingNext(false)
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                  disabled={schedulingNext}
+                >
+                  {schedulingNext ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Scheduling...
+                    </>
+                  ) : (
+                    'Schedule Next Check'
+                  )}
                 </button>
               </div>
             </div>

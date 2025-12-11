@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
@@ -15,6 +15,8 @@ import {
   FileText,
   LogOut,
   User,
+  Menu,
+  X,
 } from 'lucide-react'
 import {
   hasPermission,
@@ -36,6 +38,8 @@ interface SidebarProps {
     overdueCount: number
     totalChecks: number
   }
+  isOpen?: boolean
+  onClose?: () => void
 }
 
 type NavItem =
@@ -60,7 +64,7 @@ const settingsNavigation: NavItem[] = [
   { name: 'Settings', href: '/settings', icon: Settings, permission: 'settings:view' },
 ]
 
-export function Sidebar({ user, stats }: SidebarProps) {
+export function Sidebar({ user, stats, isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isAccountOpen, setIsAccountOpen] = useState(false)
@@ -68,6 +72,13 @@ export function Sidebar({ user, stats }: SidebarProps) {
   const userRole = user.role as Role
   const isAdmin = userRole === 'ADMIN'
   const showSettings = hasAnySettingsAccess(userRole)
+
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    if (onClose && pathname) {
+      onClose()
+    }
+  }, [pathname, onClose])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -87,22 +98,47 @@ export function Sidebar({ user, stats }: SidebarProps) {
   }, [isAccountOpen])
 
   return (
-    <aside className="w-64 min-w-[16rem] max-w-[16rem] bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0">
-      {/* Logo */}
-      <div className="px-6 py-4 border-b border-surface-800 h-[84px] flex items-center">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-brand-500/25 overflow-hidden">
-            <img
-              src="/jonesit.jpg"
-              alt="Jones IT"
-              className="w-9 h-9 rounded-full object-cover"
-            />
-          </div>
-          <div>
-            <span className="font-semibold text-white">CheckMate</span>
-          </div>
-        </Link>
-      </div>
+    <Fragment>
+      {/* Mobile Overlay */}
+      {isOpen && onClose && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'bg-surface-900/50 border-r border-surface-800 flex flex-col h-screen sticky top-0 z-50 transition-transform duration-300',
+          'w-64 min-w-[16rem] max-w-[16rem]',
+          'lg:translate-x-0',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
+          'fixed lg:sticky'
+        )}
+      >
+        {/* Logo */}
+        <div className="px-6 py-4 h-[84px] flex items-center justify-between">
+          <Link href="/dashboard" className="flex items-center gap-3" onClick={onClose}>
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-brand-500/25 overflow-hidden">
+              <img
+                src="/jonesit.jpg"
+                alt="Jones IT"
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            </div>
+            <div>
+              <span className="font-semibold text-white">CheckMate</span>
+            </div>
+          </Link>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-2 hover:bg-surface-800 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-surface-400" />
+            </button>
+          )}
+        </div>
 
       {/* Main Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -207,7 +243,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
       </nav>
 
       {/* User Profile / Account Menu */}
-      <div className="p-4 border-t border-surface-800">
+      <div className="p-4">
         <div className="relative" ref={accountMenuRef}>
           <button
             onClick={() => setIsAccountOpen((open) => !open)}
@@ -263,6 +299,7 @@ export function Sidebar({ user, stats }: SidebarProps) {
         </div>
       </div>
     </aside>
+    </Fragment>
   )
 }
 

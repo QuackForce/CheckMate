@@ -12,6 +12,8 @@ async function getCheck(id: string) {
           name: true,
           slackChannelName: true,
           slackChannelId: true,
+          customCadenceDays: true,
+          checkCadence: true,
         },
       },
       assignedEngineer: {
@@ -142,6 +144,8 @@ export default async function CheckPage({ params }: { params: { id: string } }) 
       name: check.client.name,
       slackChannelName: check.client.slackChannelName,
       slackChannelId: check.client.slackChannelId,
+      customCadenceDays: check.client.customCadenceDays,
+      checkCadence: check.client.checkCadence,
     },
     assignedEngineer: {
       id: check.assignedEngineer?.id || '',

@@ -99,6 +99,19 @@ export async function PATCH(
       newScheduledDate.getTime() !== currentCheck.scheduledDate.getTime()
     if (status !== undefined) {
       updateData.status = status
+      // Clear completedAt if reopening a completed check
+      if (status !== 'COMPLETED' && currentCheck.status === 'COMPLETED') {
+        updateData.completedAt = null
+        updateData.completedById = null
+      }
+      // Set completedAt if completing a check
+      if (status === 'COMPLETED' && currentCheck.status !== 'COMPLETED') {
+        updateData.completedAt = new Date()
+        const session = await auth()
+        if (session?.user?.id) {
+          updateData.completedById = session.user.id
+        }
+      }
     }
     if (notes !== undefined) {
       updateData.notes = notes
@@ -331,29 +344,35 @@ export async function PATCH(
             },
           })
 
-          // Update items
+          // Update items - batch updates for better performance
           if (cat.items && Array.isArray(cat.items)) {
             const existingItems = await db.itemResult.findMany({
               where: { categoryResultId: categoryResult.id },
               orderBy: { order: 'asc' },
             })
 
+            // Batch all updates
+            const updatePromises = []
             for (let i = 0; i < cat.items.length; i++) {
               const item = cat.items[i]
-              // Match by index since IDs might not match
               const itemResult = existingItems[i]
 
               if (itemResult) {
-                await db.itemResult.update({
-                  where: { id: itemResult.id },
-                  data: {
-                    checked: item.checked,
-                    notes: item.notes || null,
-                  },
-                })
+                updatePromises.push(
+                  db.itemResult.update({
+                    where: { id: itemResult.id },
+                    data: {
+                      checked: item.checked,
+                      notes: item.notes || null,
+                    },
+                  })
+                )
                 if (item.checked) anyItemChecked = true
               }
             }
+            
+            // Execute all updates in parallel
+            await Promise.all(updatePromises)
           }
         }
 

@@ -111,3 +111,54 @@ export function generateSlug(text: string): string {
     .replace(/(^-|-$)/g, '')
 }
 
+/**
+ * Calculate the next scheduled date based on cadence
+ * @param completedDate - The date the check was completed
+ * @param cadence - The cadence type (WEEKLY, MONTHLY, etc.)
+ * @param customCadenceDays - For CUSTOM cadence, the number of days between checks
+ * @returns The next scheduled date
+ */
+export function calculateNextScheduledDate(
+  completedDate: Date,
+  cadence: string,
+  customCadenceDays?: number | null
+): Date {
+  const nextDate = new Date(completedDate)
+  
+  switch (cadence) {
+    case 'WEEKLY':
+      nextDate.setDate(nextDate.getDate() + 7)
+      break
+    case 'BIWEEKLY':
+      nextDate.setDate(nextDate.getDate() + 14)
+      break
+    case 'MONTHLY':
+      nextDate.setMonth(nextDate.getMonth() + 1)
+      break
+    case 'BIMONTHLY':
+      nextDate.setMonth(nextDate.getMonth() + 2)
+      break
+    case 'QUARTERLY':
+      nextDate.setMonth(nextDate.getMonth() + 3)
+      break
+    case 'CUSTOM':
+      if (customCadenceDays && customCadenceDays > 0) {
+        nextDate.setDate(nextDate.getDate() + customCadenceDays)
+      } else {
+        // Default to monthly if custom days not specified
+        nextDate.setMonth(nextDate.getMonth() + 1)
+      }
+      break
+    case 'ADHOC':
+      // For ADHOC, don't auto-schedule (but we'll still allow manual scheduling)
+      // Just return a date 1 month out as a suggestion
+      nextDate.setMonth(nextDate.getMonth() + 1)
+      break
+    default:
+      // Default to monthly
+      nextDate.setMonth(nextDate.getMonth() + 1)
+  }
+  
+  return nextDate
+}
+

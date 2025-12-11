@@ -17,7 +17,7 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-40 bg-surface-950/80 backdrop-blur-xl border-b border-surface-800">
+    <header className="sticky top-0 z-40 bg-surface-950/80 backdrop-blur-xl">
       <div className="px-6 py-4 h-[84px] flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">{title}</h1>
@@ -46,6 +46,7 @@ export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
           )}
         </div>
       </div>
+      <div className="border-b border-surface-800" />
     </header>
   )
 }
