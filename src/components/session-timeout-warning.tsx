@@ -34,6 +34,13 @@ export function SessionTimeoutWarning() {
   const handleLogout = async () => {
     clearAllTimers()
     setShowWarning(false)
+    // Clear emergency session if it exists
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' })
+    } catch (error) {
+      console.error('Error clearing emergency session:', error)
+    }
+    // Clear NextAuth session and redirect
     await signOut({ callbackUrl: '/login' })
   }
 
@@ -73,6 +80,8 @@ export function SessionTimeoutWarning() {
         if (newTime <= 0) {
           // Time's up - log out
           clearAllTimers()
+          // Clear emergency session if it exists
+          fetch('/api/auth/signout', { method: 'POST' }).catch(console.error)
           signOut({ callbackUrl: '/login?reason=timeout' })
           return 0
         }

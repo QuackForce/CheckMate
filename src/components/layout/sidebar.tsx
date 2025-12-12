@@ -288,7 +288,16 @@ export function Sidebar({ user, stats, isOpen = true, onClose }: SidebarProps) {
               </Link>
               <div className="border-t border-surface-700 my-1" />
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={async () => {
+                  // Clear emergency session if it exists
+                  try {
+                    await fetch('/api/auth/signout', { method: 'POST' })
+                  } catch (error) {
+                    console.error('Error clearing emergency session:', error)
+                  }
+                  // Clear NextAuth session and redirect
+                  await signOut({ callbackUrl: '/login' })
+                }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-surface-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
