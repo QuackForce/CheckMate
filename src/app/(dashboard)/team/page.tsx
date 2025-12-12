@@ -27,32 +27,66 @@ async function getTeamData() {
         clientsByGrcEngineer,
       ] = await Promise.all([
     // Get all users with manager relationship and login activity
-    db.user.findMany({
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        image: true,
-        jobTitle: true,
-        team: true,
-        managerId: true,
-        manager: {
-          select: { id: true, name: true, email: true, jobTitle: true },
-        },
-        notionTeamMemberId: true,
-        notionTeamMemberName: true,
-        slackUsername: true,
-        harvestAccessToken: true,
-        createdAt: true,
-      },
-    }).then(users => users.map(user => ({
-      ...user,
-      // Add login fields with defaults if they don't exist
-      lastLoginAt: (user as any).lastLoginAt || null,
-      loginCount: (user as any).loginCount || 0,
-    }))),
+    // Try to select login fields, but handle gracefully if they don't exist in DB
+    (async () => {
+      try {
+        const users = await db.user.findMany({
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            image: true,
+            jobTitle: true,
+            team: true,
+            managerId: true,
+            manager: {
+              select: { id: true, name: true, email: true, jobTitle: true },
+            },
+            notionTeamMemberId: true,
+            notionTeamMemberName: true,
+            slackUsername: true,
+            harvestAccessToken: true,
+            createdAt: true,
+            // Try to select login fields - they exist in schema and should be in DB
+            lastLoginAt: true,
+            loginCount: true,
+          },
+        })
+        return users
+      } catch (error: any) {
+        // If login fields don't exist in DB, fall back to query without them
+        console.warn('[Team Page] Login fields not available, using fallback:', error.message)
+        const users = await db.user.findMany({
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            image: true,
+            jobTitle: true,
+            team: true,
+            managerId: true,
+            manager: {
+              select: { id: true, name: true, email: true, jobTitle: true },
+            },
+            notionTeamMemberId: true,
+            notionTeamMemberName: true,
+            slackUsername: true,
+            harvestAccessToken: true,
+            createdAt: true,
+          },
+        })
+        // Add defaults for missing login fields
+        return users.map(user => ({
+          ...user,
+          lastLoginAt: null,
+          loginCount: 0,
+        }))
+      }
+    })(),
     // Get overdue checks grouped by assignee
     db.infraCheck.groupBy({
       by: ['assignedEngineerId'],
