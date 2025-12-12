@@ -713,6 +713,27 @@ export async function syncClientsFromNotion(): Promise<{
     // Load caches first
     await loadTeamMemberCache();
     await loadVendorCache();
+
+    // Preload users for name->id resolution (supports Notion name and app name)
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        notionTeamMemberName: true,
+      },
+    });
+
+    const resolveUserId = (name?: string | null): string | null => {
+      if (!name) return null;
+      const target = name.trim().toLowerCase();
+      if (!target) return null;
+      const match = users.find(
+        (u) =>
+          (u.name && u.name.trim().toLowerCase() === target) ||
+          (u.notionTeamMemberName && u.notionTeamMemberName.trim().toLowerCase() === target)
+      );
+      return match ? match.id : null;
+    };
     
     const notionPages = await fetchAllNotionClients();
 
@@ -739,6 +760,30 @@ export async function syncClientsFromNotion(): Promise<{
             data: clientData,
           });
           result.created++;
+        }
+
+        // Auto-link engineer assignments to app users based on names from Notion
+        const primaryEngineerId = resolveUserId(clientData.systemEngineerName || clientData.primaryConsultantName);
+        const secondaryEngineerId = resolveUserId(clientData.secondaryConsultantNames?.[0]);
+
+        const assignmentUpdate: any = {};
+        if (primaryEngineerId) {
+          assignmentUpdate.primaryEngineerId = primaryEngineerId;
+        }
+        if (secondaryEngineerId) {
+          assignmentUpdate.secondaryEngineerId = secondaryEngineerId;
+        }
+
+        // Preserve infraCheckAssigneeName override: do not touch it here.
+        if (Object.keys(assignmentUpdate).length > 0) {
+          try {
+            await prisma.client.update({
+              where: { id: client.id },
+              data: assignmentUpdate,
+            });
+          } catch (assignError: any) {
+            result.errors.push(`Assign error for client ${client.id}: ${assignError.message}`);
+          }
         }
         
         // Extract and link systems from Notion vendor relations
