@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { MobileSidebarWrapper } from '@/components/layout/mobile-sidebar-wrapper'
 import { db } from '@/lib/db'
+import { getEmergencySession } from '@/lib/auth-utils'
 
 async function getCheckStats() {
   try {
@@ -20,8 +21,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Always require authentication
-  const session = await auth()
+  // Always require authentication - check both NextAuth and emergency sessions
+  let session = await auth()
+  
+  // If no regular session, check for emergency session
+  if (!session?.user) {
+    const emergencySession = await getEmergencySession()
+    if (emergencySession) {
+      session = emergencySession as any
+    }
+  }
   
   if (!session?.user) {
     redirect('/login')

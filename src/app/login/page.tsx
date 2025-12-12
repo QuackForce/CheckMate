@@ -2,6 +2,7 @@ import { auth, signIn } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getEmergencySession } from '@/lib/auth-utils'
 
 // Check if Google OAuth is configured (supports both naming conventions)
 const googleClientId = process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID
@@ -16,7 +17,15 @@ export default async function LoginPage({
 }: {
   searchParams: { error?: string; [key: string]: string | string[] | undefined }
 }) {
-  const session = await auth()
+  // Check both NextAuth and emergency sessions
+  let session = await auth()
+  
+  if (!session) {
+    const emergencySession = await getEmergencySession()
+    if (emergencySession) {
+      session = emergencySession as any
+    }
+  }
   
   if (session) {
     redirect('/dashboard')
