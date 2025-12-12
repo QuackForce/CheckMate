@@ -49,6 +49,11 @@ async function getTeamData() {
             slackUsername: true,
             harvestAccessToken: true,
             createdAt: true,
+            emailVerified: true, // Use this as fallback indicator of login
+            accounts: {
+              where: { provider: 'google' },
+              select: { id: true },
+            },
             // Try to select login fields - they exist in schema and should be in DB
             // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
             lastLoginAt: true,
@@ -56,7 +61,14 @@ async function getTeamData() {
             loginCount: true,
           },
         })
-        return users
+        // If lastLoginAt is null but user has emailVerified or Google account, they've logged in
+        return users.map(user => ({
+          ...user,
+          // If lastLoginAt is null but they have emailVerified or Google account, they've logged in before
+          // Use emailVerified date as fallback, or indicate they've logged in but date is missing
+          lastLoginAt: (user as any).lastLoginAt || 
+            (user.emailVerified && user.accounts.length > 0 ? user.emailVerified : null),
+        }))
       } catch (error: any) {
         // If login fields don't exist in DB, fall back to query without them
         console.warn('[Team Page] Login fields not available, using fallback:', error.message)
@@ -79,12 +91,17 @@ async function getTeamData() {
             slackUsername: true,
             harvestAccessToken: true,
             createdAt: true,
+            emailVerified: true,
+            accounts: {
+              where: { provider: 'google' },
+              select: { id: true },
+            },
           },
         })
-        // Add defaults for missing login fields
+        // Use emailVerified as fallback indicator of login
         return users.map(user => ({
           ...user,
-          lastLoginAt: null,
+          lastLoginAt: user.emailVerified && user.accounts.length > 0 ? user.emailVerified : null,
           loginCount: 0,
         }))
       }

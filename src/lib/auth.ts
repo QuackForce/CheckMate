@@ -179,18 +179,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               }
 
               // Update name/image if they've changed
+              // Also track login activity
               await db.user.update({
                 where: { id: existingUser.id },
                 data: {
                   name: user.name || existingUser.name || undefined,
                   image: user.image || existingUser.image || undefined,
                   emailVerified: new Date(), // Mark email as verified when they sign in with Google
+                  lastLoginAt: new Date(),
+                  loginCount: { increment: 1 },
                 },
               })
+
+              // Create login activity record
+              try {
+                await db.loginActivity.create({
+                  data: {
+                    userId: existingUser.id,
+                    // IP and user agent can be extracted from request if available
+                    // For now, we'll track just the timestamp
+                  },
+                })
+              } catch (activityError) {
+                // Don't fail login if activity tracking fails
+                console.error('[Auth] Error creating login activity:', activityError)
+              }
 
               console.log(`[Auth] User ${existingUser.id} is ready`)
             } else {
               console.log(`[Auth] No existing user found for ${googleEmail} - PrismaAdapter will create new user`)
+              // For new users, PrismaAdapter will create them, but we'll track login after creation
+              // This will be handled in a post-signin hook if needed
             }
           } catch (error) {
             console.error('[Auth] Error ensuring user setup:', error)
@@ -214,6 +233,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             // Default to CONSULTANT if role is null/undefined
             session.user.role = (user.role || 'CONSULTANT') as UserRole
             session.user.notionTeamMemberId = (user as any).notionTeamMemberId
+            
+            // For new users created by PrismaAdapter, set lastLoginAt if not already set
+            // This handles the case where PrismaAdapter creates the user but signIn callback doesn't run
+            try {
+              const dbUser = await db.user.findUnique({
+                where: { id: user.id },
+                select: { lastLoginAt: true, emailVerified: true },
+              })
+              
+              // If user has emailVerified (signed in with Google) but no lastLoginAt, set it
+              if (dbUser?.emailVerified && !dbUser.lastLoginAt) {
+                await db.user.update({
+                  where: { id: user.id },
+                  data: {
+                    lastLoginAt: new Date(),
+                    loginCount: { increment: 1 },
+                  },
+                })
+                console.log(`[Auth] Set lastLoginAt for new user ${user.id}`)
+              }
+            } catch (updateError) {
+              // Don't fail session creation if login tracking fails
+              console.error('[Auth] Error updating lastLoginAt in session callback:', updateError)
+            }
+            
             console.log(`[Auth] Session created for user ${user.id} (${session.user.email}) with role ${session.user.role}`)
           } else if (token?.sub) {
             // JWT mode fallback
