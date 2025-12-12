@@ -763,14 +763,18 @@ export async function syncClientsFromNotion(): Promise<{
         }
 
         // Auto-link engineer assignments to app users based on names from Notion
-        const primaryEngineerId = resolveUserId(clientData.systemEngineerName || clientData.primaryConsultantName);
+        // Auto-link engineer assignments to app users based on names from Notion
+        // Primary: only from systemEngineerName, and only if not already set to someone else
+        const primaryEngineerId = resolveUserId(clientData.systemEngineerName);
+        // Secondary: from the first secondary name, and only if empty
         const secondaryEngineerId = resolveUserId(clientData.secondaryConsultantNames?.[0]);
 
         const assignmentUpdate: any = {};
-        if (primaryEngineerId) {
+
+        if (primaryEngineerId && (!client.primaryEngineerId || client.primaryEngineerId === primaryEngineerId)) {
           assignmentUpdate.primaryEngineerId = primaryEngineerId;
         }
-        if (secondaryEngineerId) {
+        if (secondaryEngineerId && !client.secondaryEngineerId) {
           assignmentUpdate.secondaryEngineerId = secondaryEngineerId;
         }
 
