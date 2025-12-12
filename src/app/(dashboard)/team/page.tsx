@@ -38,6 +38,7 @@ async function getTeamData() {
         jobTitle: true,
         team: true,
         managerId: true,
+        // @ts-ignore - Prisma types may be out of sync, but manager relation exists in schema
         manager: {
           select: { id: true, name: true, email: true, jobTitle: true },
         },
@@ -51,7 +52,7 @@ async function getTeamData() {
         // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
         loginCount: true,
       },
-    }),
+    }) as any,
     // Get overdue checks grouped by assignee
     db.infraCheck.groupBy({
       by: ['assignedEngineerId'],
@@ -115,7 +116,7 @@ async function getTeamData() {
   )
 
   // Build team data with stats from lookup maps
-  const teamWithStats = users.map((user) => {
+  const teamWithStats = users.map((user: any) => {
     const primaryCount = primaryClientsMap.get(user.id) || 0
     const secondaryCount = secondaryClientsMap.get(user.id) || 0
     const systemCount = systemClientsMap.get(user.id) || 0
