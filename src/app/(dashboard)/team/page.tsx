@@ -4,6 +4,7 @@ import { TeamStats } from '@/components/team/team-stats'
 import { TeamActions } from '@/components/team/team-actions'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
+import { getEmergencySession } from '@/lib/auth-utils'
 import { withCache, CACHE_KEYS, CACHE_TTL } from '@/lib/cache'
 
 async function getTeamData() {
@@ -25,13 +26,28 @@ async function getTeamData() {
         clientsBySystemEngineer,
         clientsByGrcEngineer,
       ] = await Promise.all([
-    // Get all users with manager relationship
+    // Get all users with manager relationship and login activity
     db.user.findMany({
       orderBy: { createdAt: 'asc' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        image: true,
+        jobTitle: true,
+        team: true,
+        managerId: true,
         manager: {
           select: { id: true, name: true, email: true, jobTitle: true },
         },
+        notionTeamMemberId: true,
+        notionTeamMemberName: true,
+        slackUsername: true,
+        harvestAccessToken: true,
+        createdAt: true,
+        lastLoginAt: true,
+        loginCount: true,
       },
     }),
     // Get overdue checks grouped by assignee
@@ -118,6 +134,8 @@ async function getTeamData() {
       slackUsername: user.slackUsername,
       hasHarvest: !!user.harvestAccessToken,
       createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt || null,
+      loginCount: user.loginCount || 0,
       stats: {
         assignedClients: primaryCount + secondaryCount + systemCount + grcCount,
         completedThisMonth: completedMap.get(user.id) || 0,
@@ -134,10 +152,19 @@ async function getTeamData() {
 }
 
 export default async function TeamPage() {
-  const [session, team] = await Promise.all([
+  const [authSession, team] = await Promise.all([
     auth(),
     getTeamData(),
   ])
+
+  // Check both NextAuth and emergency sessions
+  let session = authSession
+  if (!session?.user) {
+    const emergencySession = await getEmergencySession()
+    if (emergencySession) {
+      session = emergencySession as any
+    }
+  }
 
   const isAdmin = session?.user?.role === 'ADMIN'
   const currentUserId = session?.user?.id

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth-utils'
 
 // GET /api/users/[id] - Get a single user
 // Force dynamic rendering for this route
@@ -44,7 +44,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
+    const { error, session } = await requireAdmin()
+    if (error) return error
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -117,15 +118,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    
-    // Check if user is admin
-    if (session?.user?.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 403 }
-      )
-    }
+    const { error, session } = await requireAdmin()
+    if (error) return error
 
     // Prevent deleting yourself
     if (session.user.id === params.id) {
