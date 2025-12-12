@@ -62,13 +62,17 @@ async function getTeamData() {
           },
         })
         // If lastLoginAt is null but user has emailVerified or Google account, they've logged in
-        return users.map(user => ({
-          ...user,
-          // If lastLoginAt is null but they have emailVerified or Google account, they've logged in before
-          // Use emailVerified date as fallback, or indicate they've logged in but date is missing
-          lastLoginAt: (user as any).lastLoginAt || 
-            (user.emailVerified && user.accounts.length > 0 ? user.emailVerified : null),
-        }))
+        return users.map(user => {
+          const userAny = user as any
+          const hasGoogleAccount = userAny.accounts && userAny.accounts.length > 0
+          return {
+            ...user,
+            // If lastLoginAt is null but they have emailVerified or Google account, they've logged in before
+            // Use emailVerified date as fallback, or indicate they've logged in but date is missing
+            lastLoginAt: userAny.lastLoginAt || 
+              (user.emailVerified && hasGoogleAccount ? user.emailVerified : null),
+          }
+        })
       } catch (error: any) {
         // If login fields don't exist in DB, fall back to query without them
         console.warn('[Team Page] Login fields not available, using fallback:', error.message)
@@ -99,11 +103,15 @@ async function getTeamData() {
           },
         })
         // Use emailVerified as fallback indicator of login
-        return users.map(user => ({
-          ...user,
-          lastLoginAt: user.emailVerified && user.accounts.length > 0 ? user.emailVerified : null,
-          loginCount: 0,
-        }))
+        return users.map(user => {
+          const userAny = user as any
+          const hasGoogleAccount = userAny.accounts && userAny.accounts.length > 0
+          return {
+            ...user,
+            lastLoginAt: user.emailVerified && hasGoogleAccount ? user.emailVerified : null,
+            loginCount: 0,
+          }
+        })
       }
     })(),
     // Get overdue checks grouped by assignee
