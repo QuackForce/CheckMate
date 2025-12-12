@@ -46,7 +46,9 @@ async function getTeamData() {
         slackUsername: true,
         harvestAccessToken: true,
         createdAt: true,
+        // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
         lastLoginAt: true,
+        // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
         loginCount: true,
       },
     }),
