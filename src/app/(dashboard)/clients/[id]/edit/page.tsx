@@ -455,24 +455,30 @@ export default function EditClientPage() {
                     placeholder={systemEngineerName ? `Default: ${systemEngineerName} (SE)` : "Type to search users or enter name..."}
                     className="input w-full"
                   />
-                  {showEngineerDropdown && filteredEngineers.length > 0 && (
+                  {showEngineerDropdown && (
                     <div 
                       className="absolute z-50 w-full mt-1 bg-surface-800 border border-surface-700 rounded-lg shadow-xl max-h-60 overflow-y-auto"
                       onMouseDown={(e) => e.preventDefault()}
                     >
-                      {filteredEngineers.map((e) => (
-                        <button
-                          key={e.id}
-                          type="button"
-                          onClick={() => handleEngineerSelect(e)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-surface-700 text-sm text-surface-200 transition-colors border-b border-surface-700/50 last:border-0"
-                        >
-                          <div className="font-medium">{e.name}</div>
-                          {e.email && (
-                            <div className="text-xs text-surface-500">{e.email}</div>
-                          )}
-                        </button>
-                      ))}
+                      {filteredEngineers.length > 0 ? (
+                        filteredEngineers.map((e) => (
+                          <button
+                            key={e.id}
+                            type="button"
+                            onClick={() => handleEngineerSelect(e)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-surface-700 text-sm text-surface-200 transition-colors border-b border-surface-700/50 last:border-0"
+                          >
+                            <div className="font-medium">{e.name}</div>
+                            {e.email && (
+                              <div className="text-xs text-surface-500">{e.email}</div>
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2.5 text-sm text-surface-500">
+                          {engineerSearch ? 'No engineers found' : 'Type to search engineers...'}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
