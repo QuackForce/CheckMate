@@ -46,12 +46,13 @@ async function getTeamData() {
         slackUsername: true,
         harvestAccessToken: true,
         createdAt: true,
-        // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
-        lastLoginAt: true,
-        // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
-        loginCount: true,
       },
-    }),
+    }).then(users => users.map(user => ({
+      ...user,
+      // Add login fields with defaults if they don't exist
+      lastLoginAt: (user as any).lastLoginAt || null,
+      loginCount: (user as any).loginCount || 0,
+    }))),
     // Get overdue checks grouped by assignee
     db.infraCheck.groupBy({
       by: ['assignedEngineerId'],
