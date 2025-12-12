@@ -23,7 +23,7 @@ import {
   Users,
   Save,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
 
@@ -41,6 +41,8 @@ interface TeamMember {
   notionTeamMemberName: string | null
   slackUsername: string | null
   hasHarvest?: boolean
+  lastLoginAt?: Date | null
+  loginCount?: number
   stats: {
     assignedClients: number
     completedThisMonth: number
@@ -507,6 +509,14 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                   <div className="flex items-center gap-1 text-sm text-surface-400">
                     <Mail className="w-3.5 h-3.5" />
                     {member.email}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-surface-500 mt-0.5">
+                    <Clock className="w-3 h-3" />
+                    <span>
+                      {member.lastLoginAt 
+                        ? `Last active: ${formatDate(member.lastLoginAt)}`
+                        : 'Never logged in'}
+                    </span>
                   </div>
                 </div>
 
