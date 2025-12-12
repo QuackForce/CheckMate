@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { X, RefreshCw } from 'lucide-react'
 
 // Configuration
@@ -34,14 +34,16 @@ export function SessionTimeoutWarning() {
   const handleLogout = async () => {
     clearAllTimers()
     setShowWarning(false)
-    // Clear emergency session if it exists
+    // Forceful logout (clears NextAuth/Auth.js + emergency cookies + DB session)
     try {
-      await fetch('/api/auth/signout', { method: 'POST' })
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
     } catch (error) {
-      console.error('Error clearing emergency session:', error)
+      console.error('Error clearing sessions:', error)
     }
-    // Clear NextAuth session and redirect
-    await signOut({ callbackUrl: '/login' })
+    // Hard redirect to login
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
   }
 
   // Handle stay signed in
@@ -80,9 +82,11 @@ export function SessionTimeoutWarning() {
         if (newTime <= 0) {
           // Time's up - log out
           clearAllTimers()
-          // Clear emergency session if it exists
-          fetch('/api/auth/signout', { method: 'POST' }).catch(console.error)
-          signOut({ callbackUrl: '/login?reason=timeout' })
+          // Forceful logout
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(console.error)
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?reason=timeout'
+          }
           return 0
         }
         return newTime

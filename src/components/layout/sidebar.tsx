@@ -289,14 +289,16 @@ export function Sidebar({ user, stats, isOpen = true, onClose }: SidebarProps) {
               <div className="border-t border-surface-700 my-1" />
               <button
                 onClick={async () => {
-                  // Clear emergency session if it exists
+                  // Forceful logout (clears NextAuth/Auth.js + emergency cookies + DB session)
                   try {
-                    await fetch('/api/auth/signout', { method: 'POST' })
+                    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
                   } catch (error) {
-                    console.error('Error clearing emergency session:', error)
+                    console.error('Error clearing sessions:', error)
                   }
-                  // Clear NextAuth session and redirect
-                  await signOut({ callbackUrl: '/login' })
+                  // Hard redirect to login to avoid client-side loops
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login'
+                  }
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-surface-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
