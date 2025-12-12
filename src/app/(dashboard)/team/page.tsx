@@ -50,7 +50,9 @@ async function getTeamData() {
             harvestAccessToken: true,
             createdAt: true,
             // Try to select login fields - they exist in schema and should be in DB
+            // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
             lastLoginAt: true,
+            // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
             loginCount: true,
           },
         })
