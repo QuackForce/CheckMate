@@ -54,5 +54,20 @@ PUBLIC_REPO_SECURITY.md
 VERCEL_DEPLOYMENT.md
 VERCEL_ENV_VARS.md
 DEPLOYMENT_CHECKLIST.md
+NOTION_MIGRATION_PLAN.md
+cursor_effort_to_filter_client_lists_by.md
+docs/REGION_MIGRATION_GUIDE.md
+docs/RAILWAY_MIGRATION_AND_CACHING.md
+
+# One-time migration scripts (already executed)
+scripts/consolidate-teams.ts
+scripts/consolidate-all-teams.ts
+scripts/migrate-teams.ts
+scripts/fix-user-roles.ts
+
+# User-specific debugging scripts
+scripts/check-dylan-auth.ts
+scripts/diagnose-dylan-auth.ts
+scripts/link-dylan-account.ts
 
 
