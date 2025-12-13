@@ -25,6 +25,9 @@ async function getTeamData() {
         clientsBySecondary,
         clientsBySystemEngineer,
         clientsByGrcEngineer,
+        _legacyClients, // No longer used, but kept for Promise.all structure
+        infraChecksByAssignee,
+        engineerAssignments,
       ] = await Promise.all([
     // Get all users with manager relationship and login activity
     // Try to select login fields, but handle gracefully if they don't exist in DB
@@ -154,6 +157,23 @@ async function getTeamData() {
       where: { grceEngineerId: { not: null } },
       _count: { id: true },
     }),
+    // Legacy fields no longer needed - all data is in ClientEngineerAssignment
+    // Keeping empty array for Promise.all structure
+    Promise.resolve([]),
+    // Get infra checks to include assignments in "My Clients" parity
+    db.infraCheck.findMany({
+      where: { assignedEngineerId: { not: null } },
+      select: {
+        assignedEngineerId: true,
+        clientId: true,
+      },
+    }),
+    db.clientEngineerAssignment.findMany({
+      select: {
+        clientId: true,
+        userId: true,
+      },
+    }),
   ])
 
   // Create lookup maps for O(1) access
@@ -176,12 +196,28 @@ async function getTeamData() {
     clientsByGrcEngineer.map(r => [r.grceEngineerId, r._count.id])
   )
 
-  // Build team data with stats from lookup maps
+  // Build distinct client assignments per user
+  // Now using only ClientEngineerAssignment table (legacy fields migrated)
+  const assignedMap = new Map<string, Set<string>>()
+  
+  // Add assignments from ClientEngineerAssignment table
+  for (const ea of engineerAssignments) {
+    if (!ea.userId) continue
+    if (!assignedMap.has(ea.userId)) assignedMap.set(ea.userId, new Set<string>())
+    assignedMap.get(ea.userId)!.add(ea.clientId)
+  }
+  
+  // Add infra check assignments
+  for (const ic of infraChecksByAssignee) {
+    if (!ic.assignedEngineerId) continue
+    if (!assignedMap.has(ic.assignedEngineerId)) assignedMap.set(ic.assignedEngineerId, new Set<string>())
+    assignedMap.get(ic.assignedEngineerId)!.add(ic.clientId)
+  }
+
+  // Build team data with stats from lookup maps and distinct assignments
   const teamWithStats = users.map((user: any) => {
-    const primaryCount = primaryClientsMap.get(user.id) || 0
-    const secondaryCount = secondaryClientsMap.get(user.id) || 0
-    const systemCount = systemClientsMap.get(user.id) || 0
-    const grcCount = grcClientsMap.get(user.id) || 0
+    const assignedSet = assignedMap.get(user.id)
+    const assignedClients = assignedSet ? assignedSet.size : 0
     
     return {
       id: user.id,
@@ -201,7 +237,7 @@ async function getTeamData() {
       lastLoginAt: user.lastLoginAt || null,
       loginCount: user.loginCount || 0,
       stats: {
-        assignedClients: primaryCount + secondaryCount + systemCount + grcCount,
+        assignedClients,
         completedThisMonth: completedMap.get(user.id) || 0,
         overdueChecks: overdueMap.get(user.id) || 0,
         avgDuration: 0,
@@ -236,7 +272,7 @@ export default async function TeamPage() {
   return (
     <>
       <Header 
-        title="Team"
+        title="Users"
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">

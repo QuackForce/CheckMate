@@ -37,6 +37,17 @@ interface Client {
   systemEngineerName?: string | null
   infraCheckAssigneeName?: string | null
   infraCheckAssigneeUser?: { id: string; name: string | null; email: string | null; image: string | null } | null
+  assignments?: Array<{
+    id: string
+    userId: string
+    role: string
+    user: {
+      id: string
+      name: string | null
+      email: string | null
+      image: string | null
+    }
+  }>
 }
 
 const CLIENTS_PER_PAGE = 25
@@ -424,9 +435,15 @@ export function ClientsTableWrapper() {
                     {/* Infra Check Assignee */}
                     <td className="table-cell">
                       {(() => {
-                        const assignee = client.infraCheckAssigneeName || client.systemEngineerName
-                        const isOverride = client.infraCheckAssigneeName && client.infraCheckAssigneeName !== client.systemEngineerName
-                        const avatarImage = client.infraCheckAssigneeUser?.image || null
+                        // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
+                        const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
+                        const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+                        const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
+                        const isOverride = client.infraCheckAssigneeName && 
+                          client.infraCheckAssigneeName !== seFromAssignments &&
+                          client.infraCheckAssigneeName !== client.systemEngineerName
+                        const seUserFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+                        const avatarImage = client.infraCheckAssigneeUser?.image || seUserFromAssignments?.image || null
                         
                         if (assignee) {
                           return (

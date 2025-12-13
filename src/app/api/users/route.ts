@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { email, name, role, notionTeamMemberId, notionTeamMemberName } = body
+    const { email, name, role, jobTitle, managerId, notionTeamMemberId, notionTeamMemberName } = body
 
     if (!email) {
       return NextResponse.json(
@@ -108,10 +108,13 @@ export async function POST(request: NextRequest) {
     const user = await db.user.create({
       data: {
         email,
-        name,
+        name: name || null,
         role: role || 'VIEWER',
-        notionTeamMemberId,
-        notionTeamMemberName,
+        jobTitle: jobTitle || null,
+        managerId: managerId || null,
+        // Notion fields are optional - only include if provided
+        ...(notionTeamMemberId && { notionTeamMemberId }),
+        ...(notionTeamMemberName && { notionTeamMemberName }),
       }
     })
 

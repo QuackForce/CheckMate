@@ -10,7 +10,8 @@ interface UserProfile {
   email: string | null
   image: string | null
   jobTitle: string | null
-  team: string | null
+  team: string | null // Legacy field
+  teams?: Array<{ id: string; name: string; color: string | null }> // New teams from UserTeam
   manager: {
     id: string
     name: string | null
@@ -107,18 +108,37 @@ export function UserProfileModal({ user, isOpen, onClose }: UserProfileModalProp
               </div>
             )}
 
-            {/* Team */}
-            {user.team && (
+            {/* Teams */}
+            {(user.teams && user.teams.length > 0) || user.team ? (
               <div className="flex items-start gap-3">
                 <Users className="w-5 h-5 text-surface-500 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-surface-500 mb-1">Team</div>
-                  <div className="text-sm text-surface-300">
-                    {user.team}
+                  <div className="text-xs text-surface-500 mb-1">
+                    {user.teams && user.teams.length > 1 ? 'Teams' : 'Team'}
                   </div>
+                  {user.teams && user.teams.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {user.teams.map((team) => (
+                        <div
+                          key={team.id}
+                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-700 text-sm text-surface-300"
+                        >
+                          {team.color && (
+                            <div
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: team.color }}
+                            />
+                          )}
+                          <span>{team.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : user.team ? (
+                    <div className="text-sm text-surface-300">{user.team}</div>
+                  ) : null}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Manager */}
             {user.manager && (

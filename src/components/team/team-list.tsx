@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import {
   Building2,
   CheckCircle2,
   AlertTriangle,
@@ -22,6 +30,9 @@ import {
   Search,
   Users,
   Save,
+  ChevronDown,
+  Plus,
+  Loader2,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -103,6 +114,61 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false)
+  const [roleBreakdown, setRoleBreakdown] = useState<Record<string, number> | null>(null)
+  const [totalUniqueClients, setTotalUniqueClients] = useState<number | null>(null)
+  const [loadingRoleBreakdown, setLoadingRoleBreakdown] = useState(false)
+  const [openComboboxes, setOpenComboboxes] = useState<Set<string>>(new Set())
+  const [showMergeSection, setShowMergeSection] = useState(false)
+  const [openSection, setOpenSection] = useState<string | null>(null) // Track which section is open (accordion)
+  const [showNewUserSheet, setShowNewUserSheet] = useState(false)
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    name: '',
+    role: 'VIEWER',
+  })
+  
+  // Helper functions for section state
+  const showRoleBreakdown = openSection === 'roleBreakdown'
+  const showQuickActions = openSection === 'quickActions'
+  
+  const toggleSection = (section: string) => {
+    setOpenSection(openSection === section ? null : section)
+  }
+  
+  const handleCreateUser = async () => {
+    if (!newUserForm.email.trim()) {
+      toast.error('Email is required')
+      return
+    }
+
+    setCreatingUser(true)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newUserForm.email.trim(),
+          name: newUserForm.name.trim() || null,
+          role: newUserForm.role,
+        }),
+      })
+
+      if (res.ok) {
+        toast.success('User created successfully')
+        setShowNewUserSheet(false)
+        setNewUserForm({ email: '', name: '', role: 'VIEWER' })
+        window.location.reload()
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to create user')
+      }
+    } catch (error) {
+      toast.error('Failed to create user')
+    } finally {
+      setCreatingUser(false)
+    }
+  }
 
   // For portal - need to wait for client-side mount
   useEffect(() => {
@@ -114,6 +180,31 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     if (editingUser) {
       setSlackUsername(editingUser.slackUsername || '')
       setSelectedManagerId(editingUser.managerId || null)
+      setShowMergeSection(false) // Reset merge section toggle
+      setOpenSection(null) // All sections closed by default when editing
+      // Fetch role breakdown and teams
+      setLoadingRoleBreakdown(true)
+      fetch(`/api/users/${editingUser.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.roleBreakdown) {
+            setRoleBreakdown(data.roleBreakdown)
+          } else {
+            setRoleBreakdown({})
+          }
+          setTotalUniqueClients(data.totalUniqueClients ?? null)
+          // Teams are now managed centrally from Settings > Teams
+        })
+        .catch(err => {
+          console.error('Failed to fetch role breakdown:', err)
+          setRoleBreakdown({})
+        })
+        .finally(() => setLoadingRoleBreakdown(false))
+    } else {
+      setRoleBreakdown(null)
+      setTotalUniqueClients(null)
+      setShowMergeSection(false)
+      setOpenSection(null)
     }
   }, [editingUser])
 
@@ -209,7 +300,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     if (!editingUser) return
     setSaving(true)
     try {
-      // Save manager and slack username together
+      // Save manager, slack username, and teams together
       const updates: any = {}
       if (selectedManagerId !== (editingUser.managerId || null)) {
         updates.managerId = selectedManagerId
@@ -217,12 +308,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       if (slackUsername !== (editingUser.slackUsername || '')) {
         updates.slackUsername = slackUsername.trim() || null
       }
-
-      if (Object.keys(updates).length === 0) {
-        toast.info('No changes to save')
-        setSaving(false)
-        return
-      }
+      
+      // Teams are now managed centrally from Settings > Teams
+      // Removed teamIds from user edit modal
 
       const res = await fetch(`/api/users/${editingUser.id}`, {
         method: 'PATCH',
@@ -328,22 +416,122 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     }
   }
 
+  // Role options for new user
+  const roleOptions = [
+    { value: 'VIEWER', label: 'Viewer' },
+    { value: 'CONSULTANT', label: 'Consultant' },
+    { value: 'IT_ENGINEER', label: 'IT Engineer' },
+    { value: 'IT_MANAGER', label: 'IT Manager' },
+    { value: 'ADMIN', label: 'Admin' },
+  ]
+
   if (team.length === 0) {
     return (
-      <div className="card p-12 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-800 flex items-center justify-center">
-          <Shield className="w-8 h-8 text-surface-600" />
+      <>
+        <div className="space-y-4">
+          <div className="card p-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-800 flex items-center justify-center">
+              <Shield className="w-8 h-8 text-surface-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">No team members yet</h3>
+            <p className="text-surface-400 mb-4">
+              Team members will appear here once they sign in with Google
+            </p>
+            {isAdmin && (
+              <p className="text-sm text-surface-500">
+                Click "Sync from Notion" above to import team members from your Notion database
+              </p>
+            )}
+            {isAdmin && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowNewUserSheet(true)}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add User
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <h3 className="text-lg font-semibold text-white mb-2">No team members yet</h3>
-        <p className="text-surface-400 mb-4">
-          Team members will appear here once they sign in with Google
-        </p>
-        {isAdmin && (
-          <p className="text-sm text-surface-500">
-            Click "Sync from Notion" above to import team members from your Notion database
-          </p>
-        )}
-      </div>
+
+        {/* Add User Sheet */}
+        <Sheet open={showNewUserSheet} onOpenChange={setShowNewUserSheet}>
+          <SheetContent side="right" className="w-[500px] sm:w-[600px]">
+            <SheetHeader>
+              <SheetTitle>Add New User</SheetTitle>
+              <SheetDescription>
+                Create a new user account. They will be able to sign in with their email via Google OAuth.
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="label">Email *</label>
+                <input
+                  type="email"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  className="input w-full"
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label">Name</label>
+                <input
+                  type="text"
+                  value={newUserForm.name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                  className="input w-full"
+                  placeholder="Full name (optional)"
+                />
+              </div>
+
+              <div>
+                <label className="label">Role</label>
+                <Combobox
+                  value={newUserForm.role}
+                  onChange={(value) => setNewUserForm({ ...newUserForm, role: value || 'VIEWER' })}
+                  options={roleOptions}
+                  placeholder="Select role..."
+                />
+                <p className="text-xs text-surface-500 mt-1">
+                  Default role is Viewer. User can sign in with Google OAuth.
+                </p>
+              </div>
+            </div>
+
+            <SheetFooter className="mt-8">
+              <button
+                onClick={() => setShowNewUserSheet(false)}
+                className="btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={!newUserForm.email.trim() || creatingUser}
+                className="btn-primary flex items-center gap-2"
+              >
+                {creatingUser ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Create User
+                  </>
+                )}
+              </button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      </>
     )
   }
 
@@ -383,6 +571,15 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
             className="w-[130px]"
             onOpenChange={setIsRoleFilterOpen}
           />
+          {isAdmin && (
+            <button
+              onClick={() => setShowNewUserSheet(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add User
+            </button>
+          )}
         </div>
       </div>
 
@@ -598,33 +795,26 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
         })}
       </div>
 
-      {/* Edit/Merge Modal - Using Portal for proper positioning */}
-      {mounted && editingUser && createPortal(
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setEditingUser(null)
-              setMergeTarget('')
-            }
-          }}
-        >
-          <div 
-            className="card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <label className="relative cursor-pointer group">
+      {/* Edit/Merge Sheet */}
+      <Sheet open={!!editingUser} onOpenChange={(open) => {
+        if (!open) {
+          setEditingUser(null)
+          setMergeTarget('')
+        }
+      }}>
+        {editingUser && (
+          <SheetContent side="right" className="w-[600px] sm:w-[700px] overflow-y-auto">
+            <SheetHeader>
+              <div className="flex items-start gap-4">
+                <label className="relative cursor-pointer group flex-shrink-0">
                   {editingUser.image ? (
-                    <img src={editingUser.image} alt="" className="w-12 h-12 rounded-full object-cover" />
+                    <img src={editingUser.image} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-surface-700" />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-semibold">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-semibold text-xl border-2 border-surface-700">
                       {editingUser.name?.charAt(0) || '?'}
                     </div>
                   )}
-                  <span className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] text-white transition-opacity">
+                  <span className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] text-white transition-opacity">
                     Change
                   </span>
                   <input
@@ -634,25 +824,26 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                     onChange={(e) => handleAvatarUpload(editingUser.id, e.target.files?.[0] || null)}
                   />
                 </label>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">{editingUser.name || 'No name'}</h3>
-                  <p className="text-sm text-surface-400">{editingUser.email || 'No email'}</p>
+                <div className="flex-1 min-w-0">
+                  <SheetTitle className="text-xl">{editingUser.name || 'No name'}</SheetTitle>
+                  <SheetDescription className="mt-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{editingUser.email || 'No email'}</span>
+                      {editingUser.notionTeamMemberId && (
+                        <div className="relative group">
+                          <Link2 className="w-4 h-4 text-green-400" />
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                            Notion Linked: {editingUser.notionTeamMemberName || 'Unknown'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </SheetDescription>
                 </div>
-                {editingUser.notionTeamMemberId && (
-                  <span className="badge bg-green-500/20 text-green-400 border-green-500/30 text-xs flex items-center gap-1">
-                    <Link2 className="w-3 h-3" /> Notion Linked
-                  </span>
-                )}
               </div>
-              <button
-                onClick={() => { setEditingUser(null); setMergeTarget('') }}
-                className="p-1 text-surface-400 hover:text-white rounded hover:bg-surface-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            </SheetHeader>
 
-            <div className="space-y-4">
+            <div className="mt-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Manager Selection */}
                 <div className="flex flex-col">
@@ -672,8 +863,8 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                           label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
                         })),
                     ]}
-                    allowClear
                     className="w-full"
+                    showChevron={false}
                   />
                 </div>
 
@@ -693,136 +884,319 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                 </div>
               </div>
 
+              {/* Role Breakdown Section */}
+              <div className="pt-6 border-t border-surface-700">
+                <button
+                  onClick={() => toggleSection('roleBreakdown')}
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                >
+                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                    <Building2 className="w-4 h-4" />
+                    Client Role Breakdown
+                  </label>
+                  <ChevronDown className={cn(
+                    'w-4 h-4 text-surface-400 transition-transform',
+                    showRoleBreakdown && 'rotate-180'
+                  )} />
+                </button>
+                {showRoleBreakdown && (
+                  <>
+                    {loadingRoleBreakdown ? (
+                      <div className="text-sm text-surface-400">Loading...</div>
+                    ) : roleBreakdown && Object.keys(roleBreakdown).length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {Object.entries(roleBreakdown)
+                            .sort(([a], [b]) => {
+                              // Sort by role priority: SE, PRIMARY, SECONDARY, GRCE, IT_MANAGER
+                              const order: Record<string, number> = {
+                                SE: 1,
+                                PRIMARY: 2,
+                                SECONDARY: 3,
+                                GRCE: 4,
+                                IT_MANAGER: 5,
+                              }
+                              return (order[a] || 99) - (order[b] || 99)
+                            })
+                            .map(([role, count]) => {
+                              const roleLabels: Record<string, string> = {
+                                SE: 'System Engineer',
+                                PRIMARY: 'Primary Consultant',
+                                SECONDARY: 'Secondary Consultant',
+                                GRCE: 'GRCE Engineer',
+                                IT_MANAGER: 'IT Manager',
+                              }
+                              const roleColors: Record<string, string> = {
+                                SE: 'bg-brand-500/20 text-brand-400 border-brand-500/30',
+                                PRIMARY: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                                SECONDARY: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+                                GRCE: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                                IT_MANAGER: 'bg-green-500/20 text-green-400 border-green-500/30',
+                              }
+                              return (
+                                <div
+                                  key={role}
+                                  className={cn(
+                                    'p-3 rounded-lg border h-20 flex flex-col justify-between',
+                                    roleColors[role] || 'bg-surface-800 text-surface-300 border-surface-700'
+                                  )}
+                                >
+                                  <div className="text-xs text-surface-500">
+                                    {roleLabels[role] || role}
+                                  </div>
+                                  <div className="text-lg font-semibold">{count}</div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                        {totalUniqueClients !== null && totalUniqueClients > 0 && (
+                          <div className="mt-3 p-3 bg-surface-800/50 rounded-lg border border-surface-700">
+                            <div className="text-xs text-surface-500 mb-1">Total Unique Clients</div>
+                            <div className="text-xl font-semibold text-white">{totalUniqueClients}</div>
+                            <div className="text-xs text-surface-500 mt-1">
+                              Includes all roles and infra check assignments
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-sm text-surface-500">No client assignments</div>
+                    )}
+                  </>
+                )}
+              </div>
+
               {/* Merge Section - Only show if user has Notion link */}
               {editingUser.notionTeamMemberId && (
-                <div className="space-y-2 pt-4 border-t border-surface-700">
-                  <label className="label flex items-center gap-2">
-                    <Merge className="w-4 h-4" />
-                    Merge into another user
-                  </label>
-                  <p className="text-xs text-surface-500 mb-2">
-                    This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
-                  </p>
-                  <Combobox
-                    value={mergeTarget}
-                    onChange={setMergeTarget}
-                    options={team
-                      .filter(t => t.id !== editingUser.id && !t.notionTeamMemberId)
-                      .map(t => ({
-                        value: t.id,
-                        label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
-                      }))}
-                    placeholder="Select user to merge into..."
-                    allowClear
-                  />
-                  {mergeTarget && (
-                    <button
-                      onClick={handleMergeUsers}
-                      disabled={saving}
-                      className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
-                    >
+                <div className="pt-6 border-t border-surface-700">
+                  <button
+                    onClick={() => setShowMergeSection(!showMergeSection)}
+                    className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                  >
+                    <label className="label flex items-center gap-2 cursor-pointer mb-0">
                       <Merge className="w-4 h-4" />
-                      {saving ? 'Merging...' : 'Merge Users'}
-                    </button>
+                      Merge into another user
+                    </label>
+                    <ChevronDown className={cn(
+                      'w-4 h-4 text-surface-400 transition-transform',
+                      showMergeSection && 'rotate-180'
+                    )} />
+                  </button>
+                  {showMergeSection && (
+                    <div className="space-y-2 mt-3">
+                      <p className="text-xs text-surface-500 mb-2">
+                        This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
+                      </p>
+                      <Combobox
+                        value={mergeTarget}
+                        onChange={setMergeTarget}
+                        options={team
+                          .filter(t => t.id !== editingUser.id && !t.notionTeamMemberId)
+                          .map(t => ({
+                            value: t.id,
+                            label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
+                          }))}
+                        placeholder="Select user to merge into..."
+                        allowClear
+                      />
+                      {mergeTarget && (
+                        <button
+                          onClick={handleMergeUsers}
+                          disabled={saving}
+                          className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
+                        >
+                          <Merge className="w-4 h-4" />
+                          {saving ? 'Merging...' : 'Merge Users'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Save Button */}
-              <div className="pt-4 border-t border-surface-700">
+              {/* Quick Actions */}
+              <div className="pt-6 border-t border-surface-700">
                 <button
-                  onClick={handleSaveAll}
-                  disabled={saving}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
+                  onClick={() => toggleSection('quickActions')}
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
                 >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                    <Wrench className="w-4 h-4" />
+                    Quick Actions
+                  </label>
+                  <ChevronDown className={cn(
+                    'w-4 h-4 text-surface-400 transition-transform',
+                    showQuickActions && 'rotate-180'
+                  )} />
                 </button>
+                {showQuickActions && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        window.location.href = '/api/harvest/auth'
+                      }}
+                      className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-surface-300"
+                    >
+                      <Clock className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      {editingUser.hasHarvest ? 'Reconnect Harvest' : 'Connect Harvest'}
+                    </div>
+                  </div>
+
+                  {editingUser.notionTeamMemberId && (
+                    <>
+                      <div className="relative group">
+                        <button
+                          onClick={async () => {
+                            try {
+                              toast.info('Attaching clients from Notion…')
+                              const res = await fetch(`/api/users/${editingUser.id}/clients`, {
+                                method: 'POST',
+                              })
+                              const data = await res.json()
+                              if (!res.ok) {
+                                throw new Error(data.error || 'Failed to attach clients')
+                              }
+                              toast.success('Clients attached', {
+                                description: `Primary: ${data.primaryAttached}, Secondary: ${data.secondaryAttached}`,
+                              })
+                              setEditingUser(null)
+                              window.location.reload()
+                            } catch (err: any) {
+                              toast.error('Failed to attach clients', { description: err.message })
+                            }
+                          }}
+                          className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-green-400"
+                        >
+                          <Merge className="w-5 h-5" />
+                        </button>
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          Attach clients from Notion
+                        </div>
+                      </div>
+                      <div className="relative group">
+                        <button
+                          onClick={() => { handleUnlinkNotion(editingUser.id); setEditingUser(null) }}
+                          className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-amber-400"
+                        >
+                          <Unlink className="w-5 h-5" />
+                        </button>
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                          Unlink from Notion
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  <div className="relative group">
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirm(editingUser.id)
+                        setEditingUser(null)
+                      }}
+                      className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-400"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      Delete User
+                    </div>
+                  </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="mt-6 pt-4 border-t border-surface-700">
-              <h4 className="text-sm font-medium text-surface-400 mb-3">Quick Actions</h4>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative group">
-                  <button
-                    onClick={() => {
-                      window.location.href = '/api/harvest/auth'
-                    }}
-                    className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-surface-300"
-                  >
-                    <Clock className="w-5 h-5" />
-                  </button>
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    {editingUser.hasHarvest ? 'Reconnect Harvest' : 'Connect Harvest'}
-                  </div>
-                </div>
+            <SheetFooter className="mt-8">
+              <button
+                onClick={handleSaveAll}
+                disabled={saving}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </SheetFooter>
+          </SheetContent>
+        )}
+      </Sheet>
 
-                {editingUser.notionTeamMemberId && (
-                  <>
-                    <div className="relative group">
-                      <button
-                        onClick={async () => {
-                          try {
-                            toast.info('Attaching clients from Notion…')
-                            const res = await fetch(`/api/users/${editingUser.id}/clients`, {
-                              method: 'POST',
-                            })
-                            const data = await res.json()
-                            if (!res.ok) {
-                              throw new Error(data.error || 'Failed to attach clients')
-                            }
-                            toast.success('Clients attached', {
-                              description: `Primary: ${data.primaryAttached}, Secondary: ${data.secondaryAttached}`,
-                            })
-                            setEditingUser(null)
-                            window.location.reload()
-                          } catch (err: any) {
-                            toast.error('Failed to attach clients', { description: err.message })
-                          }
-                        }}
-                        className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-green-400"
-                      >
-                        <Merge className="w-5 h-5" />
-                      </button>
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        Attach clients from Notion
-                      </div>
-                    </div>
-                    <div className="relative group">
-                      <button
-                        onClick={() => { handleUnlinkNotion(editingUser.id); setEditingUser(null) }}
-                        className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-amber-400"
-                      >
-                        <Unlink className="w-5 h-5" />
-                      </button>
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        Unlink from Notion
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="relative group">
-                  <button
-                    onClick={() => {
-                      setShowDeleteConfirm(editingUser.id)
-                      setEditingUser(null)
-                    }}
-                    className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-400"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    Delete User
-                  </div>
-                </div>
-              </div>
+      {/* Add User Sheet */}
+      <Sheet open={showNewUserSheet} onOpenChange={setShowNewUserSheet}>
+        <SheetContent side="right" className="w-[500px] sm:w-[600px]">
+          <SheetHeader>
+            <SheetTitle>Add New User</SheetTitle>
+            <SheetDescription>
+              Create a new user account. They will be able to sign in with their email via Google OAuth.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            <div>
+              <label className="label">Email *</label>
+              <input
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                className="input w-full"
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label">Name</label>
+              <input
+                type="text"
+                value={newUserForm.name}
+                onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                className="input w-full"
+                placeholder="Full name (optional)"
+              />
+            </div>
+
+            <div>
+              <label className="label">Role</label>
+              <Combobox
+                value={newUserForm.role}
+                onChange={(value) => setNewUserForm({ ...newUserForm, role: value || 'VIEWER' })}
+                options={roleOptions}
+                placeholder="Select role..."
+              />
+              <p className="text-xs text-surface-500 mt-1">
+                Default role is Viewer. User can sign in with Google OAuth.
+              </p>
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+
+          <SheetFooter className="mt-8">
+            <button
+              onClick={() => setShowNewUserSheet(false)}
+              className="btn-ghost"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateUser}
+              disabled={!newUserForm.email.trim() || creatingUser}
+              className="btn-primary flex items-center gap-2"
+            >
+              {creatingUser ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Create User
+                </>
+              )}
+            </button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Confirmation Dialog */}
       {mounted && showDeleteConfirm && createPortal(

@@ -29,7 +29,62 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json(user)
+    // Get role breakdown from ClientEngineerAssignment
+    const roleAssignments = await db.clientEngineerAssignment.groupBy({
+      by: ['role'],
+      where: { userId: params.id },
+      _count: { id: true },
+    })
+
+    // Get all assignments to calculate total unique clients
+    // Now using only ClientEngineerAssignment table (legacy fields migrated)
+    const allAssignments = await db.clientEngineerAssignment.findMany({
+      where: { userId: params.id },
+      select: { clientId: true },
+    })
+
+    // Also include infra check assignments for total count
+    const infraCheckAssignments = await db.infraCheck.findMany({
+      where: { assignedEngineerId: params.id },
+      select: { clientId: true },
+    })
+
+    // Calculate total unique clients (combining assignment table and infra checks)
+    // Legacy fields no longer needed - all data migrated to ClientEngineerAssignment
+    const uniqueClientIds = new Set<string>()
+    allAssignments.forEach(a => uniqueClientIds.add(a.clientId))
+    infraCheckAssignments.forEach(ic => {
+      if (ic.clientId) uniqueClientIds.add(ic.clientId)
+    })
+
+    // Convert to a simple object with role counts
+    // All roles now come from ClientEngineerAssignment (legacy fields migrated)
+    const roleBreakdown: Record<string, number> = {}
+    roleAssignments.forEach((assignment) => {
+      roleBreakdown[assignment.role] = assignment._count.id
+    })
+
+    // Get user's teams
+    const userTeams = await (db as any).userTeam.findMany({
+      where: { userId: params.id },
+      include: {
+        team: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            description: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      ...user,
+      roleBreakdown,
+      totalUniqueClients: uniqueClientIds.size,
+      teams: userTeams.map((ut: any) => ut.team),
+    })
   } catch (error: any) {
     console.error('Error fetching user:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -73,7 +128,7 @@ export async function PATCH(
         'slackUsername',
         'slackUserId',
         'jobTitle',
-        'team',
+        'team', // Legacy field - kept for backward compatibility
       ]
       for (const field of allowedAdminFields) {
         if (body[field] !== undefined) {
@@ -88,13 +143,49 @@ export async function PATCH(
       }
     } else {
       // If non-admin tries to update other fields, block
-      const nonManagerFields = Object.keys(body).filter((k) => k !== 'managerId')
+      const nonManagerFields = Object.keys(body).filter((k) => k !== 'managerId' && k !== 'teamIds')
       if (nonManagerFields.length > 0) {
         return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 })
       }
     }
 
-    if (Object.keys(updateData).length === 0) {
+    // Handle team associations (teamIds array)
+    if (body.teamIds !== undefined) {
+      const teamIds = body.teamIds as string[]
+
+      // Delete existing user team associations
+      await (db as any).userTeam.deleteMany({
+        where: { userId: params.id },
+      })
+
+      // Create new user team associations if teamIds provided
+      if (teamIds && Array.isArray(teamIds) && teamIds.length > 0) {
+        // Validate that all team IDs exist
+        const existingTeams = await (db as any).team.findMany({
+          where: { 
+            id: { in: teamIds },
+            isActive: true,
+          },
+          select: { id: true },
+        })
+
+        const validTeamIds = existingTeams.map((t: any) => t.id)
+        
+        if (validTeamIds.length > 0) {
+          const userTeamsToCreate = validTeamIds.map((teamId: string) => ({
+            userId: params.id,
+            teamId,
+          }))
+
+          await (db as any).userTeam.createMany({
+            data: userTeamsToCreate,
+            skipDuplicates: true,
+          })
+        }
+      }
+    }
+
+    if (Object.keys(updateData).length === 0 && body.teamIds === undefined && body.managerId === undefined) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 

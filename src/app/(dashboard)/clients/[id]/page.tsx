@@ -14,6 +14,21 @@ async function getClient(id: string) {
       include: {
         primaryEngineer: true,
         secondaryEngineer: true,
+        // Include assignments from ClientEngineerAssignment table
+        assignments: {
+          select: {
+            id: true,
+            userId: true,
+            role: true,
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+          orderBy: [
+            { role: 'asc' },
+            { user: { name: 'asc' } },
+          ],
+        },
         checks: {
           take: 5,
           orderBy: { scheduledDate: 'desc' },
@@ -34,10 +49,16 @@ async function getClient(id: string) {
   if (!client) return null
   
   // Look up the infra check assignee user by name if set (using in-memory lookup)
+  // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
   let infraCheckAssigneeUser = null
-  const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
+  const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
+  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+  const assigneeName = (client.infraCheckAssigneeName || seFromAssignments?.name || client.systemEngineerName)?.trim()
   
-  if (assigneeName) {
+  // If we have SE from assignments, use that user directly
+  if (seFromAssignments && !client.infraCheckAssigneeName) {
+    infraCheckAssigneeUser = seFromAssignments
+  } else if (assigneeName) {
     const normalizedAssigneeName = assigneeName.toLowerCase()
     
     // First try exact match

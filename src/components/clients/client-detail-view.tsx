@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { 
@@ -21,12 +22,15 @@ import {
   X,
   Loader2,
   Search,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { cn, getCadenceLabel, formatDate } from '@/lib/utils'
 import { SecurityChecks } from './security-checks'
 import { ClientSystems } from './client-systems'
 import { ClientCompliance } from './client-compliance'
 import { toast } from 'sonner'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 
 interface Client {
   id: string
@@ -66,6 +70,17 @@ interface Client {
   userAccessReviews: string | null
   acceptedPasswordPolicy: string | null
   teams: string[]
+  teamAssignments?: Array<{
+    id: string
+    teamId: string
+    team: {
+      id: string
+      name: string
+      description: string | null
+      color: string | null
+      tag: string | null
+    }
+  }>
   hrProcesses: string[]
   policies: string[]
   itGlueUrl: string | null
@@ -94,13 +109,77 @@ interface Client {
   checks: any[]
 }
 
+
 interface ClientDetailViewProps {
   client: Client
   canEdit?: boolean // If false, hide edit/create buttons (for viewers)
 }
 
+// Reusable UserBubble component with popover
+function UserBubble({ 
+  user, 
+  bgColor, 
+  borderColor,
+  size = 'w-10 h-10'
+}: { 
+  user: { name: string | null; email: string | null; image: string | null }
+  bgColor: string
+  borderColor: string
+  size?: string
+}) {
+  const displayName = user.name || 'Unknown'
+  const displayEmail = user.email || null
+  
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            size,
+            'rounded-full border-2 flex items-center justify-center overflow-hidden relative z-0 hover:z-10 transition-z cursor-pointer',
+            bgColor,
+            borderColor
+          )}
+          title={displayName}
+        >
+          {user.image ? (
+            <img src={user.image} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <span className={cn(
+              'text-white font-medium',
+              size === 'w-8 h-8' ? 'text-xs' : size === 'w-7 h-7' ? 'text-[10px]' : 'text-[10px]'
+            )}>{displayName.charAt(0) || '?'}</span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" side="top" align="center">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-white">{displayName}</p>
+          {displayEmail && (
+            <p className="text-xs text-surface-400">{displayEmail}</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Helper to get bubble size based on count (1-2: w-8, 3: w-7, 4: w-6 to match MyTeamClients)
+function getBubbleSize(count: number): string {
+  if (count <= 2) return 'w-8 h-8'
+  if (count === 3) return 'w-7 h-7'
+  return 'w-6 h-6' // Matches MyTeamClients component
+}
+
+// Fixed width container to ensure all text aligns - fits 4 bubbles at smallest size (w-6) with overlap
+// 4 bubbles at 24px each with -space-x-2 (8px overlap) = 24 + 16 + 16 + 16 = 72px, but we'll use 80px for safety
+const BUBBLE_CONTAINER_WIDTH = 'w-20' // 80px - fixed width for all containers
+
 export function ClientDetailView({ client, canEdit = true }: ClientDetailViewProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
   const [showChannelPicker, setShowChannelPicker] = useState(false)
   const [channels, setChannels] = useState<Array<{ id: string; name: string; isPrivate: boolean }>>([])
   const [loadingChannels, setLoadingChannels] = useState(false)
@@ -110,6 +189,18 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
   const [testChannelId, setTestChannelId] = useState('')
   const [testingChannel, setTestingChannel] = useState(false)
   const [testResult, setTestResult] = useState<{ accessible: boolean; channel?: any; error?: string; message?: string } | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
+  const handleCopy = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(fieldName)
+      toast.success('Copied to clipboard')
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (error) {
+      toast.error('Failed to copy')
+    }
+  }
 
   const handleSync = async () => {
     if (!client.notionPageId) {
@@ -298,11 +389,32 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 <span className={cn('badge border', getStatusBadge(client.status))}>
                   {client.status.replace('_', ' ')}
                 </span>
-                {client.teams.length > 0 && client.teams.map((team) => (
-                  <span key={team} className="badge bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                    {team}
-                  </span>
-                ))}
+                {/* Show team tags from teamAssignments if available, otherwise fall back to old teams array */}
+                {client.teamAssignments && client.teamAssignments.length > 0 ? (
+                  client.teamAssignments.map((teamAssignment) => {
+                    const tag = teamAssignment.team.tag || teamAssignment.team.name
+                    const color = teamAssignment.team.color || '#3B82F6'
+                    return (
+                      <span 
+                        key={teamAssignment.id} 
+                        className="badge border"
+                        style={{
+                          backgroundColor: `${color}20`,
+                          color: color,
+                          borderColor: `${color}30`
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    )
+                  })
+                ) : (
+                  client.teams.length > 0 && client.teams.map((team) => (
+                    <span key={team} className="badge bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      {team}
+                    </span>
+                  ))
+                )}
                 {client.priority && (
                   <span className="badge bg-surface-700 text-surface-300">
                     {client.priority}
@@ -316,11 +428,12 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
               )}
             </div>
             <div className="flex items-center gap-2">
-              {client.notionPageId && (
+              {client.notionPageId && isAdmin && (
                 <button 
                   onClick={handleSync}
                   disabled={syncing}
                   className="btn-ghost flex items-center gap-2"
+                  title="Sync this client from Notion (Admin only)"
                 >
                   <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
                   {syncing ? 'Syncing...' : 'Sync'}
@@ -373,23 +486,51 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {client.pocEmail && (
                   <div className="flex items-start gap-3">
                     <Mail className="w-5 h-5 text-surface-500 mt-0.5" />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-xs text-surface-500 uppercase tracking-wide">POC Email</p>
-                      <a 
-                        href={`mailto:${client.pocEmail}`}
-                        className="text-surface-200 hover:text-brand-400 transition-colors"
-                      >
-                        {client.pocEmail}
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a 
+                          href={`mailto:${client.pocEmail}`}
+                          className="text-surface-200 hover:text-brand-400 transition-colors flex-1 min-w-0 truncate"
+                        >
+                          {client.pocEmail}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(client.pocEmail!, 'pocEmail')}
+                          className="flex-shrink-0 p-1.5 rounded hover:bg-surface-700 transition-colors"
+                          title="Copy email"
+                        >
+                          {copiedField === 'pocEmail' ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-surface-400 hover:text-surface-300" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
                 {client.officeAddress && (
                   <div className="flex items-start gap-3">
                     <MapPin className="w-5 h-5 text-surface-500 mt-0.5" />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-xs text-surface-500 uppercase tracking-wide">Office Address</p>
-                      <p className="text-surface-200">{client.officeAddress}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-surface-200 flex-1 min-w-0">{client.officeAddress}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(client.officeAddress!, 'officeAddress')}
+                          className="flex-shrink-0 p-1.5 rounded hover:bg-surface-700 transition-colors"
+                          title="Copy address"
+                        >
+                          {copiedField === 'officeAddress' ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-surface-400 hover:text-surface-300" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -506,63 +647,58 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
               <div className="space-y-3">
                 {/* Infra Check Assignee - Either override or SE */}
                 {(() => {
-                  const assignee = client.infraCheckAssigneeName || client.systemEngineerName
+                  // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
+                  const seAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SE') || []
+                  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+                  const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
                   const isOverride =
                     !!client.infraCheckAssigneeName &&
+                    client.infraCheckAssigneeName !== seFromAssignments &&
                     client.infraCheckAssigneeName !== client.systemEngineerName
 
-                  // Only use the looked-up user's image - don't fallback to primaryEngineer
-                  // If no image, we'll show initials instead
-                  const avatarImage = client.infraCheckAssigneeUser?.image || null
+                  // Get user from assignments if available, otherwise use looked-up user
+                  const seUserFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+                  const avatarImage = client.infraCheckAssigneeUser?.image || seUserFromAssignments?.image || null
+                  const assigneeEmail = client.infraCheckAssigneeUser?.email || seUserFromAssignments?.email || null
 
                   if (assignee) {
                     return (
                       <div
-                        className={`flex items-center gap-3 p-2 -mx-2 rounded-lg ${
+                        className={cn(
+                          'flex items-center gap-3 p-2 -mx-2 rounded-lg',
                           isOverride
                             ? 'bg-amber-500/10 border border-amber-500/20'
                             : 'bg-brand-500/10 border border-brand-500/20'
-                        }`}
+                        )}
                       >
-                        <div className="flex-shrink-0">
-                          {avatarImage ? (
-                            <img
-                              src={avatarImage}
-                              alt={assignee}
-                              className="w-10 h-10 rounded-full object-cover"
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            <UserBubble
+                              user={{
+                                name: assignee,
+                                email: assigneeEmail,
+                                image: avatarImage
+                              }}
+                              bgColor={isOverride ? 'bg-amber-600' : 'bg-brand-600'}
+                              borderColor="border-surface-800"
+                              size="w-8 h-8"
                             />
-                          ) : (
-                            <div
-                              className={cn(
-                                'w-10 h-10 rounded-full flex items-center justify-center text-white font-medium',
-                                isOverride ? 'bg-amber-600' : 'bg-brand-600'
-                              )}
-                            >
-                              {assignee.charAt(0)}
-                            </div>
-                          )}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 3 }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium">{assignee}</p>
+                        <div className="flex flex-col justify-center">
+                          <p className="text-white font-medium leading-tight">Infra Check Assignee</p>
                           <p
                             className={cn(
-                              'text-xs',
+                              'text-xs leading-tight',
                               isOverride ? 'text-amber-400' : 'text-brand-400'
                             )}
                           >
-                            Infra Check Assignee {isOverride ? '(Override)' : '(SE)'}
+                            {isOverride ? 'Override' : 'Default (SE)'}
                           </p>
-                        </div>
-                        <div
-                          className={cn(
-                            'flex items-center gap-1 px-2 py-1 rounded text-xs',
-                            isOverride
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-brand-500/20 text-brand-300'
-                          )}
-                        >
-                          <Shield className="w-3 h-3" />
-                          {isOverride ? 'Override' : 'Default'}
                         </div>
                       </div>
                     )
@@ -581,80 +717,203 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                   )
                 })()}
                 
-                {/* Show SE separately if there's an override */}
-                {client.infraCheckAssigneeName && client.infraCheckAssigneeName !== client.systemEngineerName && client.systemEngineerName && (
-                  <div className="flex items-center gap-3 opacity-60">
-                    <div className="flex-shrink-0">
-                      {client.primaryEngineer?.image ? (
-                        <img
-                          src={client.primaryEngineer.image}
-                          alt={client.systemEngineerName}
-                          className="w-10 h-10 rounded-full object-cover border-2 border-surface-500"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-surface-600 flex items-center justify-center text-white font-medium">
-                          {client.systemEngineerName.charAt(0)}
+                {/* Show SE(s) separately if there's an override OR if we have multiple SEs - Show overlapping bubbles if multiple */}
+                {(() => {
+                  const seAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SE') || []
+                  const seNames = client.systemEngineerName ? [client.systemEngineerName] : []
+                  
+                  // Show if: 1) There's an override and we have SE assignments, OR 2) We have multiple SEs from assignments
+                  const hasOverride = client.infraCheckAssigneeName && client.infraCheckAssigneeName !== client.systemEngineerName
+                  const hasMultipleSEs = seAssignments.length > 1
+                  
+                  if ((hasOverride && (seAssignments.length > 0 || seNames.length > 0)) || (hasMultipleSEs && seAssignments.length > 0)) {
+                    const users = seAssignments.length > 0 
+                      ? seAssignments.map((a: any) => a.user)
+                      : seNames.map((name: string) => ({ name, image: null, email: null }))
+                    
+                    return (
+                      <div className={cn("flex items-center gap-3", hasOverride && "opacity-60")}>
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            {users.slice(0, 4).map((user: any, idx: number) => (
+                              <UserBubble
+                                key={idx}
+                                user={user}
+                                bgColor="bg-brand-600"
+                                borderColor="border-surface-500"
+                                size={getBubbleSize(users.length)}
+                              />
+                            ))}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-surface-300 font-medium">{client.systemEngineerName}</p>
-                      <p className="text-xs text-surface-500">System Engineer (from Notion)</p>
-                    </div>
-                  </div>
-                )}
+                        <div className="flex flex-col justify-center">
+                          <p className={cn("font-medium leading-tight", hasOverride ? "text-surface-300" : "text-white")}>
+                            System Engineer{users.length > 1 ? 's' : ''}
+                            {hasOverride && " (from Notion)"}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 
-                {/* Primary Consultant */}
-                {client.primaryConsultantName && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                      {client.primaryConsultantName.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{client.primaryConsultantName}</p>
-                      <p className="text-xs text-surface-500">Primary Consultant</p>
-                    </div>
-                  </div>
-                )}
+                {/* Primary Consultant - Show overlapping bubbles if multiple */}
+                {(() => {
+                  const primaryAssignments = (client as any).assignments?.filter((a: any) => a.role === 'PRIMARY') || []
+                  const primaryNames = client.primaryConsultantName ? [client.primaryConsultantName] : []
+                  
+                  if (primaryAssignments.length > 0 || primaryNames.length > 0) {
+                    const users = primaryAssignments.length > 0 
+                      ? primaryAssignments.map((a: any) => a.user)
+                      : primaryNames.map((name: string) => ({ name, image: null, email: null }))
+                    
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            {users.slice(0, 4).map((user: any, idx: number) => (
+                              <UserBubble
+                                key={idx}
+                                user={user}
+                                bgColor="bg-emerald-600"
+                                borderColor="border-surface-800"
+                                size={getBubbleSize(users.length)}
+                              />
+                            ))}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <p className="text-white font-medium leading-tight">Primary Consultant{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 
-                {/* Secondaries */}
-                {client.secondaryConsultantNames && client.secondaryConsultantNames.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-surface-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                      {client.secondaryConsultantNames.length}
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{client.secondaryConsultantNames.join(', ')}</p>
-                      <p className="text-xs text-surface-500">Secondary Consultant{client.secondaryConsultantNames.length > 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                )}
+                {/* Secondaries - Show overlapping bubbles if multiple */}
+                {(() => {
+                  const secondaryAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SECONDARY') || []
+                  const secondaryNames = client.secondaryConsultantNames || []
+                  
+                  if (secondaryAssignments.length > 0 || secondaryNames.length > 0) {
+                    const users = secondaryAssignments.length > 0 
+                      ? secondaryAssignments.map((a: any) => a.user)
+                      : secondaryNames.map((name: string) => ({ name, image: null, email: null }))
+                    
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            {users.slice(0, 4).map((user: any, idx: number) => (
+                              <UserBubble
+                                key={idx}
+                                user={user}
+                                bgColor="bg-surface-600"
+                                borderColor="border-surface-800"
+                                size={getBubbleSize(users.length)}
+                              />
+                            ))}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <p className="text-white font-medium leading-tight">Secondary Consultant{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 
-                {/* IT Manager */}
-                {client.itManagerName && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                      {client.itManagerName.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{client.itManagerName}</p>
-                      <p className="text-xs text-surface-500">IT Manager</p>
-                    </div>
-                  </div>
-                )}
+                {/* IT Manager - Show overlapping bubbles if multiple */}
+                {(() => {
+                  const itManagerAssignments = (client as any).assignments?.filter((a: any) => a.role === 'IT_MANAGER') || []
+                  const itManagerNames = client.itManagerName ? [client.itManagerName] : []
+                  
+                  if (itManagerAssignments.length > 0 || itManagerNames.length > 0) {
+                    const users = itManagerAssignments.length > 0 
+                      ? itManagerAssignments.map((a: any) => a.user)
+                      : itManagerNames.map((name: string) => ({ name, image: null, email: null }))
+                    
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            {users.slice(0, 4).map((user: any, idx: number) => (
+                              <UserBubble
+                                key={idx}
+                                user={user}
+                                bgColor="bg-purple-600"
+                                borderColor="border-surface-800"
+                                size={getBubbleSize(users.length)}
+                              />
+                            ))}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <p className="text-white font-medium leading-tight">IT Manager{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 
-                {/* GRCE (Compliance) */}
-                {client.grceEngineerName && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center text-white font-medium flex-shrink-0">
-                      {client.grceEngineerName.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{client.grceEngineerName}</p>
-                      <p className="text-xs text-surface-500">GRCE (Compliance)</p>
-                    </div>
-                  </div>
-                )}
+                {/* GRCE (Compliance) - Show overlapping bubbles if multiple */}
+                {(() => {
+                  const grceAssignments = (client as any).assignments?.filter((a: any) => a.role === 'GRCE') || []
+                  const grceNames = client.grceEngineerName ? [client.grceEngineerName] : []
+                  
+                  if (grceAssignments.length > 0 || grceNames.length > 0) {
+                    const users = grceAssignments.length > 0 
+                      ? grceAssignments.map((a: any) => a.user)
+                      : grceNames.map((name: string) => ({ name, image: null, email: null }))
+                    
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
+                          <div className="flex -space-x-2">
+                            {users.slice(0, 4).map((user: any, idx: number) => (
+                              <UserBubble
+                                key={idx}
+                                user={user}
+                                bgColor="bg-amber-600"
+                                borderColor="border-surface-800"
+                                size={getBubbleSize(users.length)}
+                              />
+                            ))}
+                            {/* Invisible placeholders to reserve space for 4 bubbles */}
+                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
+                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <p className="text-white font-medium leading-tight">GRCE Engineer{users.length > 1 ? 's' : ''}</p>
+                          <p className="text-xs text-surface-500 leading-tight">GRCE (Compliance)</p>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
 

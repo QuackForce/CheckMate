@@ -12,6 +12,17 @@ interface Client {
   name: string
   defaultCadence: string
   systemEngineerName: string | null
+  assignments?: Array<{
+    id: string
+    userId: string
+    role: string
+    user: {
+      id: string
+      name: string | null
+      email: string | null
+      image: string | null
+    }
+  }>
 }
 
 interface Engineer {
@@ -94,7 +105,14 @@ export function ScheduleForm() {
     const selectedClient = clients.find(c => c.id === clientId)
     if (selectedClient) {
       setCadence(selectedClient.defaultCadence || 'MONTHLY')
-      if (selectedClient.systemEngineerName) {
+      // Priority: 1) SE from assignments, 2) legacy systemEngineerName
+      const seAssignments = selectedClient.assignments?.filter(a => a.role === 'SE') || []
+      const seName = seAssignments.length > 0 ? seAssignments[0].user.name : null
+      
+      if (seName) {
+        setEngineerName(seName)
+        setEngineerSearch(seName)
+      } else if (selectedClient.systemEngineerName) {
         setEngineerName(selectedClient.systemEngineerName)
         setEngineerSearch(selectedClient.systemEngineerName)
       }

@@ -58,16 +58,25 @@ export async function GET() {
       select: { id: true, name: true, image: true },
     })
     clients = await db.client.findMany({
-      where: { systemEngineerId: { not: null } },
+      where: { assignments: { some: { role: 'SE' } } },
       select: {
         id: true,
         name: true,
         websiteUrl: true,
         status: true,
-        systemEngineer: { select: { id: true, name: true, image: true } },
+        assignments: {
+          where: { role: 'SE' },
+          select: { user: { select: { id: true, name: true, image: true } } },
+          take: 1,
+        },
       },
       orderBy: { name: 'asc' },
     })
+    // Map assignments to match old format for backward compatibility
+    clients = clients.map(c => ({
+      ...c,
+      systemEngineer: c.assignments[0]?.user || null,
+    }))
   } else if (jobTitle === 'GRC Manager') {
     managerType = 'GRC Manager'
     teamMembers = await db.user.findMany({
@@ -81,16 +90,25 @@ export async function GET() {
       select: { id: true, name: true, image: true },
     })
     clients = await db.client.findMany({
-      where: { grceEngineerId: { not: null } },
+      where: { assignments: { some: { role: 'GRCE' } } },
       select: {
         id: true,
         name: true,
         websiteUrl: true,
         status: true,
-        grceEngineer: { select: { id: true, name: true, image: true } },
+        assignments: {
+          where: { role: 'GRCE' },
+          select: { user: { select: { id: true, name: true, image: true } } },
+          take: 1,
+        },
       },
       orderBy: { name: 'asc' },
     })
+    // Map assignments to match old format for backward compatibility
+    clients = clients.map(c => ({
+      ...c,
+      grceEngineer: c.assignments[0]?.user || null,
+    }))
   } else if (jobTitle === 'IT Manager' && team) {
     managerType = 'IT Manager'
     const primaryTeam = team.split(',')[0].trim()
@@ -104,10 +122,12 @@ export async function GET() {
     const teamMemberIds = teamMembers.map((m) => m.id)
     clients = await db.client.findMany({
       where: {
-        OR: [
-          { primaryEngineerId: { in: teamMemberIds } },
-          { secondaryEngineerId: { in: teamMemberIds } },
-        ],
+        assignments: {
+          some: {
+            userId: { in: teamMemberIds },
+            role: { in: ['PRIMARY', 'SECONDARY'] },
+          },
+        },
       },
       select: {
         id: true,

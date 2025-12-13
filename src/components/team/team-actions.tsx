@@ -1,11 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { SiNotion, SiSlack } from 'react-icons/si'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export function TeamActions() {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
   const [syncing, setSyncing] = useState(false)
   const [syncingSlack, setSyncingSlack] = useState(false)
 
@@ -55,12 +58,18 @@ export function TeamActions() {
     }
   }
 
+  // Only show sync buttons for admins
+  if (!isAdmin) {
+    return null
+  }
+
   return (
     <div className="flex items-center gap-3">
       <button
         onClick={handleSyncNotion}
         disabled={syncing}
         className="btn-secondary flex items-center gap-2"
+        title="Sync users from Notion (Admin only)"
       >
         <SiNotion className={cn("w-4 h-4", syncing && "animate-spin")} />
         Sync Notion
@@ -70,6 +79,7 @@ export function TeamActions() {
         onClick={handleSyncSlack}
         disabled={syncingSlack}
         className="btn-secondary flex items-center gap-2"
+        title="Sync Slack usernames (Admin only)"
       >
         <SiSlack className={cn("w-4 h-4", syncingSlack && "animate-spin")} />
         Sync Slack

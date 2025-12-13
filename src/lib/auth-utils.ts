@@ -2,7 +2,7 @@ import { auth } from './auth'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-export type AllowedRole = 'ADMIN' | 'IT_ENGINEER' | 'VIEWER'
+export type AllowedRole = 'ADMIN' | 'IT_ENGINEER' | 'IT_MANAGER' | 'VIEWER'
 
 /**
  * Check for emergency session cookie
@@ -90,6 +90,13 @@ export async function requireAdmin() {
  */
 export async function requireEngineer() {
   return checkRole(['ADMIN', 'IT_ENGINEER'])
+}
+
+/**
+ * Quick check for team management (ADMIN, IT_ENGINEER, IT_MANAGER)
+ */
+export async function requireTeamManager() {
+  return checkRole(['ADMIN', 'IT_ENGINEER', 'IT_MANAGER'])
 }
 
 /**

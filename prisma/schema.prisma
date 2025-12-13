@@ -59,23 +59,76 @@ enum UserRole {
   VIEWER
 }
 
+// ============================================
+// Team Models
+// ============================================
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String? // Optional color for UI (hex code)
+  tag         String? // Team tag that appears on clients (e.g., "Team 1", "Consultant Team 1")
+  managerId   String? // Manager of the team
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  manager User?        @relation("TeamManager", fields: [managerId], references: [id])
+  clients ClientTeam[]
+  users   UserTeam[]
+
+  @@index([isActive])
+  @@index([managerId])
+}
+
+model ClientTeam {
+  id        String   @id @default(cuid())
+  clientId  String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, teamId])
+  @@index([clientId])
+  @@index([teamId])
+}
+
+model UserTeam {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  role          UserRole  @default(VIEWER)
-  jobTitle      String?
-  team          String?   // comma-separated teams from Notion
-  managerId     String?
-  manager       User?     @relation("Manager", fields: [managerId], references: [id])
-  directReports User[]    @relation("Manager")
-  systemEngineerClients Client[] @relation("SystemEngineer")
-  grceEngineerClients   Client[] @relation("GrceEngineer")
-  itManagerClients      Client[] @relation("ItManager")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String?   @unique
+  emailVerified         DateTime?
+  image                 String?
+  role                  UserRole  @default(VIEWER)
+  jobTitle              String?
+  team                  String? // comma-separated teams from Notion
+  managerId             String?
+  manager               User?     @relation("Manager", fields: [managerId], references: [id])
+  directReports         User[]    @relation("Manager")
+  managedTeams          Team[]    @relation("TeamManager")
+  systemEngineerClients Client[]  @relation("SystemEngineer")
+  grceEngineerClients   Client[]  @relation("GrceEngineer")
+  itManagerClients      Client[]  @relation("ItManager")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Link to Notion Team Member
   notionTeamMemberId   String? // Notion page ID for team member
@@ -97,12 +150,19 @@ model User {
 
   // User Preferences
   timezone             String  @default("America/Los_Angeles") // User's timezone for date display
-  notifySlackReminders Boolean @default(true)  // Receive Slack reminders for assigned checks
-  notifyOverdueChecks  Boolean @default(true)  // Receive reminders for overdue checks
+  notifySlackReminders Boolean @default(true) // Receive Slack reminders for assigned checks
+  notifyOverdueChecks  Boolean @default(true) // Receive reminders for overdue checks
   notifyWeeklySummary  Boolean @default(false) // Receive weekly summary (future feature)
 
-  accounts Account[]
-  sessions Session[]
+  // Login Activity
+  lastLoginAt DateTime? // Last login timestamp
+  loginCount  Int       @default(0) // Total number of logins
+
+  accounts                  Account[]
+  sessions                  Session[]
+  loginActivities           LoginActivity[] // Login history
+  clientEngineerAssignments ClientEngineerAssignment[]
+  teams                     UserTeam[] // Many-to-many relationship with teams
 
   // Relations - Client Assignments
   primaryClients   Client[] @relation("PrimaryEngineer")
@@ -146,6 +206,14 @@ enum Priority {
   P4
 }
 
+enum ClientEngineerRole {
+  SE
+  GRCE
+  PRIMARY
+  SECONDARY
+  IT_MANAGER
+}
+
 model Client {
   id       String       @id @default(cuid())
   name     String
@@ -156,8 +224,8 @@ model Client {
   slackChannelId   String?
   slackChannelName String?
 
-  // Notion Sync
-  notionPageId     String?   @unique
+  // Notion Sync (optional - not unique to allow multiple clients without Notion)
+  notionPageId     String?
   notionLastSynced DateTime?
 
   // Check Scheduling
@@ -178,15 +246,16 @@ model Client {
 
   // App-level engineer assignments (linked to app Users for future)
   primaryEngineerId   String?
-  primaryEngineer     User?   @relation("PrimaryEngineer", fields: [primaryEngineerId], references: [id])
+  primaryEngineer     User?                      @relation("PrimaryEngineer", fields: [primaryEngineerId], references: [id])
   secondaryEngineerId String?
-  secondaryEngineer   User?   @relation("SecondaryEngineer", fields: [secondaryEngineerId], references: [id])
+  secondaryEngineer   User?                      @relation("SecondaryEngineer", fields: [secondaryEngineerId], references: [id])
   systemEngineerId    String?
-  systemEngineer      User?   @relation("SystemEngineer", fields: [systemEngineerId], references: [id])
+  systemEngineer      User?                      @relation("SystemEngineer", fields: [systemEngineerId], references: [id])
   grceEngineerId      String?
-  grceEngineer        User?   @relation("GrceEngineer", fields: [grceEngineerId], references: [id])
+  grceEngineer        User?                      @relation("GrceEngineer", fields: [grceEngineerId], references: [id])
   itManagerId         String?
-  itManager           User?   @relation("ItManager", fields: [itManagerId], references: [id])
+  itManager           User?                      @relation("ItManager", fields: [itManagerId], references: [id])
+  assignments         ClientEngineerAssignment[]
 
   // From Notion - Contact & Location
   pocEmail      String?
@@ -245,10 +314,11 @@ model Client {
   updatedAt DateTime @updatedAt
 
   // Relations
-  checks        InfraCheck[]
-  template      CheckTemplate? @relation(fields: [templateId], references: [id])
-  templateId    String?
-  clientSystems ClientSystem[] // Systems this client uses
+  checks          InfraCheck[]
+  template        CheckTemplate? @relation(fields: [templateId], references: [id])
+  templateId      String?
+  clientSystems   ClientSystem[] // Systems this client uses
+  teamAssignments ClientTeam[] // Many-to-many relationship with teams (renamed to avoid conflict with teams String[] field)
 
   @@index([status])
   @@index([primaryEngineerId])
@@ -256,6 +326,22 @@ model Client {
   @@index([systemEngineerId])
   @@index([grceEngineerId])
   @@index([itManagerId])
+}
+
+model ClientEngineerAssignment {
+  id        String             @id @default(cuid())
+  clientId  String
+  userId    String
+  role      ClientEngineerRole
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId, role])
+  @@index([userId])
+  @@index([clientId])
 }
 
 // ============================================
@@ -531,4 +617,22 @@ model IntegrationSettings {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Login Activity Tracking
+// ============================================
+
+model LoginActivity {
+  id        String   @id @default(cuid())
+  ipAddress String? // IP address of login
+  userAgent String? // Browser/device info
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId])
+  @@index([createdAt])
 }

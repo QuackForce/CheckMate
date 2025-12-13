@@ -51,7 +51,7 @@ const navigation: NavItem[] = [
   { name: 'Clients', href: '/clients', icon: Building2, permissions: ['clients:view_all', 'clients:view_own'] },
   { name: 'Checks', href: '/checks', icon: ClipboardCheck, permissions: ['checks:view_all', 'checks:view_own'] },
   { name: 'Schedule', href: '/schedule', icon: Calendar, permission: 'schedule:view' },
-  { name: 'Team', href: '/team', icon: Users, permission: 'team:view' },
+  { name: 'Users', href: '/team', icon: Users, permission: 'team:view' },
   // Temporarily removed - can be restored later
   // { name: 'Org Chart', href: '/org-chart', icon: Users, permission: 'org_chart:view' },
   // { name: 'Reports', href: '/reports', icon: FileText, permission: 'reports:view' },

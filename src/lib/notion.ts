@@ -4,8 +4,9 @@
  */
 
 import { db as prisma } from './db';
-import { ClientStatus, CheckCadence, Priority } from '@prisma/client';
+import { ClientStatus, CheckCadence, Priority, ClientEngineerRole } from '@prisma/client';
 import { lookupTrustCenter } from './trustlists';
+import { invalidateTeamCache, CACHE_KEYS } from './cache';
 
 // Cache for Notion config (refreshed on each sync)
 let notionConfigCache: {
@@ -156,8 +157,8 @@ function getPropertyValue(property: any): any {
   }
 }
 
-// Cache for team member names (pageId -> name)
-let teamMemberCache: Map<string, string> = new Map();
+// Cache for team member contacts (pageId -> { name, email })
+let teamMemberCache: Map<string, { name: string | null; email: string | null }> = new Map();
 
 // Cache for vendor names (pageId -> name)
 let vendorCache: Map<string, string> = new Map();
@@ -297,14 +298,29 @@ async function loadTeamMemberCache(): Promise<void> {
     const data = await response.json();
     
     for (const page of data.results) {
-      // Find the Name property
-      for (const [, prop] of Object.entries(page.properties)) {
+      let name: string | null = null;
+      let email: string | null = null;
+
+      for (const [propName, prop] of Object.entries(page.properties)) {
         const p = prop as any;
         if (p.type === 'title' && p.title?.[0]?.plain_text) {
-          teamMemberCache.set(page.id, p.title[0].plain_text);
-          break;
+          name = p.title[0].plain_text;
+        }
+        if (p.type === 'email' && p.email) {
+          email = p.email;
+        }
+        // Fallback: if property name includes 'email' and is rich_text or title, grab text
+        if (!email && /email/i.test(propName)) {
+          if (p.type === 'rich_text' && p.rich_text?.[0]?.plain_text) {
+            email = p.rich_text[0].plain_text;
+          }
+          if (p.type === 'title' && p.title?.[0]?.plain_text) {
+            email = p.title[0].plain_text;
+          }
         }
       }
+
+      teamMemberCache.set(page.id, { name, email });
     }
 
     hasMore = data.has_more;
@@ -384,18 +400,24 @@ function getVendorNames(relationIds: string[]): string[] {
 }
 
 /**
- * Get name from cache by page ID
+ * Get team member contact from cache by page ID
  */
-function getTeamMemberName(pageId: string): string | null {
+function getTeamMemberContact(pageId: string): { name: string | null; email: string | null } | null {
   return teamMemberCache.get(pageId) || null;
 }
 
 /**
- * Get names for multiple relation IDs from cache
+ * Get contacts for multiple relation IDs
  */
-function getTeamMemberNames(relationIds: string[]): string[] {
+function getTeamMemberContacts(relationIds: string[]): { name: string | null; email: string | null }[] {
   return relationIds
-    .map(id => getTeamMemberName(id))
+    .map(id => getTeamMemberContact(id))
+    .filter((c): c is { name: string | null; email: string | null } => !!c);
+}
+
+function getTeamMemberNames(relationIds: string[]): string[] {
+  return getTeamMemberContacts(relationIds)
+    .map(c => c.name)
     .filter((name): name is string => name !== null);
 }
 
@@ -626,11 +648,11 @@ async function transformNotionPageToClient(page: NotionPage) {
   const props = page.properties;
   
   // Get engineer names from relations using cache
-  const seRelations = getPropertyValue(props['SE']) || [];
-  const primaryConsultantRelations = getPropertyValue(props['Primary Consultant']) || [];
-  const secondariesRelations = getPropertyValue(props['Secondaries']) || [];
-  const grceRelations = getPropertyValue(props['GRCE']) || [];
-  const itManagerPeople = getPropertyValue(props['IT Manager']) || [];
+        const seRelations = getPropertyValue(props['SE']) || [];
+        const primaryConsultantRelations = getPropertyValue(props['Primary Consultant']) || [];
+        const secondariesRelations = getPropertyValue(props['Secondaries']) || [];
+        const grceRelations = getPropertyValue(props['GRCE']) || [];
+        const itManagerPeople = getPropertyValue(props['IT Manager']) || [];
   
   // Get names from cache (instant lookup)
   const seNames = getTeamMemberNames(seRelations);
@@ -714,43 +736,71 @@ export async function syncClientsFromNotion(): Promise<{
     await loadTeamMemberCache();
     await loadVendorCache();
 
-    // Preload users for name->id resolution (supports Notion name and app name)
+    // Preload users for contact->id resolution (supports Notion email and name)
     const users = await prisma.user.findMany({
       select: {
         id: true,
         name: true,
         notionTeamMemberName: true,
+        email: true,
       },
     });
 
-    const resolveUserId = (name?: string | null): string | null => {
-      if (!name) return null;
-      const target = name.trim().toLowerCase();
-      if (!target) return null;
-      const match = users.find(
-        (u) =>
-          (u.name && u.name.trim().toLowerCase() === target) ||
-          (u.notionTeamMemberName && u.notionTeamMemberName.trim().toLowerCase() === target)
-      );
-      return match ? match.id : null;
+    const normalizeName = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/\s*\(.*?\)\s*/g, ' ') // drop parenthetical like "(TL - SE)"
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const resolveUserId = (name?: string | null, email?: string | null): string | null => {
+      // Prefer email match (case-insensitive)
+      if (email) {
+        const targetEmail = email.trim().toLowerCase();
+        const match = users.find(u => u.email && u.email.toLowerCase() === targetEmail);
+        if (match) return match.id;
+      }
+      // Fall back to notionTeamMemberName exact (case-insensitive)
+      if (name) {
+        const targetRaw = name.trim();
+        const targetNorm = normalizeName(targetRaw);
+        if (targetNorm) {
+          const match = users.find(
+            (u) => u.notionTeamMemberName && normalizeName(u.notionTeamMemberName) === targetNorm
+          );
+          if (match) return match.id;
+          const matchName = users.find(
+            (u) => u.name && normalizeName(u.name) === targetNorm
+          );
+          if (matchName) return matchName.id;
+        }
+      }
+      return null;
     };
     
     const notionPages = await fetchAllNotionClients();
 
     for (const page of notionPages) {
       try {
+        // Extract relation IDs for assignments
+        const seRelations = getPropertyValue(page.properties['SE']) || [];
+        const primaryConsultantRelations = getPropertyValue(page.properties['Primary Consultant']) || [];
+        const secondariesRelations = getPropertyValue(page.properties['Secondaries']) || [];
+        const grceRelations = getPropertyValue(page.properties['GRCE']) || [];
+        const itManagerPeople = getPropertyValue(page.properties['IT Manager']) || [];
+
         const clientData = await transformNotionPageToClient(page);
         
-        // Check if client already exists
-        const existing = await prisma.client.findUnique({
+        // Check if client already exists (use findFirst since notionPageId is no longer unique)
+        const existing = await prisma.client.findFirst({
           where: { notionPageId: page.id },
         });
 
         let client;
         if (existing) {
-          // Update existing client
+          // Update existing client (use id since notionPageId is no longer unique)
           client = await prisma.client.update({
-            where: { notionPageId: page.id },
+            where: { id: existing.id },
             data: clientData,
           });
           result.updated++;
@@ -762,23 +812,72 @@ export async function syncClientsFromNotion(): Promise<{
           result.created++;
         }
 
-        // Auto-link engineer assignments to app users based on names from Notion
-        // Auto-link engineer assignments to app users based on names from Notion
-        // Primary: only from systemEngineerName, and only if not already set to someone else
-        const primaryEngineerId = resolveUserId(clientData.systemEngineerName);
-        // Secondary: from the first secondary name, and only if empty
-        const secondaryEngineerId = resolveUserId(clientData.secondaryConsultantNames?.[0]);
+        // Resolve multi-assignments from Notion (multiple SE/GRCE/etc.)
+        const seContacts = getTeamMemberContacts(seRelations);
+        const primaryContacts = getTeamMemberContacts(primaryConsultantRelations);
+        const secondaryContacts = getTeamMemberContacts(secondariesRelations);
+        const grceContacts = getTeamMemberContacts(grceRelations);
+        const itManagerContacts = getTeamMemberContacts(itManagerPeople);
 
+        const assignments: { userId: string; role: ClientEngineerRole }[] = [];
+
+        const addAssignments = (contacts: { name: string | null; email: string | null }[], role: ClientEngineerRole) => {
+          for (const c of contacts) {
+            const uid = resolveUserId(c.name ?? undefined, c.email ?? undefined);
+            if (uid) assignments.push({ userId: uid, role });
+          }
+        };
+
+        addAssignments(seContacts, ClientEngineerRole.SE);
+        addAssignments(primaryContacts.slice(0, 1), ClientEngineerRole.PRIMARY); // keep primary as first only
+        addAssignments(secondaryContacts, ClientEngineerRole.SECONDARY);
+        addAssignments(grceContacts, ClientEngineerRole.GRCE);
+        addAssignments(itManagerContacts, ClientEngineerRole.IT_MANAGER);
+
+        // Fallback: also attempt to resolve by the stored names (in case relations missed emails)
+        // BUT: Only use name fallback if email-based matching didn't find anyone for that role
+        // AND: Only use name fallback if the name actually exists (not null/empty)
+        const addNameAssignments = (names: (string | null | undefined)[], role: ClientEngineerRole) => {
+          // Check if we already have assignments for this role from email-based matching
+          const hasEmailBasedMatch = assignments.some(a => a.role === role);
+          
+          // Only use name fallback if:
+          // 1. Email matching didn't find anyone for this role
+          // 2. We have actual names to match (not null/empty)
+          if (!hasEmailBasedMatch && names.some(n => n && n.trim())) {
+            for (const n of names) {
+              if (!n || !n.trim()) continue; // Skip null, undefined, or empty strings
+              const uid = resolveUserId(n, undefined);
+              if (uid) assignments.push({ userId: uid, role });
+            }
+          }
+        };
+
+        addNameAssignments([clientData.systemEngineerName], ClientEngineerRole.SE);
+        addNameAssignments([clientData.primaryConsultantName], ClientEngineerRole.PRIMARY);
+        addNameAssignments(clientData.secondaryConsultantNames || [], ClientEngineerRole.SECONDARY);
+        addNameAssignments([clientData.grceEngineerName], ClientEngineerRole.GRCE);
+
+        // Update legacy single-id fields for backward compatibility (only first)
         const assignmentUpdate: any = {};
-
-        if (primaryEngineerId && (!client.primaryEngineerId || client.primaryEngineerId === primaryEngineerId)) {
-          assignmentUpdate.primaryEngineerId = primaryEngineerId;
+        const firstSeId = assignments.find(a => a.role === ClientEngineerRole.SE)?.userId;
+        const firstPrimaryId = assignments.find(a => a.role === ClientEngineerRole.PRIMARY)?.userId;
+        const firstSecondaryId = assignments.find(a => a.role === ClientEngineerRole.SECONDARY)?.userId;
+        const firstGrceId = assignments.find(a => a.role === ClientEngineerRole.GRCE)?.userId;
+        if (firstSeId && (!client.systemEngineerId || client.systemEngineerId === firstSeId)) {
+          assignmentUpdate.systemEngineerId = firstSeId;
+          // Don't automatically set primaryEngineerId to SE - only set it if there's an actual Primary Consultant
         }
-        if (secondaryEngineerId && !client.secondaryEngineerId) {
-          assignmentUpdate.secondaryEngineerId = secondaryEngineerId;
+        if (firstPrimaryId && (!client.primaryEngineerId || client.primaryEngineerId === firstPrimaryId)) {
+          assignmentUpdate.primaryEngineerId = firstPrimaryId;
+        }
+        if (firstSecondaryId && !client.secondaryEngineerId) {
+          assignmentUpdate.secondaryEngineerId = firstSecondaryId;
+        }
+        if (firstGrceId && !client.grceEngineerId) {
+          assignmentUpdate.grceEngineerId = firstGrceId;
         }
 
-        // Preserve infraCheckAssigneeName override: do not touch it here.
         if (Object.keys(assignmentUpdate).length > 0) {
           try {
             await prisma.client.update({
@@ -788,6 +887,34 @@ export async function syncClientsFromNotion(): Promise<{
           } catch (assignError: any) {
             result.errors.push(`Assign error for client ${client.id}: ${assignError.message}`);
           }
+        }
+
+        // Persist multi-assignments in dedicated table
+        try {
+          await prisma.clientEngineerAssignment.deleteMany({
+            where: { clientId: client.id },
+          });
+
+          const uniqueKey = new Set<string>();
+          const data = assignments.filter(a => {
+            const key = `${client.id}:${a.userId}:${a.role}`;
+            if (uniqueKey.has(key)) return false;
+            uniqueKey.add(key);
+            return true;
+          }).map(a => ({
+            clientId: client.id,
+            userId: a.userId,
+            role: a.role,
+          }));
+
+          if (data.length > 0) {
+            await prisma.clientEngineerAssignment.createMany({
+              data,
+              skipDuplicates: true,
+            });
+          }
+        } catch (assignTableError: any) {
+          result.errors.push(`Assign table error for client ${client.id}: ${assignTableError.message}`);
         }
         
         // Extract and link systems from Notion vendor relations
@@ -827,6 +954,13 @@ export async function syncClientsFromNotion(): Promise<{
     
   } catch (error: any) {
     result.errors.push(`Sync failed: ${error.message}`);
+  }
+
+  // Invalidate team cache so counts refresh after sync
+  try {
+    await invalidateTeamCache();
+  } catch (cacheError) {
+    result.errors.push(`Cache invalidate error: ${(cacheError as any).message}`);
   }
 
   return result;
@@ -890,14 +1024,14 @@ export async function syncSingleClient(notionPageId: string) {
   const page = await response.json();
   const clientData = await transformNotionPageToClient(page);
 
-  const existing = await prisma.client.findUnique({
+  const existing = await prisma.client.findFirst({
     where: { notionPageId },
   });
 
   let client;
   if (existing) {
     client = await prisma.client.update({
-      where: { notionPageId },
+      where: { id: existing.id },
       data: clientData,
     });
   } else {

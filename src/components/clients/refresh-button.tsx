@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function RefreshButton() {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -30,6 +33,11 @@ export function RefreshButton() {
     }
   }
 
+  // Only show sync button for admins
+  if (!isAdmin) {
+    return null
+  }
+
   return (
     <div className="flex items-center gap-3">
       {message && (
@@ -44,7 +52,7 @@ export function RefreshButton() {
         onClick={handleSync}
         disabled={syncing}
         className="btn-ghost flex items-center gap-2 text-sm"
-        title="Sync clients from Notion and update trust centers"
+        title="Sync clients from Notion and update trust centers (Admin only)"
       >
         <RefreshCw className={cn('w-4 h-4', syncing && 'animate-spin')} />
         {syncing ? 'Syncing...' : 'Sync Clients'}

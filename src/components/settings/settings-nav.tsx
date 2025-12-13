@@ -9,11 +9,13 @@ import {
   FileText, 
   Bell,
   Shield,
+  Users,
 } from 'lucide-react'
 
 const settingsTabs = [
   { name: 'Systems', href: '/settings/systems', icon: Boxes, description: 'Manage check systems and items' },
   { name: 'Frameworks', href: '/settings/frameworks', icon: Shield, description: 'Compliance frameworks' },
+  { name: 'Teams', href: '/settings/teams', icon: Users, description: 'Manage teams' },
   { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
   { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },
   { name: 'Notifications', href: '/settings/notifications', icon: Bell, description: 'Send reminders' },

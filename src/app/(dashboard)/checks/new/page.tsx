@@ -24,6 +24,17 @@ interface Client {
   defaultCadence: string
   systemEngineerName: string | null
   primaryConsultantName: string | null
+  assignments?: Array<{
+    id: string
+    userId: string
+    role: string
+    user: {
+      id: string
+      name: string | null
+      email: string | null
+      image: string | null
+    }
+  }>
   clientSystems: {
     system: {
       id: string
@@ -147,9 +158,21 @@ export default function NewCheckPage() {
   useEffect(() => {
     if (selectedClient) {
       setCadence(selectedClient.defaultCadence || 'MONTHLY')
-      if (selectedClient.systemEngineerName) {
+      // Priority: 1) SE from assignments, 2) legacy systemEngineerName, 3) PRIMARY from assignments, 4) legacy primaryConsultantName
+      const seAssignments = selectedClient.assignments?.filter(a => a.role === 'SE') || []
+      const primaryAssignments = selectedClient.assignments?.filter(a => a.role === 'PRIMARY') || []
+      const seName = seAssignments.length > 0 ? seAssignments[0].user.name : null
+      const primaryName = primaryAssignments.length > 0 ? primaryAssignments[0].user.name : null
+      
+      if (seName) {
+        setEngineerName(seName)
+        setEngineerSearch(seName)
+      } else if (selectedClient.systemEngineerName) {
         setEngineerName(selectedClient.systemEngineerName)
         setEngineerSearch(selectedClient.systemEngineerName)
+      } else if (primaryName) {
+        setEngineerName(primaryName)
+        setEngineerSearch(primaryName)
       } else if (selectedClient.primaryConsultantName) {
         setEngineerName(selectedClient.primaryConsultantName)
         setEngineerSearch(selectedClient.primaryConsultantName)

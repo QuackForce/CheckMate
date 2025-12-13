@@ -3,6 +3,15 @@ import { db } from '@/lib/db'
 import { requireEngineer, requireAdmin } from '@/lib/auth-utils'
 import { withCache, CACHE_KEYS, CACHE_TTL, invalidateClientCache } from '@/lib/cache'
 
+// Use string literals for roles (Prisma enum may not be exported)
+const ClientEngineerRole = {
+  SE: 'SE',
+  PRIMARY: 'PRIMARY',
+  SECONDARY: 'SECONDARY',
+  GRCE: 'GRCE',
+  IT_MANAGER: 'IT_MANAGER',
+} as const
+
 // GET /api/clients/[id] - Get a single client
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -14,10 +23,10 @@ export async function GET(
   try {
     const cacheKey = CACHE_KEYS.client(params.id)
     
-    const client = await withCache(
+      const client = await withCache(
       cacheKey,
       async () => {
-        return await db.client.findUnique({
+        const clientData = await db.client.findUnique({
           where: { id: params.id },
           include: {
             primaryEngineer: {
@@ -38,8 +47,55 @@ export async function GET(
               take: 5,
               orderBy: { scheduledDate: 'desc' },
             },
+            assignments: {
+              include: { user: { select: { id: true, name: true, email: true, image: true } } },
+            },
           },
         })
+
+        if (!clientData) return null
+
+        // Fetch assignments separately (Prisma types may not include it)
+        const assignments = await (db as any).clientEngineerAssignment.findMany({
+          where: { clientId: params.id },
+          select: {
+            id: true,
+            userId: true,
+            role: true,
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+          orderBy: [
+            { role: 'asc' },
+            { user: { name: 'asc' } },
+          ],
+        })
+
+        // Fetch team assignments separately (with error handling in case table doesn't exist yet)
+        let teamAssignments: any[] = []
+        try {
+          teamAssignments = await (db as any).clientTeam.findMany({
+            where: { clientId: params.id },
+            select: {
+              id: true,
+              teamId: true,
+              team: {
+                select: { id: true, name: true, description: true, color: true, tag: true },
+              },
+            },
+          })
+        } catch (teamError: any) {
+          // If ClientTeam table doesn't exist or there's an error, just return empty array
+          console.warn('Error fetching team assignments (may not exist yet):', teamError.message)
+          teamAssignments = []
+        }
+
+        return {
+          ...clientData,
+          assignments,
+          teamAssignments,
+        }
       },
       CACHE_TTL.client
     )
@@ -85,7 +141,7 @@ export async function PATCH(
       'onsitesFrequency',
       'websiteUrl',
       'notes',
-      // Engineer names
+      // Engineer names (kept for backward compatibility)
       'systemEngineerName',
       'primaryConsultantName',
       'secondaryConsultantNames',
@@ -103,6 +159,192 @@ export async function PATCH(
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         updateData[field] = body[field]
+      }
+    }
+
+    // Handle assignments if provided
+    if (body.assignments) {
+      const assignments = body.assignments as {
+        SE?: string[]
+        PRIMARY?: string[]
+        SECONDARY?: string[]
+        GRCE?: string[]
+        IT_MANAGER?: string[]
+      }
+
+      // Validate: Maximum 4 assignments per role
+      const MAX_ASSIGNMENTS_PER_ROLE = 4
+      if (assignments.SE && assignments.SE.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} System Engineers allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.PRIMARY && assignments.PRIMARY.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} Primary Consultants allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.SECONDARY && assignments.SECONDARY.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} Secondary Consultants allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.GRCE && assignments.GRCE.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} GRCE Engineers allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.IT_MANAGER && assignments.IT_MANAGER.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} IT Managers allowed per client` },
+          { status: 400 }
+        )
+      }
+
+      // Delete existing assignments for this client
+      await (db as any).clientEngineerAssignment.deleteMany({
+        where: { clientId: params.id },
+      })
+
+      // Create new assignments
+      const assignmentsToCreate: Array<{
+        clientId: string
+        userId: string
+        role: string
+      }> = []
+
+      if (assignments.SE) {
+        assignments.SE.forEach(userId => {
+          assignmentsToCreate.push({
+            clientId: params.id,
+            userId,
+            role: ClientEngineerRole.SE as string,
+          })
+        })
+      }
+
+      if (assignments.PRIMARY) {
+        assignments.PRIMARY.forEach(userId => {
+          assignmentsToCreate.push({
+            clientId: params.id,
+            userId,
+            role: ClientEngineerRole.PRIMARY as string,
+          })
+        })
+      }
+
+      if (assignments.SECONDARY) {
+        assignments.SECONDARY.forEach(userId => {
+          assignmentsToCreate.push({
+            clientId: params.id,
+            userId,
+            role: ClientEngineerRole.SECONDARY as string,
+          })
+        })
+      }
+
+      if (assignments.GRCE) {
+        assignments.GRCE.forEach(userId => {
+          assignmentsToCreate.push({
+            clientId: params.id,
+            userId,
+            role: ClientEngineerRole.GRCE as string,
+          })
+        })
+      }
+
+      if (assignments.IT_MANAGER) {
+        assignments.IT_MANAGER.forEach(userId => {
+          assignmentsToCreate.push({
+            clientId: params.id,
+            userId,
+            role: ClientEngineerRole.IT_MANAGER as string,
+          })
+        })
+      }
+
+      // Create all assignments
+      if (assignmentsToCreate.length > 0) {
+        await (db as any).clientEngineerAssignment.createMany({
+          data: assignmentsToCreate,
+          skipDuplicates: true,
+        })
+      }
+
+      // Update name fields from assignments for backward compatibility
+      // This ensures name fields stay in sync with assignments
+      const allAssignments = await (db as any).clientEngineerAssignment.findMany({
+        where: { clientId: params.id },
+        include: { user: { select: { name: true } } },
+      })
+
+      const seUsers = (allAssignments as any[])
+        .filter((a: any) => a.role === 'SE')
+        .map((a: any) => a.user.name)
+        .filter(Boolean)
+      const primaryUsers = (allAssignments as any[])
+        .filter((a: any) => a.role === 'PRIMARY')
+        .map((a: any) => a.user.name)
+        .filter(Boolean)
+      const secondaryUsers = (allAssignments as any[])
+        .filter((a: any) => a.role === 'SECONDARY')
+        .map((a: any) => a.user.name)
+        .filter(Boolean)
+      const grceUsers = (allAssignments as any[])
+        .filter((a: any) => a.role === 'GRCE')
+        .map((a: any) => a.user.name)
+        .filter(Boolean)
+      const itManagerUsers = (allAssignments as any[])
+        .filter((a: any) => a.role === 'IT_MANAGER')
+        .map((a: any) => a.user.name)
+        .filter(Boolean)
+
+      // Update name fields (first name for each role, or null if none)
+      // For backward compatibility, we store the first name in the single name field
+      updateData.systemEngineerName = seUsers[0] || null
+      updateData.primaryConsultantName = primaryUsers[0] || null
+      updateData.secondaryConsultantNames = secondaryUsers
+      updateData.grceEngineerName = grceUsers[0] || null
+      updateData.itManagerName = itManagerUsers[0] || null
+    }
+
+    // Handle teams if provided
+    if (body.teamIds !== undefined) {
+      const teamIds = body.teamIds as string[]
+
+      // Delete existing team assignments
+      await (db as any).clientTeam.deleteMany({
+        where: { clientId: params.id },
+      })
+
+      // Create new team assignments if teamIds provided
+      if (teamIds && Array.isArray(teamIds) && teamIds.length > 0) {
+        // Validate that all team IDs exist
+        const existingTeams = await db.team.findMany({
+          where: { 
+            id: { in: teamIds },
+            isActive: true,
+          },
+          select: { id: true },
+        })
+
+        const validTeamIds = existingTeams.map(t => t.id)
+        
+        if (validTeamIds.length > 0) {
+          const clientTeamsToCreate = validTeamIds.map(teamId => ({
+            clientId: params.id,
+            teamId,
+          }))
+
+          await (db as any).clientTeam.createMany({
+            data: clientTeamsToCreate,
+            skipDuplicates: true,
+          })
+        }
       }
     }
 

@@ -4,6 +4,15 @@ import { auth } from '@/lib/auth';
 import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit';
 import { withCache, CACHE_KEYS, CACHE_TTL, generateCacheKey, invalidateClientCache } from '@/lib/cache';
 
+// Use string literals for roles (Prisma enum may not be exported)
+const ClientEngineerRole = {
+  SE: 'SE',
+  PRIMARY: 'PRIMARY',
+  SECONDARY: 'SECONDARY',
+  GRCE: 'GRCE',
+  IT_MANAGER: 'IT_MANAGER',
+} as const
+
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
 
@@ -69,11 +78,8 @@ export async function GET(request: NextRequest) {
 
     where.OR = [
       ...(where.OR || []),
-      { primaryEngineerId: session.user.id },
-      { secondaryEngineerId: session.user.id },
-      { systemEngineerId: session.user.id },
-      { grceEngineerId: session.user.id },
-      { itManagerId: session.user.id },
+      // Use assignment table (all roles including SE, PRIMARY, SECONDARY, GRCE, IT_MANAGER)
+      { assignments: { some: { userId: session.user.id } } },
       // Also include clients where user has infra checks assigned
       ...(clientIdsWithMyChecks.length > 0 ? [{ id: { in: clientIdsWithMyChecks } }] : []),
     ]
@@ -84,12 +90,12 @@ export async function GET(request: NextRequest) {
     if (managerTeam === 'se') {
       where.OR = [
         ...(where.OR || []),
-        { systemEngineerId: { not: null } },
+        { assignments: { some: { role: 'SE' } } },
       ]
     } else if (managerTeam === 'grc') {
       where.OR = [
         ...(where.OR || []),
-        { grceEngineerId: { not: null } },
+        { assignments: { some: { role: 'GRCE' } } },
       ]
     } else if (managerTeam.startsWith('consultant-team-')) {
       const teamNum = managerTeam.replace('consultant-team-', '')
@@ -180,12 +186,42 @@ export async function GET(request: NextRequest) {
           }
         })
         
+        // Fetch assignments for all clients in one query (to avoid N+1)
+        const allClientIds = clients.map(c => c.id)
+        const allAssignments = allClientIds.length > 0
+          ? await (db as any).clientEngineerAssignment.findMany({
+              where: { clientId: { in: allClientIds } },
+              select: {
+                clientId: true,
+                role: true,
+                user: {
+                  select: { id: true, name: true, email: true, image: true },
+                },
+              },
+            })
+          : []
+        
+        // Group assignments by clientId
+        const assignmentsByClient = new Map<string, typeof allAssignments>()
+        allAssignments.forEach((a: any) => {
+          if (!assignmentsByClient.has(a.clientId)) {
+            assignmentsByClient.set(a.clientId, [])
+          }
+          assignmentsByClient.get(a.clientId)!.push(a)
+        })
+        
         // Look up infraCheckAssigneeUser for each client (now using in-memory lookup)
         const clientsWithAssignee = clients.map((client) => {
           let infraCheckAssigneeUser = null
-          const assigneeName = (client.infraCheckAssigneeName || client.systemEngineerName)?.trim()
+          const clientAssignments = assignmentsByClient.get(client.id) || []
+          const seAssignments = clientAssignments.filter((a: any) => a.role === 'SE')
+          const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+          const assigneeName = (client.infraCheckAssigneeName || seFromAssignments?.name || client.systemEngineerName)?.trim()
           
-          if (assigneeName) {
+          // If we have SE from assignments, use that user directly
+          if (seFromAssignments && !client.infraCheckAssigneeName) {
+            infraCheckAssigneeUser = seFromAssignments
+          } else if (assigneeName) {
             const normalizedAssigneeName = assigneeName.toLowerCase()
             
             // First try exact match
@@ -214,6 +250,7 @@ export async function GET(request: NextRequest) {
           return {
             ...client,
             infraCheckAssigneeUser,
+            assignments: clientAssignments,
           }
         })
         
@@ -273,6 +310,8 @@ export async function POST(request: NextRequest) {
       officeAddress,
       notes,
       infraCheckAssigneeName,
+      assignments,
+      teamIds, // Array of team IDs
     } = body
 
     // Validate required fields
@@ -281,6 +320,100 @@ export async function POST(request: NextRequest) {
         { error: 'Client name is required' },
         { status: 400 }
       )
+    }
+
+    // Validate assignment limits if provided
+    if (assignments) {
+      const MAX_ASSIGNMENTS_PER_ROLE = 4
+      if (assignments.SE && assignments.SE.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} System Engineers allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.PRIMARY && assignments.PRIMARY.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} Primary Consultants allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.SECONDARY && assignments.SECONDARY.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} Secondary Consultants allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.GRCE && assignments.GRCE.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} GRCE Engineers allowed per client` },
+          { status: 400 }
+        )
+      }
+      if (assignments.IT_MANAGER && assignments.IT_MANAGER.length > MAX_ASSIGNMENTS_PER_ROLE) {
+        return NextResponse.json(
+          { error: `Maximum ${MAX_ASSIGNMENTS_PER_ROLE} IT Managers allowed per client` },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Determine infra check assignee: use provided override, or default to first SE
+    let finalInfraCheckAssigneeName = infraCheckAssigneeName?.trim() || null
+    if (!finalInfraCheckAssigneeName && assignments?.SE && assignments.SE.length > 0) {
+      // Get the name of the first SE
+      const firstSeUser = await db.user.findUnique({
+        where: { id: assignments.SE[0] },
+        select: { name: true },
+      })
+      if (firstSeUser?.name) {
+        finalInfraCheckAssigneeName = firstSeUser.name
+      }
+    }
+
+    // Prepare name fields from assignments for backward compatibility
+    let systemEngineerName: string | null = null
+    let primaryConsultantName: string | null = null
+    let secondaryConsultantNames: string[] = []
+    let grceEngineerName: string | null = null
+    let itManagerName: string | null = null
+
+    if (assignments) {
+      // Fetch user names for assignments
+      const allAssignedUserIds = [
+        ...(assignments.SE || []),
+        ...(assignments.PRIMARY || []),
+        ...(assignments.SECONDARY || []),
+        ...(assignments.GRCE || []),
+        ...(assignments.IT_MANAGER || []),
+      ]
+      
+      if (allAssignedUserIds.length > 0) {
+        const assignedUsers = await db.user.findMany({
+          where: { id: { in: allAssignedUserIds } },
+          select: { id: true, name: true },
+        })
+
+        const getUserName = (userId: string) => assignedUsers.find(u => u.id === userId)?.name || null
+
+        // Set name fields (first name for each role)
+        if (assignments.SE && assignments.SE.length > 0) {
+          systemEngineerName = getUserName(assignments.SE[0])
+        }
+        if (assignments.PRIMARY && assignments.PRIMARY.length > 0) {
+          primaryConsultantName = getUserName(assignments.PRIMARY[0])
+        }
+        if (assignments.SECONDARY && assignments.SECONDARY.length > 0) {
+          secondaryConsultantNames = assignments.SECONDARY
+            .map(getUserName)
+            .filter((name: string | null): name is string => name !== null)
+        }
+        if (assignments.GRCE && assignments.GRCE.length > 0) {
+          grceEngineerName = getUserName(assignments.GRCE[0])
+        }
+        if (assignments.IT_MANAGER && assignments.IT_MANAGER.length > 0) {
+          itManagerName = getUserName(assignments.IT_MANAGER[0])
+        }
+      }
     }
 
     // Create client in database (notionPageId will be null - app-created)
@@ -294,12 +427,111 @@ export async function POST(request: NextRequest) {
         pocEmail: pocEmail?.trim() || null,
         officeAddress: officeAddress?.trim() || null,
         notes: notes?.trim() || null,
-        infraCheckAssigneeName: infraCheckAssigneeName?.trim() || null,
+        infraCheckAssigneeName: finalInfraCheckAssigneeName,
+        // Legacy name fields for backward compatibility
+        systemEngineerName,
+        primaryConsultantName,
+        secondaryConsultantNames,
+        grceEngineerName,
+        itManagerName,
         // Explicitly set notionPageId to null to indicate this is app-created
         notionPageId: null,
         notionLastSynced: null,
       },
     })
+
+    // Create ClientEngineerAssignment records if assignments provided
+    if (assignments) {
+      const assignmentsToCreate: Array<{
+        clientId: string
+        userId: string
+        role: string
+      }> = []
+
+      if (assignments.SE) {
+        assignments.SE.forEach((userId: string) => {
+          assignmentsToCreate.push({
+            clientId: client.id,
+            userId,
+            role: ClientEngineerRole.SE as string,
+          })
+        })
+      }
+
+      if (assignments.PRIMARY) {
+        assignments.PRIMARY.forEach((userId: string) => {
+          assignmentsToCreate.push({
+            clientId: client.id,
+            userId,
+            role: ClientEngineerRole.PRIMARY as string,
+          })
+        })
+      }
+
+      if (assignments.SECONDARY) {
+        assignments.SECONDARY.forEach((userId: string) => {
+          assignmentsToCreate.push({
+            clientId: client.id,
+            userId,
+            role: ClientEngineerRole.SECONDARY as string,
+          })
+        })
+      }
+
+      if (assignments.GRCE) {
+        assignments.GRCE.forEach((userId: string) => {
+          assignmentsToCreate.push({
+            clientId: client.id,
+            userId,
+            role: ClientEngineerRole.GRCE as string,
+          })
+        })
+      }
+
+      if (assignments.IT_MANAGER) {
+        assignments.IT_MANAGER.forEach((userId: string) => {
+          assignmentsToCreate.push({
+            clientId: client.id,
+            userId,
+            role: ClientEngineerRole.IT_MANAGER as string,
+          })
+        })
+      }
+
+      // Create all assignments
+      if (assignmentsToCreate.length > 0) {
+        await (db as any).clientEngineerAssignment.createMany({
+          data: assignmentsToCreate,
+          skipDuplicates: true,
+        })
+      }
+    }
+
+    // Create ClientTeam records if teamIds provided
+    if (teamIds && Array.isArray(teamIds) && teamIds.length > 0) {
+      // Validate that all team IDs exist
+      const existingTeams = await db.team.findMany({
+        where: { 
+          id: { in: teamIds },
+          isActive: true,
+        },
+        select: { id: true },
+      })
+
+      const validTeamIds = existingTeams.map(t => t.id)
+      
+      if (validTeamIds.length > 0) {
+        const clientTeamsToCreate = validTeamIds.map(teamId => ({
+          clientId: client.id,
+          teamId,
+        }))
+
+        await (db as any).clientTeam.createMany({
+          data: clientTeamsToCreate,
+          skipDuplicates: true,
+        })
+      }
+    }
 
     // If websiteUrl is provided, look up trust center
     if (websiteUrl) {
