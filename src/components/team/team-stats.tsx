@@ -59,11 +59,11 @@ export function TeamStats({ team }: TeamStatsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {stats.map((stat, index) => (
         <div
           key={stat.label}
-          className="card p-5 animate-slide-up"
+          className="card p-3 md:p-5 animate-slide-up"
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex items-start justify-between mb-3">

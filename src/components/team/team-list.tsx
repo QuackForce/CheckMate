@@ -517,15 +517,15 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
 
   return (
     <div className={cn("card", isRoleFilterOpen && "relative z-50")}>
-      <div className="p-4 border-b border-surface-700/50 space-y-4">
+      <div className="p-3 md:p-4 border-b border-surface-700/50 space-y-3 md:space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-white">Team Members</h2>
           <span className="text-sm text-surface-500">{filteredTeam.length} of {team.length} members</span>
         </div>
         
         {/* Search and Role Filter */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-surface-400" />
             <input
               type="text"
@@ -535,31 +535,34 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
               className="input pl-10"
             />
           </div>
-          <Combobox
-            value={roleFilter}
-            onChange={setRoleFilter}
-            options={[
-              { value: 'all', label: 'All Roles' },
-              { value: 'ADMIN', label: 'Admins' },
-              { value: 'IT_MANAGER', label: 'IT Managers' },
-              { value: 'IT_ENGINEER', label: 'IT Engineers' },
-              { value: 'CONSULTANT', label: 'Consultants' },
-              { value: 'VIEWER', label: 'Viewers' },
-            ]}
-            placeholder="Filter by role..."
-            searchable={false}
-            className="w-[130px]"
-            onOpenChange={setIsRoleFilterOpen}
-          />
-          {isAdmin && (
-            <button
-              onClick={() => setShowNewUserSheet(true)}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add User
-            </button>
-          )}
+          <div className="flex items-center gap-2 md:gap-3">
+            <Combobox
+              value={roleFilter}
+              onChange={setRoleFilter}
+              options={[
+                { value: 'all', label: 'All Roles' },
+                { value: 'ADMIN', label: 'Admins' },
+                { value: 'IT_MANAGER', label: 'IT Managers' },
+                { value: 'IT_ENGINEER', label: 'IT Engineers' },
+                { value: 'CONSULTANT', label: 'Consultants' },
+                { value: 'VIEWER', label: 'Viewers' },
+              ]}
+              placeholder="Filter by role..."
+              searchable={false}
+              className="w-full md:w-[130px]"
+              onOpenChange={setIsRoleFilterOpen}
+            />
+            {isAdmin && (
+              <button
+                onClick={() => setShowNewUserSheet(true)}
+                className="btn-primary flex items-center gap-2 flex-shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add User</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -579,19 +582,19 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
           return (
             <div
               key={member.id}
-              className="p-4 hover:bg-surface-800/30 transition-colors"
+              className="p-3 md:p-4 hover:bg-surface-800/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 md:gap-4">
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   {member.image ? (
                     <img
                       src={member.image}
                       alt={member.name}
-                      className="w-12 h-12 rounded-full"
+                      className="w-10 h-10 md:w-12 md:h-12 rounded-full"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-lg font-semibold text-white">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-base md:text-lg font-semibold text-white">
                       {member.name.charAt(0)}
                     </div>
                   )}

@@ -22,6 +22,9 @@
 
   body {
     @apply bg-surface-950 text-surface-100 antialiased;
+    /* Use static viewport height to prevent browser UI from hiding */
+    min-height: 100vh;
+    min-height: 100dvh; /* Fallback for browsers that support it */
   }
 
   /* Custom scrollbar */
@@ -56,6 +59,43 @@
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
+
+  /* Ensure bottom nav stays visible on mobile and account for browser UI */
+  @media (max-width: 767px) {
+    html {
+      /* Use static viewport height to help keep browser UI visible */
+      height: 100vh;
+      /* Prevent overscroll bounce on iOS */
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    body {
+      /* Use static viewport to prevent browser UI from hiding */
+      min-height: 100vh;
+      /* Account for browser UI and our nav */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    
+    /* Ensure our bottom nav is positioned above browser UI */
+    nav[class*="fixed"][class*="bottom-0"] {
+      position: fixed !important;
+      bottom: env(safe-area-inset-bottom, 0px) !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 9999 !important;
+      /* Ensure it's always visible and doesn't get hidden */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      will-change: transform;
+    }
+    
+    /* Main content should account for nav + browser UI */
+    main {
+      /* Account for our nav (4rem = 64px) + safe area + browser UI space */
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
+  }
 }
 
 @layer components {
@@ -70,7 +110,7 @@
 
   /* Button variants */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-primary {

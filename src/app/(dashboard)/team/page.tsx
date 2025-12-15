@@ -274,7 +274,7 @@ export default async function TeamPage() {
         title="Users"
       />
 
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto">
         {/* Stats Overview */}
         <TeamStats team={team} />
         
