@@ -10,7 +10,7 @@ export default function SchedulePage() {
         action={{ label: 'Schedule Check', href: '/checks/new' }}
       />
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 px-6 pt-4 pb-6 overflow-y-auto">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Calendar view - takes 2 columns */}
           <div className="lg:col-span-2">

@@ -12,7 +12,7 @@ export default function ProfileLayout({
         title="Profile Settings"
       />
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 px-6 pt-4 pb-6 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
           <ProfileNav />
           <div className="mt-6">{children}</div>

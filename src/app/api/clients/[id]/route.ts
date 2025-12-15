@@ -151,6 +151,16 @@ export async function PATCH(
       'infraCheckAssigneeName',
       // Compliance
       'complianceFrameworks',
+      // Integration URLs
+      'itGlueUrl',
+      'zendeskUrl',
+      'trelloUrl',
+      'onePasswordUrl',
+      'sharedDriveUrl',
+      'customUrls',
+      // Trust Center
+      'trustCenterUrl',
+      'trustCenterPlatform',
     ]
 
     // Filter to only allowed fields

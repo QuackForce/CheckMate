@@ -88,6 +88,7 @@ interface Client {
   trelloUrl: string | null
   onePasswordUrl: string | null
   sharedDriveUrl: string | null
+  customUrls: Array<{ label: string; url: string }> | null
   websiteUrl: string | null
   harvestProjectId: string | null
   estimation: number | null
@@ -185,7 +186,6 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
   const [loadingChannels, setLoadingChannels] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [saving, setSaving] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [testChannelId, setTestChannelId] = useState('')
   const [testingChannel, setTestingChannel] = useState(false)
   const [testResult, setTestResult] = useState<{ accessible: boolean; channel?: any; error?: string; message?: string } | null>(null)
@@ -202,32 +202,6 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
     }
   }
 
-  const handleSync = async () => {
-    if (!client.notionPageId) {
-      toast.error('Client is not linked to Notion')
-      return
-    }
-    
-    setSyncing(true)
-    try {
-      const res = await fetch(`/api/clients/${client.id}/sync`, {
-        method: 'POST',
-      })
-      const data = await res.json()
-      
-      if (data.success) {
-        toast.success(data.message)
-        // Force a hard refresh to reload server component data
-        window.location.reload()
-      } else {
-        toast.error(data.error || 'Sync failed')
-      }
-    } catch (error) {
-      toast.error('Failed to sync from Notion')
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   const fetchChannels = async () => {
     setLoadingChannels(true)
@@ -369,6 +343,15 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
     { label: '1Password', url: client.onePasswordUrl, icon: Shield },
     { label: 'Shared Drive', url: client.sharedDriveUrl, icon: ExternalLink },
     { label: 'Website', url: client.websiteUrl, icon: Globe },
+    // Add custom URLs
+    ...(client.customUrls && Array.isArray(client.customUrls) 
+      ? client.customUrls.map((customUrl: { label: string; url: string }) => ({ 
+          label: customUrl.label, 
+          url: customUrl.url, 
+          icon: ExternalLink 
+        }))
+      : []
+    ),
   ].filter(link => link.url)
 
   return (
@@ -421,24 +404,8 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                   </span>
                 )}
               </div>
-              {client.notionLastSynced && (
-                <p className="text-xs text-surface-500 mt-1">
-                  Last synced from Notion: {formatDate(client.notionLastSynced)}
-                </p>
-              )}
             </div>
             <div className="flex items-center gap-2">
-              {client.notionPageId && isAdmin && (
-                <button 
-                  onClick={handleSync}
-                  disabled={syncing}
-                  className="btn-ghost flex items-center gap-2"
-                  title="Sync this client from Notion (Admin only)"
-                >
-                  <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-                  {syncing ? 'Syncing...' : 'Sync'}
-                </button>
-              )}
               {canEdit && (
                 <>
                   <Link href={`/clients/${client.id}/edit`} className="btn-ghost flex items-center gap-2">
@@ -637,6 +604,16 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
 
             {/* Systems */}
             <ClientSystems clientId={client.id} />
+
+            {/* Notes */}
+            {client.notes && (
+              <div className="card p-6">
+                <h2 className="text-lg font-semibold text-white mb-4">Notes</h2>
+                <div className="prose prose-invert max-w-none">
+                  <p className="text-surface-300 whitespace-pre-wrap">{client.notes}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -907,7 +884,6 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                         </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">GRCE Engineer{users.length > 1 ? 's' : ''}</p>
-                          <p className="text-xs text-surface-500 leading-tight">GRCE (Compliance)</p>
                         </div>
                       </div>
                     )

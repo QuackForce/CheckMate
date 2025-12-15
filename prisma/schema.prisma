@@ -300,6 +300,7 @@ model Client {
   onePasswordUrl String?
   sharedDriveUrl String?
   websiteUrl     String?
+  customUrls     Json? // Custom integration URLs: [{ label: string, url: string }]
 
   // From Notion - Time Tracking
   harvestProjectId String?

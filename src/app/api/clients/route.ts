@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
   // Query parameters
   const status = searchParams.get('status');
   const team = searchParams.get('team');
+  const teamId = searchParams.get('teamId');
   const priority = searchParams.get('priority');
+  const cadence = searchParams.get('cadence');
+  const infraCheckAssignee = searchParams.get('infraCheckAssignee');
+  const sort = searchParams.get('sort');
   const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
@@ -51,8 +55,47 @@ export async function GET(request: NextRequest) {
     where.teams = { has: team };
   }
   
+  // Filter by team ID (new team system)
+  if (teamId && teamId !== 'all') {
+    where.teamAssignments = {
+      some: {
+        teamId: teamId,
+      },
+    };
+  }
+  
   if (priority && priority !== 'all') {
-    where.priority = priority;
+    if (priority === 'none') {
+      where.priority = null;
+    } else {
+      where.priority = priority;
+    }
+  }
+  
+  if (cadence && cadence !== 'all') {
+    where.cadence = cadence;
+  }
+  
+  // Filter by infra check assignee
+  if (infraCheckAssignee && infraCheckAssignee !== 'all') {
+    // Get client IDs where this user is assigned as infra check assignee
+    const clientsWithAssignee = await db.infraCheck.findMany({
+      where: {
+        assignedEngineerId: infraCheckAssignee,
+      },
+      select: {
+        clientId: true,
+      },
+      distinct: ['clientId'],
+    });
+    const clientIds = clientsWithAssignee.map(c => c.clientId);
+    
+    if (clientIds.length > 0) {
+      where.id = { in: clientIds };
+    } else {
+      // No clients found, return empty result
+      where.id = { in: [] };
+    }
   }
   
   if (search) {
@@ -117,7 +160,11 @@ export async function GET(request: NextRequest) {
     generateCacheKey('list', {
       status: status || 'all',
       team: team || 'all',
+      teamId: teamId || 'all',
       priority: priority || 'all',
+      cadence: cadence || 'all',
+      infraCheckAssignee: infraCheckAssignee || 'all',
+      sort: sort || 'default',
       search: search || '',
       page: page.toString(),
       limit: limit.toString(),
@@ -154,7 +201,11 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          orderBy: { name: 'asc' },
+          orderBy: sort === 'za' 
+            ? { name: 'desc' }
+            : sort === 'az'
+            ? { name: 'asc' }
+            : { name: 'asc' },
           skip: (page - 1) * limit,
           take: limit,
         });
@@ -201,6 +252,34 @@ export async function GET(request: NextRequest) {
             })
           : []
         
+        // Fetch team assignments for all clients in one query (to avoid N+1)
+        let allTeamAssignments: any[] = []
+        try {
+          allTeamAssignments = allClientIds.length > 0
+            ? await (db as any).clientTeam.findMany({
+                where: { clientId: { in: allClientIds } },
+                select: {
+                  id: true,
+                  clientId: true,
+                  teamId: true,
+                  team: {
+                    select: {
+                      id: true,
+                      name: true,
+                      description: true,
+                      color: true,
+                      tag: true,
+                    },
+                  },
+                },
+              })
+            : []
+        } catch (teamError: any) {
+          // If ClientTeam table doesn't exist or there's an error, just return empty array
+          console.warn('Error fetching team assignments (may not exist yet):', teamError.message)
+          allTeamAssignments = []
+        }
+        
         // Group assignments by clientId
         const assignmentsByClient = new Map<string, typeof allAssignments>()
         allAssignments.forEach((a: any) => {
@@ -208,6 +287,15 @@ export async function GET(request: NextRequest) {
             assignmentsByClient.set(a.clientId, [])
           }
           assignmentsByClient.get(a.clientId)!.push(a)
+        })
+        
+        // Group team assignments by clientId
+        const teamAssignmentsByClient = new Map<string, typeof allTeamAssignments>()
+        allTeamAssignments.forEach((ta: any) => {
+          if (!teamAssignmentsByClient.has(ta.clientId)) {
+            teamAssignmentsByClient.set(ta.clientId, [])
+          }
+          teamAssignmentsByClient.get(ta.clientId)!.push(ta)
         })
         
         // Look up infraCheckAssigneeUser for each client (now using in-memory lookup)
@@ -251,6 +339,7 @@ export async function GET(request: NextRequest) {
             ...client,
             infraCheckAssigneeUser,
             assignments: clientAssignments,
+            teamAssignments: teamAssignmentsByClient.get(client.id) || [],
           }
         })
         

@@ -420,7 +420,7 @@ export default async function DashboardPage() {
         action={canEdit ? { label: 'New Check', href: '/checks/new' } : undefined}
       />
 
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 px-6 pt-4 pb-6 space-y-6 overflow-y-auto">
         <DashboardTabs 
           canViewTeam={canViewTeam}
           canSeeOwnClients={canSeeOwnClients}

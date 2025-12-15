@@ -4,6 +4,28 @@ import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 
+// Try to import SidebarTrigger, but handle gracefully if not available
+let SidebarTrigger: any = null
+
+try {
+  const sidebarModule = require('@/components/ui/sidebar')
+  SidebarTrigger = sidebarModule.SidebarTrigger
+} catch (e) {
+  // Sidebar components not available (old sidebar mode)
+}
+
+// Safe wrapper for SidebarTrigger that handles errors
+function SafeSidebarTrigger({ className }: { className?: string }) {
+  if (!SidebarTrigger) return null
+  
+  try {
+    return <SidebarTrigger className={className} />
+  } catch (e) {
+    // Not in SidebarProvider context (old sidebar mode)
+    return null
+  }
+}
+
 interface HeaderProps {
   title: string
   subtitle?: string
@@ -16,14 +38,24 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
+  const hasSidebarTrigger = SidebarTrigger !== null
+  
   return (
     <header className="sticky top-0 z-40 bg-surface-950/80 backdrop-blur-xl">
-      <div className="px-6 py-4 h-[84px] flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
-          {subtitle && (
-            <p className="text-sm text-surface-400 mt-0.5">{subtitle}</p>
+      <div className="px-6 py-3 h-[64px] flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {hasSidebarTrigger && (
+            <>
+              <SafeSidebarTrigger className="h-8 w-8" />
+              <div className="h-6 w-px bg-surface-700" />
+            </>
           )}
+          <div>
+            <h1 className="text-2xl font-bold text-white">{title}</h1>
+            {subtitle && (
+              <p className="text-sm text-surface-400 mt-0.5">{subtitle}</p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -46,7 +78,6 @@ export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
           )}
         </div>
       </div>
-      <div className="border-b border-surface-800" />
     </header>
   )
 }

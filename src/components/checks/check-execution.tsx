@@ -1292,12 +1292,29 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             <div className="p-4 overflow-y-auto max-h-[60vh]">
               <div className="mb-4">
                 <label className="label">Channel</label>
-                <div className="flex items-center gap-2 p-3 bg-surface-800 rounded-lg">
-                  <MessageSquare className="w-4 h-4 text-surface-400" />
-                  <span className="text-surface-200">
-                    {check.client.slackChannelName || '#general'}
-                  </span>
-                </div>
+                {check.client.slackChannelName ? (
+                  <div className="flex items-center gap-2 p-3 bg-surface-800 rounded-lg">
+                    <MessageSquare className="w-4 h-4 text-surface-400" />
+                    <span className="text-surface-200">
+                      {check.client.slackChannelName}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-surface-800/50 border border-dashed border-surface-700 rounded-lg">
+                    <p className="text-sm text-surface-400 mb-2">No channel configured</p>
+                    <p className="text-xs text-surface-500">
+                      Connect a Slack channel on the{' '}
+                      <Link 
+                        href={`/clients/${check.client.id}`}
+                        className="text-brand-400 hover:text-brand-300 underline"
+                        onClick={() => setShowSlackPreview(false)}
+                      >
+                        client detail page
+                      </Link>
+                      {' '}to post messages.
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label">Message Preview</label>
@@ -1316,6 +1333,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                 Cancel
               </button>
               <button
+                disabled={!check.client.slackChannelName}
                 onClick={async () => {
                   try {
                     // Fetch latest check data to ensure we have current assignee
@@ -1359,7 +1377,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                     })
                   }
                 }}
-                className="btn-primary"
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <MessageSquare className="w-4 h-4" />
                 Post to Slack

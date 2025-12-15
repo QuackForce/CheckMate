@@ -6,6 +6,14 @@
   :root {
     --background: 2 6% 3%;
     --foreground: 210 40% 98%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   * {
@@ -32,6 +40,16 @@
 
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-surface-500;
+  }
+  .dark {
+    --sidebar-background: 222.2 47.4% 11.2%; /* surface-900 equivalent */
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 142.1 76.2% 36.3%; /* brand-600 equivalent */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217.2 32.6% 17.5%; /* surface-800 equivalent */
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%; /* surface-800 equivalent */
+    --sidebar-ring: 142.1 76.2% 36.3%; /* brand-500 equivalent */
   }
 }
 
@@ -87,6 +105,11 @@
 
   .table-cell {
     @apply py-4 px-4 text-sm;
+  }
+
+  /* Reduce bottom padding from last table row to prevent cutoff */
+  .last-row-no-padding td {
+    padding-bottom: 4px !important;
   }
 
   /* Stat card */

@@ -2,7 +2,6 @@ import { Header } from '@/components/layout/header'
 import { ClientsTableWrapper } from '@/components/clients/clients-table-wrapper'
 import { ClientsFilters } from '@/components/clients/clients-filters'
 import { db } from '@/lib/db'
-import { RefreshButton } from '@/components/clients/refresh-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,10 +24,9 @@ export default async function ClientsPage() {
       <Header 
         title="Clients"
         action={{ label: 'Add Client', href: '/clients/new' }}
-        extraAction={<RefreshButton />}
       />
 
-      <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div className="flex-1 px-6 pt-4 pb-4 space-y-4">
         {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="card p-4">

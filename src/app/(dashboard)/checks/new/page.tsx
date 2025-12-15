@@ -269,19 +269,17 @@ export default function NewCheckPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface-900/95 backdrop-blur-sm border-b border-surface-800">
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link 
-              href="/checks" 
-              className="p-2 hover:bg-surface-800 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-surface-400" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-semibold text-white">New Infrastructure Check</h1>
-              <p className="text-sm text-surface-400">Schedule a new check for a client</p>
-            </div>
+      <div className="sticky top-0 z-10 bg-surface-950/80 backdrop-blur-xl">
+        <div className="px-6 py-4 flex items-center gap-4">
+          <Link 
+            href="/checks" 
+            className="p-2 hover:bg-surface-800 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-surface-400" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-white">New Infrastructure Check</h1>
+            <p className="text-sm text-surface-400 mt-0.5">Schedule a new check for a client</p>
           </div>
         </div>
       </div>

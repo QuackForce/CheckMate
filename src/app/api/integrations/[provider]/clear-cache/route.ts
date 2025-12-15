@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth-utils'
-import { clearNotionConfigCache } from '@/lib/notion'
 import { clearIntegrationConfigCache } from '@/lib/integrations'
 
 // POST /api/integrations/[provider]/clear-cache - Clear integration config cache
@@ -13,10 +12,6 @@ export async function POST(
 ) {
   try {
     await requireAdmin()
-    
-    if (params.provider === 'notion') {
-      clearNotionConfigCache()
-    }
     
     clearIntegrationConfigCache(params.provider)
     

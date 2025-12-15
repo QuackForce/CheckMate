@@ -1,7 +1,6 @@
 import { Header } from '@/components/layout/header'
 import { TeamList } from '@/components/team/team-list'
 import { TeamStats } from '@/components/team/team-stats'
-import { TeamActions } from '@/components/team/team-actions'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { getEmergencySession } from '@/lib/auth-utils'
@@ -276,9 +275,6 @@ export default async function TeamPage() {
       />
 
       <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {/* Admin Actions */}
-        {isAdmin && <TeamActions />}
-        
         {/* Stats Overview */}
         <TeamStats team={team} />
         

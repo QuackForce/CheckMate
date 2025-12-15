@@ -841,14 +841,6 @@ export default function NewClientPage() {
           </div>
         </form>
 
-        {/* Info Box */}
-        <div className={cn("card p-4 bg-blue-500/10 border border-blue-500/20", openComboboxes.size > 0 && "relative z-50")}>
-          <p className="text-sm text-blue-400">
-            <strong>Note:</strong> This client will be created in the database only. 
-            If you want to sync it with Notion later, you can link it during the next sync 
-            if a matching Notion page is found by name.
-          </p>
-        </div>
       </div>
     </div>
   )

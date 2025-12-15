@@ -22,17 +22,17 @@ import {
   Eye,
   Check,
   X,
-  Link2,
   Pencil,
   Trash2,
-  Merge,
-  Unlink,
   Search,
   Users,
   Save,
   ChevronDown,
   Plus,
   Loader2,
+  User,
+  Briefcase,
+  Info,
 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -105,11 +105,13 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [editingRole, setEditingRole] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [editingUser, setEditingUser] = useState<TeamMember | null>(null)
-  const [mergeTarget, setMergeTarget] = useState<string>('')
   const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [slackUsername, setSlackUsername] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [userJobTitle, setUserJobTitle] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
@@ -118,7 +120,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [totalUniqueClients, setTotalUniqueClients] = useState<number | null>(null)
   const [loadingRoleBreakdown, setLoadingRoleBreakdown] = useState(false)
   const [openComboboxes, setOpenComboboxes] = useState<Set<string>>(new Set())
-  const [showMergeSection, setShowMergeSection] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null) // Track which section is open (accordion)
   const [showNewUserSheet, setShowNewUserSheet] = useState(false)
   const [creatingUser, setCreatingUser] = useState(false)
@@ -129,6 +130,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   })
   
   // Helper functions for section state
+  const showBasicInfo = openSection === 'basicInfo'
   const showRoleBreakdown = openSection === 'roleBreakdown'
   const showQuickActions = openSection === 'quickActions'
   
@@ -175,12 +177,14 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     setMounted(true)
   }, [])
 
-  // Update slackUsername when editingUser changes
+  // Update form fields when editingUser changes
   useEffect(() => {
     if (editingUser) {
       setSlackUsername(editingUser.slackUsername || '')
       setSelectedManagerId(editingUser.managerId || null)
-      setShowMergeSection(false) // Reset merge section toggle
+      setUserName(editingUser.name || '')
+      setUserEmail(editingUser.email || '')
+      setUserJobTitle(editingUser.jobTitle || '')
       setOpenSection(null) // All sections closed by default when editing
       // Fetch role breakdown and teams
       setLoadingRoleBreakdown(true)
@@ -201,9 +205,14 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
         })
         .finally(() => setLoadingRoleBreakdown(false))
     } else {
+      // Reset all fields when sheet closes
+      setSlackUsername('')
+      setSelectedManagerId(null)
+      setUserName('')
+      setUserEmail('')
+      setUserJobTitle('')
       setRoleBreakdown(null)
       setTotalUniqueClients(null)
-      setShowMergeSection(false)
       setOpenSection(null)
     }
   }, [editingUser])
@@ -300,8 +309,21 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     if (!editingUser) return
     setSaving(true)
     try {
-      // Save manager, slack username, and teams together
+      // Save all user fields
       const updates: any = {}
+      
+      // Basic Information
+      if (userName !== (editingUser.name || '')) {
+        updates.name = userName.trim() || null
+      }
+      if (userEmail !== (editingUser.email || '')) {
+        updates.email = userEmail.trim() || null
+      }
+      if (userJobTitle !== (editingUser.jobTitle || '')) {
+        updates.jobTitle = userJobTitle.trim() || null
+      }
+      
+      // Manager and Slack
       if (selectedManagerId !== (editingUser.managerId || null)) {
         updates.managerId = selectedManagerId
       }
@@ -311,6 +333,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       
       // Teams are now managed centrally from Settings > Teams
       // Removed teamIds from user edit modal
+
+      if (Object.keys(updates).length === 0) {
+        toast.info('No changes to save')
+        setSaving(false)
+        return
+      }
 
       const res = await fetch(`/api/users/${editingUser.id}`, {
         method: 'PATCH',
@@ -348,50 +376,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
     }
   }
 
-  const handleMergeUsers = async () => {
-    if (!editingUser || !mergeTarget) return
-    
-    const targetUser = team.find(t => t.id === mergeTarget)
-    
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/users/${mergeTarget}/merge`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceUserId: editingUser.id }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error)
-      }
-      toast.success('Users merged successfully')
-      setEditingUser(null)
-      setMergeTarget('')
-      window.location.reload()
-    } catch (err: any) {
-      toast.error('Failed to merge users', { description: err.message })
-    } finally {
-      setSaving(false)
-    }
-  }
 
-  const handleUnlinkNotion = async (userId: string) => {
-    try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notionTeamMemberId: null }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error)
-      }
-      toast.success('Unlinked from Notion')
-      window.location.reload()
-    } catch (err: any) {
-      toast.error('Failed to unlink', { description: err.message })
-    }
-  }
 
   const handleAvatarUpload = async (userId: string, file: File | null) => {
     if (!file) return
@@ -438,11 +423,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
               Team members will appear here once they sign in with Google
             </p>
             {isAdmin && (
-              <p className="text-sm text-surface-500">
-                Click "Sync from Notion" above to import team members from your Notion database
-              </p>
-            )}
-            {isAdmin && (
               <div className="mt-4">
                 <button
                   onClick={() => setShowNewUserSheet(true)}
@@ -458,7 +438,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
 
         {/* Add User Sheet */}
         <Sheet open={showNewUserSheet} onOpenChange={setShowNewUserSheet}>
-          <SheetContent side="right" className="w-[500px] sm:w-[600px]">
+          <SheetContent side="right" className="w-[500px] sm:w-[600px] bg-surface-900">
             <SheetHeader>
               <SheetTitle>Add New User</SheetTitle>
               <SheetDescription>
@@ -694,11 +674,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                       </span>
                     )}
                     
-                    {member.notionTeamMemberId && (
-                      <span className="text-green-400" title={`Linked to Notion: ${member.notionTeamMemberName || 'Unknown'}`}>
-                        <Link2 className="w-3.5 h-3.5" />
-                      </span>
-                    )}
                   </div>
                   {member.jobTitle && (
                     <p className="text-xs text-surface-400 mt-0.5 truncate">{member.jobTitle}</p>
@@ -799,11 +774,10 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       <Sheet open={!!editingUser} onOpenChange={(open) => {
         if (!open) {
           setEditingUser(null)
-          setMergeTarget('')
         }
       }}>
         {editingUser && (
-          <SheetContent side="right" className="w-[600px] sm:w-[700px] overflow-y-auto">
+          <SheetContent side="right" className="w-[600px] sm:w-[700px] overflow-y-auto bg-surface-900">
             <SheetHeader>
               <div className="flex items-start gap-4">
                 <label className="relative cursor-pointer group flex-shrink-0">
@@ -829,14 +803,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                   <SheetDescription className="mt-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span>{editingUser.email || 'No email'}</span>
-                      {editingUser.notionTeamMemberId && (
-                        <div className="relative group">
-                          <Link2 className="w-4 h-4 text-green-400" />
-                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                            Notion Linked: {editingUser.notionTeamMemberName || 'Unknown'}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </SheetDescription>
                 </div>
@@ -844,44 +810,103 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
             </SheetHeader>
 
             <div className="mt-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Manager Selection */}
-                <div className="flex flex-col">
-                  <label className="label flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4" />
-                    Manager
+              {/* Basic Information Section - Collapsible */}
+              <div>
+                <button
+                  onClick={() => toggleSection('basicInfo')}
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                >
+                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                    <Info className="w-4 h-4" />
+                    Basic Information
                   </label>
-                  <Combobox
-                    value={selectedManagerId || ''}
-                    onChange={(val) => setSelectedManagerId(val || null)}
-                    options={[
-                      { value: '', label: 'No manager' },
-                      ...team
-                        .filter((t) => t.id !== editingUser.id)
-                        .map((t) => ({
-                          value: t.id,
-                          label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
-                        })),
-                    ]}
-                    className="w-full"
-                    showChevron={false}
-                  />
-                </div>
+                  <ChevronDown className={cn(
+                    'w-4 h-4 text-surface-400 transition-transform',
+                    showBasicInfo && 'rotate-180'
+                  )} />
+                </button>
+                {showBasicInfo && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="label flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4" />
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        placeholder="Full name"
+                        className="input w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="label flex items-center gap-2 mb-2">
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        placeholder="user@example.com"
+                        className="input w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="label flex items-center gap-2 mb-2">
+                        <Briefcase className="w-4 h-4" />
+                        Job Title
+                      </label>
+                      <input
+                        type="text"
+                        value={userJobTitle}
+                        onChange={(e) => setUserJobTitle(e.target.value)}
+                        placeholder="e.g., Systems Engineer, IT Manager"
+                        className="input w-full"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      {/* Manager Selection */}
+                      <div className="flex flex-col">
+                        <label className="label flex items-center gap-2 mb-2">
+                          <Users className="w-4 h-4" />
+                          Manager
+                        </label>
+                        <Combobox
+                          value={selectedManagerId || ''}
+                          onChange={(val) => setSelectedManagerId(val || null)}
+                          options={[
+                            { value: '', label: 'No manager' },
+                            ...team
+                              .filter((t) => t.id !== editingUser.id)
+                              .map((t) => ({
+                                value: t.id,
+                                label: `${t.name}${t.jobTitle ? ` • ${t.jobTitle}` : ''}`,
+                              })),
+                          ]}
+                          className="w-full"
+                          showChevron={false}
+                        />
+                      </div>
 
-                {/* Slack Username */}
-                <div className="flex flex-col">
-                  <label className="label flex items-center gap-2 mb-2">
-                    <Mail className="w-4 h-4" />
-                    Slack Username
-                  </label>
-                  <input
-                    type="text"
-                    value={slackUsername}
-                    onChange={(e) => setSlackUsername(e.target.value)}
-                    placeholder="john.doe (without @)"
-                    className="input w-full"
-                  />
-                </div>
+                      {/* Slack Username */}
+                      <div className="flex flex-col">
+                        <label className="label flex items-center gap-2 mb-2">
+                          <Mail className="w-4 h-4" />
+                          Slack Username
+                        </label>
+                        <input
+                          type="text"
+                          value={slackUsername}
+                          onChange={(e) => setSlackUsername(e.target.value)}
+                          placeholder="john.doe (without @)"
+                          className="input w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Role Breakdown Section */}
@@ -966,53 +991,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                 )}
               </div>
 
-              {/* Merge Section - Only show if user has Notion link */}
-              {editingUser.notionTeamMemberId && (
-                <div className="pt-6 border-t border-surface-700">
-                  <button
-                    onClick={() => setShowMergeSection(!showMergeSection)}
-                    className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
-                  >
-                    <label className="label flex items-center gap-2 cursor-pointer mb-0">
-                      <Merge className="w-4 h-4" />
-                      Merge into another user
-                    </label>
-                    <ChevronDown className={cn(
-                      'w-4 h-4 text-surface-400 transition-transform',
-                      showMergeSection && 'rotate-180'
-                    )} />
-                  </button>
-                  {showMergeSection && (
-                    <div className="space-y-2 mt-3">
-                      <p className="text-xs text-surface-500 mb-2">
-                        This will delete "{editingUser.name}" and transfer their Notion link to the selected user.
-                      </p>
-                      <Combobox
-                        value={mergeTarget}
-                        onChange={setMergeTarget}
-                        options={team
-                          .filter(t => t.id !== editingUser.id && !t.notionTeamMemberId)
-                          .map(t => ({
-                            value: t.id,
-                            label: `${t.name} ${t.email ? `(${t.email})` : '(no email)'}`,
-                          }))}
-                        placeholder="Select user to merge into..."
-                        allowClear
-                      />
-                      {mergeTarget && (
-                        <button
-                          onClick={handleMergeUsers}
-                          disabled={saving}
-                          className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
-                        >
-                          <Merge className="w-4 h-4" />
-                          {saving ? 'Merging...' : 'Merge Users'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Quick Actions */}
               <div className="pt-6 border-t border-surface-700">
@@ -1045,50 +1023,6 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                     </div>
                   </div>
 
-                  {editingUser.notionTeamMemberId && (
-                    <>
-                      <div className="relative group">
-                        <button
-                          onClick={async () => {
-                            try {
-                              toast.info('Attaching clients from Notion…')
-                              const res = await fetch(`/api/users/${editingUser.id}/clients`, {
-                                method: 'POST',
-                              })
-                              const data = await res.json()
-                              if (!res.ok) {
-                                throw new Error(data.error || 'Failed to attach clients')
-                              }
-                              toast.success('Clients attached', {
-                                description: `Primary: ${data.primaryAttached}, Secondary: ${data.secondaryAttached}`,
-                              })
-                              setEditingUser(null)
-                              window.location.reload()
-                            } catch (err: any) {
-                              toast.error('Failed to attach clients', { description: err.message })
-                            }
-                          }}
-                          className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-green-400"
-                        >
-                          <Merge className="w-5 h-5" />
-                        </button>
-                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                          Attach clients from Notion
-                        </div>
-                      </div>
-                      <div className="relative group">
-                        <button
-                          onClick={() => { handleUnlinkNotion(editingUser.id); setEditingUser(null) }}
-                          className="p-2 rounded-lg hover:bg-surface-800 transition-colors text-amber-400"
-                        >
-                          <Unlink className="w-5 h-5" />
-                        </button>
-                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs text-white whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                          Unlink from Notion
-                        </div>
-                      </div>
-                    </>
-                  )}
                   <div className="relative group">
                     <button
                       onClick={() => {
@@ -1124,7 +1058,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
 
       {/* Add User Sheet */}
       <Sheet open={showNewUserSheet} onOpenChange={setShowNewUserSheet}>
-        <SheetContent side="right" className="w-[500px] sm:w-[600px]">
+        <SheetContent side="right" className="w-[500px] sm:w-[600px] bg-surface-900">
           <SheetHeader>
             <SheetTitle>Add New User</SheetTitle>
             <SheetDescription>

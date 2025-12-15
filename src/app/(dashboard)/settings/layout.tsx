@@ -12,7 +12,7 @@ export default function SettingsLayout({
         title="Settings"
       />
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 px-6 pt-4 pb-6 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
           <SettingsNav />
           <div className="mt-6">{children}</div>

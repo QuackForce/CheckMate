@@ -1,6 +1,10 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+// Toggle between old and new sidebar: new sidebar is default, set USE_OLD_SIDEBAR=true to use old sidebar
+const USE_OLD_SIDEBAR = process.env.USE_OLD_SIDEBAR === 'true'
+const USE_NEW_SIDEBAR = !USE_OLD_SIDEBAR // Default to new sidebar
 import { MobileSidebarWrapper } from '@/components/layout/mobile-sidebar-wrapper'
+import { MobileSidebarWrapper as NewMobileSidebarWrapper } from '@/components/layout/mobile-sidebar-wrapper-new'
 import { db } from '@/lib/db'
 import { getEmergencySession } from '@/lib/auth-utils'
 
@@ -48,10 +52,12 @@ export default async function DashboardLayout({
 
   const checkStats = await getCheckStats()
 
+  const SidebarWrapper = USE_NEW_SIDEBAR ? NewMobileSidebarWrapper : MobileSidebarWrapper
+
   return (
-    <MobileSidebarWrapper user={user} stats={checkStats}>
+    <SidebarWrapper user={user} stats={checkStats}>
       {children}
-    </MobileSidebarWrapper>
+    </SidebarWrapper>
   )
 }
 

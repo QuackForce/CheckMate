@@ -8,7 +8,7 @@ interface ClientPageProps {
 }
 
 async function getClient(id: string) {
-  const [client, allUsers] = await Promise.all([
+  const [client, teamAssignments, allUsers] = await Promise.all([
     db.client.findUnique({
       where: { id },
       include: {
@@ -35,6 +35,31 @@ async function getClient(id: string) {
         },
       },
     }),
+    // Fetch team assignments separately (with error handling)
+    (async () => {
+      try {
+        const teamAssignments = await (db as any).clientTeam.findMany({
+          where: { clientId: id },
+          select: {
+            id: true,
+            teamId: true,
+            team: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                color: true,
+                tag: true,
+              },
+            },
+          },
+        })
+        return teamAssignments
+      } catch (error: any) {
+        console.warn('Error fetching team assignments:', error.message)
+        return []
+      }
+    })(),
     // Fetch all users once for lookup (optimization)
     db.user.findMany({
       select: {
@@ -87,6 +112,7 @@ async function getClient(id: string) {
   return {
     ...client,
     infraCheckAssigneeUser,
+    teamAssignments,
   } as any
 }
 

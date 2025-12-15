@@ -10,7 +10,7 @@ A modern internal application for managing infrastructure checks for IT managed 
 - ⏱️ **Time Tracking** - Built-in timer with full Harvest integration (start, pause, resume, stop, sync)
 - 📆 **Google Calendar** - Auto-create calendar events for scheduled checks, update on reschedule
 - 👥 **Team Management** - Dashboard showing workload, performance metrics, and team assignments
-- 🔄 **Notion Sync** - Bi-directional sync with Notion client database (with conflict resolution)
+- 🔄 **Optional Notion Sync** - Optional bi-directional sync with Notion client database (admin-only, not required)
 - 📊 **Reports** - View completed checks with statistics and findings summaries
 - 🔍 **DMARC Lookup** - Automatic DMARC record checking for client domains
 - 🎯 **Client Systems** - Manage systems and check items, link to clients
@@ -140,17 +140,18 @@ src/
 
 | Role | Permissions |
 |------|-------------|
-| **Admin** | Full access, manage users, configure integrations, sync Notion, manage systems |
+| **Admin** | Full access, manage users, configure integrations, optional Notion sync, manage systems |
 | **IT Engineer** | Create/complete checks, schedule, post to Slack, track time, view reports |
 | **Viewer** | View dashboard, clients, checks, and reports (read-only) |
 
 ## Integrations
 
-### ✅ Notion (Implemented)
-- **Bi-directional sync** with Notion client database
-- Sync team members from Notion
+### ✅ Notion (Optional)
+- **Optional bi-directional sync** with Notion client database
+- Sync team members from Notion (admin-only)
 - Conflict resolution when data differs
 - Configurable via Settings > Integrations
+- **Note:** Notion is completely optional. The app works fully without Notion configured.
 
 ### ✅ Slack (Implemented)
 - **Org-wide integration** - Configured by admins
@@ -183,7 +184,7 @@ src/
 - Track system source (App Created, Notion Imported, Preset)
 
 ### Client Management
-- Sync from Notion or create manually
+- Create clients manually (Notion sync optional)
 - Assign engineers (Primary, Secondary, SE, IT Manager, GRCE)
 - Override infra check assignee per client
 - DMARC record lookup and display
