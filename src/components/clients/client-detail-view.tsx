@@ -166,11 +166,9 @@ function UserBubble({
   )
 }
 
-// Helper to get bubble size based on count (1-2: w-8, 3: w-7, 4: w-6 to match MyTeamClients)
+// Helper to get bubble size - all bubbles are the same size (w-8 h-8)
 function getBubbleSize(count: number): string {
-  if (count <= 2) return 'w-8 h-8'
-  if (count === 3) return 'w-7 h-7'
-  return 'w-6 h-6' // Matches MyTeamClients component
+  return 'w-8 h-8' // Same size for all users (1-4)
 }
 
 // Fixed width container to ensure all text aligns - fits 4 bubbles at smallest size (w-6) with overlap

@@ -51,6 +51,11 @@
     --sidebar-border: 217.2 32.6% 17.5%; /* surface-800 equivalent */
     --sidebar-ring: 142.1 76.2% 36.3%; /* brand-500 equivalent */
   }
+
+  /* Safe area padding for iOS devices (notch/home indicator) */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
 }
 
 @layer components {
