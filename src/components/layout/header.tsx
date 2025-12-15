@@ -3,6 +3,7 @@
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 // Try to import SidebarTrigger, but handle gracefully if not available
 let SidebarTrigger: any = null
@@ -39,12 +40,13 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
   const hasSidebarTrigger = SidebarTrigger !== null
+  const isMobile = useIsMobile()
   
   return (
     <header className="sticky top-0 z-40 bg-surface-950/80 backdrop-blur-xl">
-      <div className="px-6 py-3 h-[64px] flex items-center justify-between">
+      <div className="px-4 md:px-6 py-3 h-[64px] flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {hasSidebarTrigger && (
+          {hasSidebarTrigger && !isMobile && (
             <>
               <SafeSidebarTrigger className="h-8 w-8" />
               <div className="h-6 w-px bg-surface-700" />

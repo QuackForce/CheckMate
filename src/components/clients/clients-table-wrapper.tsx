@@ -25,6 +25,7 @@ import {
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
 import { Combobox } from '@/components/ui/combobox'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface Client {
   id: string
@@ -226,6 +227,7 @@ export function ClientsTableWrapper() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const isMobile = useIsMobile()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -586,6 +588,197 @@ export function ClientsTableWrapper() {
               <div className="h-6 w-16 bg-surface-800 rounded animate-pulse" />
             </div>
           ))}
+        </div>
+      ) : isMobile ? (
+        /* Mobile Card View */
+        <div className="divide-y divide-surface-700/50">
+          {clients.length === 0 ? (
+            <div className="py-12 text-center">
+              <Filter className="w-12 h-12 text-surface-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No results found</h3>
+              <p className="text-surface-400">
+                {search || statusFilter !== 'all' 
+                  ? 'Try adjusting your search or filter criteria.'
+                  : 'No clients match your current filters.'}
+              </p>
+            </div>
+          ) : (
+            clients.map((client) => {
+              // Get assignee info
+              const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
+              const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+              const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
+              const seUserFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+              const avatarImage = client.infraCheckAssigneeUser?.image || seUserFromAssignments?.image || null
+
+              return (
+                <Link
+                  key={client.id}
+                  href={`/clients/${client.id}`}
+                  className="block p-4 hover:bg-surface-800/30 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Logo/Icon */}
+                    {getLogoUrl(client.websiteUrl) ? (
+                      <div className="w-12 h-12 rounded-lg bg-white p-1.5 flex items-center justify-center flex-shrink-0">
+                        <img 
+                          src={getLogoUrl(client.websiteUrl)!} 
+                          alt=""
+                          className="w-full h-full object-contain"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                            const parent = e.currentTarget.parentElement
+                            if (parent) {
+                              parent.innerHTML = '<svg class="w-6 h-6 text-surface-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-surface-700/50 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-6 h-6 text-surface-400" />
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-white truncate">{client.name}</h3>
+                          {getDomain(client.websiteUrl) && (
+                            <div className="flex items-center gap-1 text-xs text-surface-500 mt-0.5">
+                              <Globe className="w-3 h-3" />
+                              <span className="truncate">{getDomain(client.websiteUrl)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={cn('badge text-xs', getStatusBadge(client.status))}>
+                            {client.status.replace('_', ' ')}
+                          </span>
+                          {client.priority && (
+                            <span className={cn('badge text-xs', getPriorityBadge(client.priority))}>
+                              {client.priority}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Teams */}
+                      {client.teamAssignments && client.teamAssignments.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {client.teamAssignments.slice(0, 2).map((teamAssignment) => {
+                            const tag = teamAssignment.team.tag || teamAssignment.team.name
+                            const color = teamAssignment.team.color || '#64748b'
+                            return (
+                              <span
+                                key={teamAssignment.id}
+                                className="px-2 py-0.5 text-xs rounded border"
+                                style={{
+                                  backgroundColor: `${color}20`,
+                                  color: color,
+                                  borderColor: `${color}30`,
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            )
+                          })}
+                          {client.teamAssignments.length > 2 && (
+                            <span className="text-xs text-surface-500">
+                              +{client.teamAssignments.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Bottom row: Cadence, Assignee */}
+                      <div className="flex items-center justify-between gap-4 mt-2">
+                        <div className="flex items-center gap-1.5 text-xs text-surface-400">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{getCadenceLabel(client.defaultCadence)}</span>
+                        </div>
+                        {assignee && (
+                          <div className="flex items-center gap-1.5 text-xs text-surface-300">
+                            {avatarImage ? (
+                              <img
+                                src={avatarImage}
+                                alt={assignee}
+                                className="w-5 h-5 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-brand-600 flex items-center justify-center text-[10px] font-medium text-white">
+                                {assignee.charAt(0)}
+                              </div>
+                            )}
+                            <span className="truncate max-w-[100px]">{assignee.split(' ')[0]}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })
+          )}
+
+          {/* Pagination for Mobile */}
+          {totalPages > 1 && (
+            <div className="px-4 pt-4 pb-2 border-t border-surface-700/50 flex flex-col items-center gap-3">
+              <span className="text-sm text-surface-500">
+                Showing {((page - 1) * CLIENTS_PER_PAGE) + 1} - {Math.min(page * CLIENTS_PER_PAGE, total)} of {total}
+              </span>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-2 rounded-lg hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5 text-surface-400" />
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (page <= 3) {
+                      pageNum = i + 1
+                    } else if (page >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = page - 2 + i
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        className={cn(
+                          'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                          page === pageNum
+                            ? 'bg-brand-500 text-white'
+                            : 'text-surface-400 hover:bg-surface-700 hover:text-white'
+                        )}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-2 rounded-lg hover:bg-surface-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5 text-surface-400" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
