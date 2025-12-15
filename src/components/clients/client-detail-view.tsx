@@ -648,24 +648,6 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                             : 'bg-brand-500/10 border border-brand-500/20'
                         )}
                       >
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            <UserBubble
-                              user={{
-                                name: assignee,
-                                email: assigneeEmail,
-                                image: avatarImage
-                              }}
-                              bgColor={isOverride ? 'bg-amber-600' : 'bg-brand-600'}
-                              borderColor="border-surface-800"
-                              size="w-8 h-8"
-                            />
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 3 }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">Infra Check Assignee</p>
                           <p
@@ -676,6 +658,18 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                           >
                             {isOverride ? 'Override' : 'Default (SE)'}
                           </p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          <UserBubble
+                            user={{
+                              name: assignee,
+                              email: assigneeEmail,
+                              image: avatarImage
+                            }}
+                            bgColor={isOverride ? 'bg-amber-600' : 'bg-brand-600'}
+                            borderColor="border-surface-800"
+                            size="w-8 h-8"
+                          />
                         </div>
                       </div>
                     )
@@ -710,28 +704,21 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     
                     return (
                       <div className={cn("flex items-center gap-3", hasOverride && "opacity-60")}>
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            {users.slice(0, 4).map((user: any, idx: number) => (
-                              <UserBubble
-                                key={idx}
-                                user={user}
-                                bgColor="bg-brand-600"
-                                borderColor="border-surface-500"
-                                size={getBubbleSize(users.length)}
-                              />
-                            ))}
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className={cn("font-medium leading-tight", hasOverride ? "text-surface-300" : "text-white")}>
-                            System Engineer{users.length > 1 ? 's' : ''}
-                            {hasOverride && " (from Notion)"}
+                            Default (SE)
                           </p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {users.slice(0, 4).map((user: any, idx: number) => (
+                            <UserBubble
+                              key={idx}
+                              user={user}
+                              bgColor="bg-brand-600"
+                              borderColor="border-surface-500"
+                              size={getBubbleSize(users.length)}
+                            />
+                          ))}
                         </div>
                       </div>
                     )
@@ -751,25 +738,19 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     
                     return (
                       <div className="flex items-center gap-3">
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            {users.slice(0, 4).map((user: any, idx: number) => (
-                              <UserBubble
-                                key={idx}
-                                user={user}
-                                bgColor="bg-emerald-600"
-                                borderColor="border-surface-800"
-                                size={getBubbleSize(users.length)}
-                              />
-                            ))}
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">Primary Consultant{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {users.slice(0, 4).map((user: any, idx: number) => (
+                            <UserBubble
+                              key={idx}
+                              user={user}
+                              bgColor="bg-emerald-600"
+                              borderColor="border-surface-800"
+                              size={getBubbleSize(users.length)}
+                            />
+                          ))}
                         </div>
                       </div>
                     )
@@ -789,25 +770,19 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     
                     return (
                       <div className="flex items-center gap-3">
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            {users.slice(0, 4).map((user: any, idx: number) => (
-                              <UserBubble
-                                key={idx}
-                                user={user}
-                                bgColor="bg-surface-600"
-                                borderColor="border-surface-800"
-                                size={getBubbleSize(users.length)}
-                              />
-                            ))}
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">Secondary Consultant{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {users.slice(0, 4).map((user: any, idx: number) => (
+                            <UserBubble
+                              key={idx}
+                              user={user}
+                              bgColor="bg-surface-600"
+                              borderColor="border-surface-800"
+                              size={getBubbleSize(users.length)}
+                            />
+                          ))}
                         </div>
                       </div>
                     )
@@ -827,25 +802,19 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     
                     return (
                       <div className="flex items-center gap-3">
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            {users.slice(0, 4).map((user: any, idx: number) => (
-                              <UserBubble
-                                key={idx}
-                                user={user}
-                                bgColor="bg-purple-600"
-                                borderColor="border-surface-800"
-                                size={getBubbleSize(users.length)}
-                              />
-                            ))}
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">IT Manager{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {users.slice(0, 4).map((user: any, idx: number) => (
+                            <UserBubble
+                              key={idx}
+                              user={user}
+                              bgColor="bg-purple-600"
+                              borderColor="border-surface-800"
+                              size={getBubbleSize(users.length)}
+                            />
+                          ))}
                         </div>
                       </div>
                     )
@@ -865,25 +834,19 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                     
                     return (
                       <div className="flex items-center gap-3">
-                        <div className={cn("flex flex-shrink-0 h-8 items-center justify-center", BUBBLE_CONTAINER_WIDTH)}>
-                          <div className="flex -space-x-2">
-                            {users.slice(0, 4).map((user: any, idx: number) => (
-                              <UserBubble
-                                key={idx}
-                                user={user}
-                                bgColor="bg-amber-600"
-                                borderColor="border-surface-800"
-                                size={getBubbleSize(users.length)}
-                              />
-                            ))}
-                            {/* Invisible placeholders to reserve space for 4 bubbles */}
-                            {Array.from({ length: 4 - users.length }).map((_, idx) => (
-                              <div key={`placeholder-${idx}`} className={getBubbleSize(4)} />
-                            ))}
-                          </div>
-                        </div>
                         <div className="flex flex-col justify-center">
                           <p className="text-white font-medium leading-tight">GRCE Engineer{users.length > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex -space-x-2">
+                          {users.slice(0, 4).map((user: any, idx: number) => (
+                            <UserBubble
+                              key={idx}
+                              user={user}
+                              bgColor="bg-amber-600"
+                              borderColor="border-surface-800"
+                              size={getBubbleSize(users.length)}
+                            />
+                          ))}
                         </div>
                       </div>
                     )

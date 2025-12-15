@@ -26,6 +26,7 @@ import {
   Key,
   ClipboardCheck,
   GraduationCap,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Combobox } from '@/components/ui/combobox'
@@ -1805,7 +1806,10 @@ export default function EditClientPage() {
               onClick={() => toggleSection('notes')}
               className="w-full flex items-center justify-between"
             >
-              <h2 className="text-lg font-medium text-white">Notes</h2>
+              <h2 className="text-lg font-medium text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-brand-400" />
+                Notes
+              </h2>
               <ChevronDown className={cn(
                 'w-5 h-5 text-surface-400 transition-transform',
                 openSections.has('notes') && 'rotate-180'
