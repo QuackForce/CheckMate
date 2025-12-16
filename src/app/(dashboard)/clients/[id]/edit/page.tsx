@@ -142,6 +142,8 @@ export default function EditClientPage() {
   
   // For searchable user dropdowns
   const [allUsers, setAllUsers] = useState<Array<{ id: string; name: string | null; email: string | null; image: string | null }>>([])
+  // Store users from assignments (for non-admin users who can't fetch all users)
+  const [assignmentUsers, setAssignmentUsers] = useState<Map<string, { id: string; name: string | null; email: string | null; image: string | null }>>(new Map())
   const [engineerSearch, setEngineerSearch] = useState('')
   const [showEngineerDropdown, setShowEngineerDropdown] = useState(false)
   
@@ -260,20 +262,37 @@ export default function EditClientPage() {
       setSlackChannelName(client.slackChannelName || '')
       
       // Load assignments from ClientEngineerAssignment table
+      // Filter out orphaned assignments (where user is null)
       if (client.assignments) {
-        const seUsers = client.assignments
+        const validAssignments = client.assignments.filter((a: any) => a.user !== null)
+        
+        // Store users from assignments for display (works even if allUsers is empty for non-admins)
+        const usersMap = new Map<string, { id: string; name: string | null; email: string | null; image: string | null }>()
+        validAssignments.forEach((a: any) => {
+          if (a.user) {
+            usersMap.set(a.userId, {
+              id: a.user.id,
+              name: a.user.name,
+              email: a.user.email,
+              image: a.user.image,
+            })
+          }
+        })
+        setAssignmentUsers(usersMap)
+        
+        const seUsers = validAssignments
           .filter(a => a.role === 'SE')
           .map(a => a.userId)
-        const primaryUsers = client.assignments
+        const primaryUsers = validAssignments
           .filter(a => a.role === 'PRIMARY')
           .map(a => a.userId)
-        const secondaryUsers = client.assignments
+        const secondaryUsers = validAssignments
           .filter(a => a.role === 'SECONDARY')
           .map(a => a.userId)
-        const grceUsers = client.assignments
+        const grceUsers = validAssignments
           .filter(a => a.role === 'GRCE')
           .map(a => a.userId)
-        const itManagerUsers = client.assignments
+        const itManagerUsers = validAssignments
           .filter(a => a.role === 'IT_MANAGER')
           .map(a => a.userId)
         
@@ -888,7 +907,8 @@ export default function EditClientPage() {
                 <label className="label">System Engineer (SE)</label>
                 <div className="space-y-2">
                   {seAssignments.map((userId) => {
-                    const user = allUsers.find(u => u.id === userId)
+                    // Use assignmentUsers first (works for non-admins), fallback to allUsers
+                    const user = assignmentUsers.get(userId) || allUsers.find(u => u.id === userId)
                     return (
                       <div key={userId} className="flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
                         {user?.image ? (
@@ -950,7 +970,8 @@ export default function EditClientPage() {
                 <label className="label">Primary Consultant</label>
                 <div className="space-y-2">
                   {primaryAssignments.map((userId) => {
-                    const user = allUsers.find(u => u.id === userId)
+                    // Use assignmentUsers first (works for non-admins), fallback to allUsers
+                    const user = assignmentUsers.get(userId) || allUsers.find(u => u.id === userId)
                     return (
                       <div key={userId} className="flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
                         {user?.image ? (
@@ -1012,7 +1033,8 @@ export default function EditClientPage() {
                 <label className="label">Secondary Consultant(s)</label>
                 <div className="space-y-2">
                   {secondaryAssignments.map((userId) => {
-                    const user = allUsers.find(u => u.id === userId)
+                    // Use assignmentUsers first (works for non-admins), fallback to allUsers
+                    const user = assignmentUsers.get(userId) || allUsers.find(u => u.id === userId)
                     return (
                       <div key={userId} className="flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
                         {user?.image ? (
@@ -1074,7 +1096,8 @@ export default function EditClientPage() {
                 <label className="label">IT Manager</label>
                 <div className="space-y-2">
                   {itManagerAssignments.map((userId) => {
-                    const user = allUsers.find(u => u.id === userId)
+                    // Use assignmentUsers first (works for non-admins), fallback to allUsers
+                    const user = assignmentUsers.get(userId) || allUsers.find(u => u.id === userId)
                     return (
                       <div key={userId} className="flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
                         {user?.image ? (
@@ -1132,7 +1155,8 @@ export default function EditClientPage() {
                 <label className="label">GRCE (Compliance)</label>
                 <div className="space-y-2">
                   {grceAssignments.map((userId) => {
-                    const user = allUsers.find(u => u.id === userId)
+                    // Use assignmentUsers first (works for non-admins), fallback to allUsers
+                    const user = assignmentUsers.get(userId) || allUsers.find(u => u.id === userId)
                     return (
                       <div key={userId} className="flex items-center gap-2 p-2 bg-surface-800 rounded-lg">
                         {user?.image ? (

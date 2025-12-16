@@ -623,8 +623,10 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* Infra Check Assignee - Either override or SE */}
                 {(() => {
                   // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
-                  const seAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SE') || []
-                  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const seAssignments = validAssignments.filter((a: any) => a.role === 'SE') || []
+                  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user?.name : null
                   const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
                   const isOverride =
                     !!client.infraCheckAssigneeName &&
@@ -688,7 +690,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 
                 {/* Show SE(s) separately if there's an override OR if we have multiple SEs - Show overlapping bubbles if multiple */}
                 {(() => {
-                  const seAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SE') || []
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const seAssignments = validAssignments.filter((a: any) => a.role === 'SE') || []
                   const seNames = client.systemEngineerName ? [client.systemEngineerName] : []
                   
                   // Show if: 1) There's an override and we have SE assignments, OR 2) We have multiple SEs from assignments
@@ -726,7 +730,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 
                 {/* Primary Consultant - Show overlapping bubbles if multiple */}
                 {(() => {
-                  const primaryAssignments = (client as any).assignments?.filter((a: any) => a.role === 'PRIMARY') || []
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const primaryAssignments = validAssignments.filter((a: any) => a.role === 'PRIMARY') || []
                   const primaryNames = client.primaryConsultantName ? [client.primaryConsultantName] : []
                   
                   if (primaryAssignments.length > 0 || primaryNames.length > 0) {
@@ -758,7 +764,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 
                 {/* Secondaries - Show overlapping bubbles if multiple */}
                 {(() => {
-                  const secondaryAssignments = (client as any).assignments?.filter((a: any) => a.role === 'SECONDARY') || []
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const secondaryAssignments = validAssignments.filter((a: any) => a.role === 'SECONDARY') || []
                   const secondaryNames = client.secondaryConsultantNames || []
                   
                   if (secondaryAssignments.length > 0 || secondaryNames.length > 0) {
@@ -790,7 +798,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 
                 {/* IT Manager - Show overlapping bubbles if multiple */}
                 {(() => {
-                  const itManagerAssignments = (client as any).assignments?.filter((a: any) => a.role === 'IT_MANAGER') || []
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const itManagerAssignments = validAssignments.filter((a: any) => a.role === 'IT_MANAGER') || []
                   const itManagerNames = client.itManagerName ? [client.itManagerName] : []
                   
                   if (itManagerAssignments.length > 0 || itManagerNames.length > 0) {
@@ -822,7 +832,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 
                 {/* GRCE (Compliance) - Show overlapping bubbles if multiple */}
                 {(() => {
-                  const grceAssignments = (client as any).assignments?.filter((a: any) => a.role === 'GRCE') || []
+                  // Filter out orphaned assignments where user is null
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const grceAssignments = validAssignments.filter((a: any) => a.role === 'GRCE') || []
                   const grceNames = client.grceEngineerName ? [client.grceEngineerName] : []
                   
                   if (grceAssignments.length > 0 || grceNames.length > 0) {

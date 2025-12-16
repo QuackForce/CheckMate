@@ -56,7 +56,7 @@ export async function GET(
         if (!clientData) return null
 
         // Fetch assignments separately (Prisma types may not include it)
-        const assignments = await (db as any).clientEngineerAssignment.findMany({
+        const allAssignments = await (db as any).clientEngineerAssignment.findMany({
           where: { clientId: params.id },
           select: {
             id: true,
@@ -71,6 +71,9 @@ export async function GET(
             { user: { name: 'asc' } },
           ],
         })
+        
+        // Filter out orphaned assignments (where user is null - user was deleted but assignment wasn't)
+        const assignments = allAssignments.filter((a: any) => a.user !== null)
 
         // Fetch team assignments separately (with error handling in case table doesn't exist yet)
         let teamAssignments: any[] = []

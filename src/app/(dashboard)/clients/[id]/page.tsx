@@ -73,10 +73,13 @@ async function getClient(id: string) {
   
   if (!client) return null
   
+  // Filter out orphaned assignments (where user is null - user was deleted but assignment wasn't)
+  const validAssignments = client.assignments?.filter(a => a.user !== null) || []
+  
   // Look up the infra check assignee user by name if set (using in-memory lookup)
   // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
   let infraCheckAssigneeUser = null
-  const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
+  const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
   const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
   const assigneeName = (client.infraCheckAssigneeName || seFromAssignments?.name || client.systemEngineerName)?.trim()
   
@@ -111,6 +114,7 @@ async function getClient(id: string) {
   
   return {
     ...client,
+    assignments: validAssignments, // Only include assignments with valid users
     infraCheckAssigneeUser,
     teamAssignments,
   } as any

@@ -11,13 +11,15 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
-    // Check if user is admin
-    if (session?.user?.role !== 'ADMIN') {
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized - Admin access required' },
-        { status: 403 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+    
+    // Non-admins can fetch users but only for assignment purposes (limited fields)
+    const isAdmin = session.user.role === 'ADMIN'
 
     // Rate limiting
     const identifier = getIdentifier(session.user.id, request)
@@ -30,24 +32,33 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const users = await db.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        role: true,
-        notionTeamMemberId: true,
-        notionTeamMemberName: true,
-        createdAt: true,
-        _count: {
-          select: {
-            assignedChecks: true,
-            completedChecks: true,
-          }
+    // Admin gets full user data, non-admins get minimal data for assignments only
+    const selectFields = isAdmin ? {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      role: true,
+      notionTeamMemberId: true,
+      notionTeamMemberName: true,
+      createdAt: true,
+      _count: {
+        select: {
+          assignedChecks: true,
+          completedChecks: true,
         }
       }
+    } : {
+      // Non-admins only get fields needed for assignment dropdowns
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+    }
+
+    const users = await db.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: selectFields,
     })
 
     return NextResponse.json(users)

@@ -604,9 +604,10 @@ export function ClientsTableWrapper() {
             </div>
           ) : (
             clients.map((client) => {
-              // Get assignee info
-              const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
-              const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+              // Get assignee info (filter out orphaned assignments where user is null)
+              const validAssignments = client.assignments?.filter((a: any) => a.user !== null) || []
+              const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
+              const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user?.name : null
               const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
               const seUserFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
               const avatarImage = client.infraCheckAssigneeUser?.image || seUserFromAssignments?.image || null
@@ -1104,8 +1105,10 @@ export function ClientsTableWrapper() {
                     <td className="py-3 px-4 text-sm">
                       {(() => {
                         // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
-                        const seAssignments = client.assignments?.filter(a => a.role === 'SE') || []
-                        const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user.name : null
+                        // Filter out orphaned assignments where user is null
+                        const validAssignments = client.assignments?.filter((a: any) => a.user !== null) || []
+                        const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
+                        const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user?.name : null
                         const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
                         const isOverride = client.infraCheckAssigneeName && 
                           client.infraCheckAssigneeName !== seFromAssignments &&
