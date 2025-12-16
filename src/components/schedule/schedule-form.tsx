@@ -67,7 +67,7 @@ export function ScheduleForm() {
     try {
       const [clientsRes, engineersRes] = await Promise.all([
         fetch('/api/clients?limit=200&status=ACTIVE'),
-        fetch('/api/users')
+        fetch('/api/users?limit=200')
       ])
       
       if (clientsRes.ok) {
@@ -77,6 +77,7 @@ export function ScheduleForm() {
       
       if (engineersRes.ok) {
         const data = await engineersRes.json()
+        // Handle both paginated response (data.users) and array response (backward compatibility)
         const engineerUsers = (data.users || data || []).filter(
           (u: Engineer) => u.role === 'IT_ENGINEER' || u.role === 'ADMIN'
         )

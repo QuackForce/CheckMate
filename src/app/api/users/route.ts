@@ -32,6 +32,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Parse query parameters for pagination
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limitParam = searchParams.get('limit')
+    // Default to 30 per page, but allow higher limits for dropdowns (e.g., limit=200)
+    // If limit is 'all' or very high, fetch all users (for backward compatibility with dropdowns)
+    const limit = limitParam === 'all' || (limitParam && parseInt(limitParam) > 1000) 
+      ? undefined 
+      : parseInt(limitParam || '30')
+    const search = searchParams.get('search')
+    const role = searchParams.get('role')
+
     // Admin gets full user data, non-admins get minimal data for assignments only
     const selectFields = isAdmin ? {
       id: true,
@@ -56,12 +68,47 @@ export async function GET(request: NextRequest) {
       image: true,
     }
 
+    // Build where clause
+    const where: any = {}
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+    if (role && role !== 'all') {
+      where.role = role
+    }
+
+    // Get total count for pagination
+    const total = await db.user.count({ where })
+
+    // Fetch users with pagination
     const users = await db.user.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       select: selectFields,
+      ...(limit !== undefined && {
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
     })
 
-    return NextResponse.json(users)
+    // Return paginated response if limit is set, otherwise return all users (for backward compatibility)
+    if (limit !== undefined) {
+      return NextResponse.json({
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    } else {
+      // Return all users (for backward compatibility with dropdowns that expect array)
+      return NextResponse.json(users)
+    }
   } catch (error: any) {
     console.error('Error fetching users:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

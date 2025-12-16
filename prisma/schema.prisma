@@ -8,35 +8,422 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ============================================
-// Authentication Models (NextAuth.js)
-// ============================================
-
 model Account {
-  id                String  @id @default(cuid())
+  id                String  @id
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
 
+model CategoryResult {
+  id         String       @id
+  name       String
+  status     String       @default("pending")
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  checkId    String
+  InfraCheck InfraCheck   @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  ItemResult ItemResult[]
+}
+
+model CheckComment {
+  id         String     @id
+  content    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime
+  checkId    String
+  authorId   String
+  User       User       @relation(fields: [authorId], references: [id])
+  InfraCheck InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+}
+
+model CheckTemplate {
+  id               String             @id
+  name             String
+  description      String?
+  isDefault        Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  Client           Client[]
+  InfraCheck       InfraCheck[]
+  TemplateCategory TemplateCategory[]
+}
+
+model Client {
+  id                                    String                     @id
+  name                                  String
+  status                                ClientStatus               @default(ACTIVE)
+  slackChannelId                        String?
+  slackChannelName                      String?
+  notionPageId                          String?
+  defaultCadence                        CheckCadence               @default(MONTHLY)
+  harvestProjectId                      String?
+  notes                                 String?
+  createdAt                             DateTime                   @default(now())
+  updatedAt                             DateTime
+  templateId                            String?
+  acceptedPasswordPolicy                String?
+  accessRequests                        String?
+  checkCadence                          CheckCadence?
+  customCadenceDays                     Int?
+  dmarc                                 String?
+  estimation                            Float?
+  hoursPerMonth                         String?
+  hrProcesses                           String[]
+  itGlueUrl                             String?
+  itSyncsFrequency                      String?
+  notionLastSynced                      DateTime?
+  officeAddress                         String?
+  onePasswordUrl                        String?
+  onsitesFrequency                      String?
+  pocEmail                              String?
+  policies                              String[]
+  primaryEngineerId                     String?
+  priority                              Priority?
+  secondaryEngineerId                   String?
+  sharedDriveUrl                        String?
+  startDate                             DateTime?
+  teams                                 String[]
+  trelloUrl                             String?
+  userAccessReviews                     String?
+  websiteUrl                            String?
+  zendeskUrl                            String?
+  systemEngineerName                    String?
+  primaryConsultantName                 String?
+  secondaryConsultantNames              String[]
+  itManagerName                         String?
+  grceEngineerName                      String?
+  dmarcRecord                           String?
+  dmarcLastChecked                      DateTime?
+  infraCheckAssigneeName                String?
+  dkim                                  String?
+  dkimLastChecked                       DateTime?
+  dkimRecord                            String?
+  dkimSelector                          String?
+  spf                                   String?
+  spfLastChecked                        DateTime?
+  spfRecord                             String?
+  sslExpiry                             DateTime?
+  sslIssuer                             String?
+  sslLastChecked                        DateTime?
+  sslStatus                             String?
+  complianceFrameworks                  String[]
+  trustCenterPlatform                   String?
+  trustCenterUrl                        String?
+  grceEngineerId                        String?
+  systemEngineerId                      String?
+  itManagerId                           String?
+  customUrls                            Json?
+  User_Client_grceEngineerIdToUser      User?                      @relation("Client_grceEngineerIdToUser", fields: [grceEngineerId], references: [id])
+  User_Client_itManagerIdToUser         User?                      @relation("Client_itManagerIdToUser", fields: [itManagerId], references: [id])
+  User_Client_primaryEngineerIdToUser   User?                      @relation("Client_primaryEngineerIdToUser", fields: [primaryEngineerId], references: [id])
+  User_Client_secondaryEngineerIdToUser User?                      @relation("Client_secondaryEngineerIdToUser", fields: [secondaryEngineerId], references: [id])
+  User_Client_systemEngineerIdToUser    User?                      @relation("Client_systemEngineerIdToUser", fields: [systemEngineerId], references: [id])
+  CheckTemplate                         CheckTemplate?             @relation(fields: [templateId], references: [id])
+  ClientEngineerAssignment              ClientEngineerAssignment[]
+  ClientSystem                          ClientSystem[]
+  ClientTeam                            ClientTeam[]
+  InfraCheck                            InfraCheck[]
+
+  @@index([grceEngineerId])
+  @@index([itManagerId])
+  @@index([primaryEngineerId])
+  @@index([secondaryEngineerId])
+  @@index([status])
+  @@index([systemEngineerId])
+}
+
+model ClientEngineerAssignment {
+  id        String             @id
+  clientId  String
+  userId    String
+  role      ClientEngineerRole
+  createdAt DateTime           @default(now())
+  updatedAt DateTime
+  Client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  User      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId, role])
+  @@index([clientId])
+  @@index([userId])
+}
+
+model ClientSystem {
+  id        String   @id
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  clientId  String
+  systemId  String
+  Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  System    System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, systemId])
+  @@index([clientId])
+  @@index([systemId])
+}
+
+model ClientTeam {
+  id        String   @id
+  clientId  String
+  teamId    String
+  createdAt DateTime @default(now())
+  Client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  Team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, teamId])
+  @@index([clientId])
+  @@index([teamId])
+}
+
+model Framework {
+  id          String            @id
+  name        String            @unique
+  category    FrameworkCategory
+  description String?
+  isActive    Boolean           @default(true)
+  order       Int               @default(0)
+  source      SystemSource      @default(APP)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime
+}
+
+model InfraCheck {
+  id                                       String           @id
+  status                                   CheckStatus      @default(SCHEDULED)
+  scheduledDate                            DateTime
+  startedAt                                DateTime?
+  completedAt                              DateTime?
+  dueDate                                  DateTime?
+  cadence                                  CheckCadence
+  calendarEventId                          String?
+  slackMessageTs                           String?
+  totalTimeSeconds                         Int              @default(0)
+  notes                                    String?
+  createdAt                                DateTime         @default(now())
+  updatedAt                                DateTime
+  clientId                                 String
+  assignedEngineerId                       String?
+  completedById                            String?
+  templateId                               String?
+  assignedEngineerName                     String?
+  calendarEventLink                        String?
+  CategoryResult                           CategoryResult[]
+  CheckComment                             CheckComment[]
+  User_InfraCheck_assignedEngineerIdToUser User?            @relation("InfraCheck_assignedEngineerIdToUser", fields: [assignedEngineerId], references: [id])
+  Client                                   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  User_InfraCheck_completedByIdToUser      User?            @relation("InfraCheck_completedByIdToUser", fields: [completedById], references: [id])
+  CheckTemplate                            CheckTemplate?   @relation(fields: [templateId], references: [id])
+  TimerSession                             TimerSession[]
+
+  @@index([assignedEngineerId])
+  @@index([clientId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model IntegrationSettings {
+  id           String    @id
+  provider     String    @unique
+  enabled      Boolean   @default(false)
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
+  refreshToken String?
+  config       String?
+  connectedAt  DateTime?
+  lastTestedAt DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime
+}
+
+model ItemResult {
+  id               String         @id
+  text             String
+  checked          Boolean        @default(false)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  categoryResultId String
+  order            Int            @default(0)
+  CategoryResult   CategoryResult @relation(fields: [categoryResultId], references: [id], onDelete: Cascade)
+}
+
+model LoginActivity {
+  id        String   @id
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  userId    String
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model System {
+  id              String             @id
+  name            String             @unique
+  category        SystemCategoryType
+  icon            String?
+  description     String?
+  isActive        Boolean            @default(true)
+  order           Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime
+  source          SystemSource       @default(APP)
+  ClientSystem    ClientSystem[]
+  SystemCheckItem SystemCheckItem[]
+}
+
+model SystemCheckItem {
+  id          String   @id
+  text        String
+  description String?
+  order       Int      @default(0)
+  isOptional  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  systemId    String
+  System      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id          String       @id
+  name        String       @unique
+  description String?
+  color       String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  tag         String?
+  managerId   String?
+  ClientTeam  ClientTeam[]
+  User        User?        @relation(fields: [managerId], references: [id])
+  UserTeam    UserTeam[]
+
+  @@index([isActive])
+  @@index([managerId])
+}
+
+model TemplateCategory {
+  id            String         @id
+  name          String
+  icon          String?
+  order         Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  templateId    String
+  CheckTemplate CheckTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  TemplateItem  TemplateItem[]
+}
+
+model TemplateItem {
+  id               String           @id
+  text             String
+  description      String?
+  order            Int              @default(0)
+  isOptional       Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime
+  categoryId       String
+  TemplateCategory TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model TimerSession {
+  id             String     @id
+  startTime      DateTime
+  endTime        DateTime?
+  durationSecs   Int?
+  harvestEntryId String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime
+  checkId        String
+  userId         String
+  InfraCheck     InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  User           User       @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id                                             String                     @id
+  name                                           String?
+  email                                          String?                    @unique
+  emailVerified                                  DateTime?
+  image                                          String?
+  role                                           UserRole                   @default(VIEWER)
+  createdAt                                      DateTime                   @default(now())
+  updatedAt                                      DateTime
+  notionTeamMemberId                             String?
+  notionTeamMemberName                           String?
+  harvestAccessToken                             String?
+  harvestAccountId                               String?
+  harvestUserId                                  String?
+  googleCalendarAccessToken                      String?
+  googleCalendarRefreshToken                     String?
+  googleCalendarExpiresAt                        DateTime?
+  slackUsername                                  String?
+  slackUserId                                    String?
+  notifyOverdueChecks                            Boolean                    @default(true)
+  notifySlackReminders                           Boolean                    @default(true)
+  notifyWeeklySummary                            Boolean                    @default(false)
+  timezone                                       String                     @default("America/Los_Angeles")
+  team                                           String?
+  jobTitle                                       String?
+  managerId                                      String?
+  lastLoginAt                                    DateTime?
+  loginCount                                     Int                        @default(0)
+  Account                                        Account[]
+  CheckComment                                   CheckComment[]
+  Client_Client_grceEngineerIdToUser             Client[]                   @relation("Client_grceEngineerIdToUser")
+  Client_Client_itManagerIdToUser                Client[]                   @relation("Client_itManagerIdToUser")
+  Client_Client_primaryEngineerIdToUser          Client[]                   @relation("Client_primaryEngineerIdToUser")
+  Client_Client_secondaryEngineerIdToUser        Client[]                   @relation("Client_secondaryEngineerIdToUser")
+  Client_Client_systemEngineerIdToUser           Client[]                   @relation("Client_systemEngineerIdToUser")
+  ClientEngineerAssignment                       ClientEngineerAssignment[]
+  InfraCheck_InfraCheck_assignedEngineerIdToUser InfraCheck[]               @relation("InfraCheck_assignedEngineerIdToUser")
+  InfraCheck_InfraCheck_completedByIdToUser      InfraCheck[]               @relation("InfraCheck_completedByIdToUser")
+  LoginActivity                                  LoginActivity[]
+  Session                                        Session[]
+  Team                                           Team[]
+  TimerSession                                   TimerSession[]
+  User                                           User?                      @relation("UserToUser", fields: [managerId], references: [id])
+  other_User                                     User[]                     @relation("UserToUser")
+  UserTeam                                       UserTeam[]
+}
+
+model UserTeam {
+  id        String   @id
+  userId    String
+  teamId    String
+  createdAt DateTime @default(now())
+  Team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -45,148 +432,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-// ============================================
-// User & Role Models
-// ============================================
-
-enum UserRole {
-  ADMIN
-  IT_ENGINEER
-  IT_MANAGER
-  CONSULTANT
-  VIEWER
-}
-
-// ============================================
-// Team Models
-// ============================================
-
-model Team {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  color       String? // Optional color for UI (hex code)
-  tag         String? // Team tag that appears on clients (e.g., "Team 1", "Consultant Team 1")
-  managerId   String? // Manager of the team
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  manager User?        @relation("TeamManager", fields: [managerId], references: [id])
-  clients ClientTeam[]
-  users   UserTeam[]
-
-  @@index([isActive])
-  @@index([managerId])
-}
-
-model ClientTeam {
-  id        String   @id @default(cuid())
-  clientId  String
-  teamId    String
-  createdAt DateTime @default(now())
-
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@unique([clientId, teamId])
-  @@index([clientId])
-  @@index([teamId])
-}
-
-model UserTeam {
-  id        String   @id @default(cuid())
-  userId    String
-  teamId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, teamId])
-  @@index([userId])
-  @@index([teamId])
-}
-
-model User {
-  id                    String    @id @default(cuid())
-  name                  String?
-  email                 String?   @unique
-  emailVerified         DateTime?
-  image                 String?
-  role                  UserRole  @default(VIEWER)
-  jobTitle              String?
-  team                  String? // comma-separated teams from Notion
-  managerId             String?
-  manager               User?     @relation("Manager", fields: [managerId], references: [id])
-  directReports         User[]    @relation("Manager")
-  managedTeams          Team[]    @relation("TeamManager")
-  systemEngineerClients Client[]  @relation("SystemEngineer")
-  grceEngineerClients   Client[]  @relation("GrceEngineer")
-  itManagerClients      Client[]  @relation("ItManager")
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  // Link to Notion Team Member
-  notionTeamMemberId   String? // Notion page ID for team member
-  notionTeamMemberName String? // Cached name from Notion
-
-  // Harvest integration (per-user OAuth)
-  harvestAccessToken String? @db.Text
-  harvestAccountId   String?
-  harvestUserId      String?
-
-  // Google Calendar integration (per-user OAuth)
-  googleCalendarAccessToken  String?   @db.Text
-  googleCalendarRefreshToken String?   @db.Text
-  googleCalendarExpiresAt    DateTime?
-
-  // Slack integration
-  slackUsername String? // Slack display name (e.g., "Michael Lemay") - stored for display
-  slackUserId   String? // Slack user ID (e.g., "U1234567890") - required for @mentions
-
-  // User Preferences
-  timezone             String  @default("America/Los_Angeles") // User's timezone for date display
-  notifySlackReminders Boolean @default(true) // Receive Slack reminders for assigned checks
-  notifyOverdueChecks  Boolean @default(true) // Receive reminders for overdue checks
-  notifyWeeklySummary  Boolean @default(false) // Receive weekly summary (future feature)
-
-  // Login Activity
-  lastLoginAt DateTime? // Last login timestamp
-  loginCount  Int       @default(0) // Total number of logins
-
-  accounts                  Account[]
-  sessions                  Session[]
-  loginActivities           LoginActivity[] // Login history
-  clientEngineerAssignments ClientEngineerAssignment[]
-  teams                     UserTeam[] // Many-to-many relationship with teams
-
-  // Relations - Client Assignments
-  primaryClients   Client[] @relation("PrimaryEngineer")
-  secondaryClients Client[] @relation("SecondaryEngineer")
-
-  // Relations - Checks
-  assignedChecks  InfraCheck[]   @relation("AssignedEngineer")
-  completedChecks InfraCheck[]   @relation("CompletedBy")
-  checkComments   CheckComment[]
-  timerSessions   TimerSession[]
-}
-
-// ============================================
-// Client Models
-// ============================================
-
-enum ClientStatus {
-  ACTIVE
-  INACTIVE
-  ONBOARDING
-  OFFBOARDING
-  ON_HOLD
-  EXITING
-  AS_NEEDED
 }
 
 enum CheckCadence {
@@ -199,11 +444,12 @@ enum CheckCadence {
   CUSTOM
 }
 
-enum Priority {
-  P1
-  P2
-  P3
-  P4
+enum CheckStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
 }
 
 enum ClientEngineerRole {
@@ -214,426 +460,53 @@ enum ClientEngineerRole {
   IT_MANAGER
 }
 
-model Client {
-  id       String       @id @default(cuid())
-  name     String
-  status   ClientStatus @default(ACTIVE)
-  priority Priority?
-
-  // Slack Integration
-  slackChannelId   String?
-  slackChannelName String?
-
-  // Notion Sync (optional - not unique to allow multiple clients without Notion)
-  notionPageId     String?
-  notionLastSynced DateTime?
-
-  // Check Scheduling
-  defaultCadence    CheckCadence  @default(MONTHLY)
-  customCadenceDays Int? // For CUSTOM cadence - number of days between checks
-  checkCadence      CheckCadence? // Specific cadence for infra checks (can differ from IT Syncs)
-
-  // Engineer Assignments (from Notion)
-  // These store the names from Notion - can be linked to app Users later
-  systemEngineerName       String? // SE - System Engineer from Notion
-  primaryConsultantName    String? // Primary Consultant - Fixes checks
-  secondaryConsultantNames String[] // Secondaries - Can also fix checks
-  itManagerName            String? // IT Manager - Account manager
-  grceEngineerName         String? // GRCE - Compliance engineer
-
-  // App-specific: Infra Check Assignee (defaults to SE if not set)
-  infraCheckAssigneeName String? // Override: Who does infra checks (if different from SE)
-
-  // App-level engineer assignments (linked to app Users for future)
-  primaryEngineerId   String?
-  primaryEngineer     User?                      @relation("PrimaryEngineer", fields: [primaryEngineerId], references: [id])
-  secondaryEngineerId String?
-  secondaryEngineer   User?                      @relation("SecondaryEngineer", fields: [secondaryEngineerId], references: [id])
-  systemEngineerId    String?
-  systemEngineer      User?                      @relation("SystemEngineer", fields: [systemEngineerId], references: [id])
-  grceEngineerId      String?
-  grceEngineer        User?                      @relation("GrceEngineer", fields: [grceEngineerId], references: [id])
-  itManagerId         String?
-  itManager           User?                      @relation("ItManager", fields: [itManagerId], references: [id])
-  assignments         ClientEngineerAssignment[]
-
-  // From Notion - Contact & Location
-  pocEmail      String?
-  officeAddress String?
-
-  // From Notion - Service Levels
-  hoursPerMonth    String? // HPM value
-  itSyncsFrequency String? // IT Syncs frequency from Notion
-  onsitesFrequency String? // Onsites frequency from Notion
-
-  // From Notion - Security & Compliance
-  complianceFrameworks   String[] // Compliance frameworks (SOC 2, ISO 27001, HIPAA, etc.)
-  trustCenterUrl         String? // Trust center URL (from TrustLists API)
-  trustCenterPlatform    String? // Trust center platform (Vanta, Drata, SafeBase, etc.)
-  dmarc                  String?
-  dmarcRecord            String? // Full DMARC DNS record
-  dmarcLastChecked       DateTime? // When DMARC was last checked
-  spf                    String? // SPF policy result (pass, softfail, hardfail, none)
-  spfRecord              String? // Full SPF DNS record
-  spfLastChecked         DateTime? // When SPF was last checked
-  dkim                   String? // DKIM status (found, not_found)
-  dkimSelector           String? // DKIM selector used for lookup
-  dkimRecord             String? // Full DKIM DNS record
-  dkimLastChecked        DateTime? // When DKIM was last checked
-  sslStatus              String? // SSL status (valid, expiring_soon, expired, not_found)
-  sslIssuer              String? // SSL certificate issuer
-  sslExpiry              DateTime? // SSL certificate expiry date
-  sslLastChecked         DateTime? // When SSL was last checked
-  accessRequests         String?
-  userAccessReviews      String?
-  acceptedPasswordPolicy String?
-
-  // From Notion - Teams & HR
-  teams       String[] // Array of team names (Team 1, Team 2, etc.)
-  hrProcesses String[] // HR processes enabled
-  policies    String[] // Policies in place
-
-  // From Notion - URLs & Integrations
-  itGlueUrl      String?
-  zendeskUrl     String?
-  trelloUrl      String?
-  onePasswordUrl String?
-  sharedDriveUrl String?
-  websiteUrl     String?
-  customUrls     Json? // Custom integration URLs: [{ label: string, url: string }]
-
-  // From Notion - Time Tracking
-  harvestProjectId String?
-  estimation       Float? // Estimation hours
-
-  // From Notion - Dates
-  startDate DateTime?
-
-  // Other
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  checks          InfraCheck[]
-  template        CheckTemplate? @relation(fields: [templateId], references: [id])
-  templateId      String?
-  clientSystems   ClientSystem[] // Systems this client uses
-  teamAssignments ClientTeam[] // Many-to-many relationship with teams (renamed to avoid conflict with teams String[] field)
-
-  @@index([status])
-  @@index([primaryEngineerId])
-  @@index([secondaryEngineerId])
-  @@index([systemEngineerId])
-  @@index([grceEngineerId])
-  @@index([itManagerId])
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ONBOARDING
+  OFFBOARDING
+  ON_HOLD
+  EXITING
+  AS_NEEDED
 }
 
-model ClientEngineerAssignment {
-  id        String             @id @default(cuid())
-  clientId  String
-  userId    String
-  role      ClientEngineerRole
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([clientId, userId, role])
-  @@index([userId])
-  @@index([clientId])
+enum FrameworkCategory {
+  SECURITY
+  PRIVACY
+  GOVERNMENT
+  INDUSTRY
+  OTHER
 }
 
-// ============================================
-// Systems Database Models
-// ============================================
+enum Priority {
+  P1
+  P2
+  P3
+  P4
+}
 
 enum SystemCategoryType {
-  IDENTITY // Google, Okta, Azure AD
-  MDM // Kandji, Addigy, Jamf, Intune
-  AV_EDR // CrowdStrike, Sophos, SentinelOne
-  PASSWORD // 1Password, Bitwarden, LastPass
-  GRC // Vanta, Drata, Secureframe
-  SECURITY_TRAINING // KnowBe4, Curricula
-  BACKUP // Backupify, Spanning
-  EMAIL_SECURITY // Abnormal, Proofpoint
-  OTHER // Custom/Other systems
+  IDENTITY
+  MDM
+  AV_EDR
+  PASSWORD
+  GRC
+  SECURITY_TRAINING
+  BACKUP
+  EMAIL_SECURITY
+  OTHER
 }
 
 enum SystemSource {
-  APP // Created in the app
-  NOTION // Imported from Notion vendors
-  SEEDED // Pre-seeded from system database
+  APP
+  NOTION
+  SEEDED
 }
 
-// ============================================
-// Compliance Framework Types
-// ============================================
-
-enum FrameworkCategory {
-  SECURITY // SOC 2, ISO 27001, NIST
-  PRIVACY // GDPR, CCPA, HIPAA
-  GOVERNMENT // FedRAMP, CMMC, StateRAMP
-  INDUSTRY // PCI DSS, HITRUST
-  OTHER // Custom frameworks
-}
-
-model Framework {
-  id          String            @id @default(cuid())
-  name        String            @unique // e.g., "SOC 2", "ISO 27001", "HIPAA"
-  category    FrameworkCategory
-  description String?
-  isActive    Boolean           @default(true)
-  order       Int               @default(0)
-  source      SystemSource      @default(APP) // Reuse SystemSource enum
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-}
-
-model System {
-  id          String             @id @default(cuid())
-  name        String             @unique // e.g., "Kandji", "CrowdStrike", "1Password"
-  category    SystemCategoryType
-  icon        String? // Icon name from lucide-react or URL
-  description String?
-  isActive    Boolean            @default(true)
-  order       Int                @default(0)
-  source      SystemSource       @default(APP) // Track where system came from
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  // Relations
-  checkItems    SystemCheckItem[]
-  clientSystems ClientSystem[]
-}
-
-model SystemCheckItem {
-  id          String   @id @default(cuid())
-  text        String // The check item text
-  description String? // Optional detailed description
-  order       Int      @default(0)
-  isOptional  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  systemId String
-}
-
-model ClientSystem {
-  id        String   @id @default(cuid())
-  notes     String? // Client-specific notes for this system
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId String
-  system   System @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  systemId String
-
-  @@unique([clientId, systemId]) // A client can only have each system once
-  @@index([clientId])
-  @@index([systemId])
-}
-
-// ============================================
-// Check Template Models (Legacy - can be removed later)
-// ============================================
-
-model CheckTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  categories TemplateCategory[]
-  clients    Client[]
-  checks     InfraCheck[]
-}
-
-model TemplateCategory {
-  id        String   @id @default(cuid())
-  name      String // e.g., "Okta", "Gmail", "Jamf", "CrowdStrike", "Vanta"
-  icon      String? // Icon name from lucide-react
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  template   CheckTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  templateId String
-
-  items TemplateItem[]
-}
-
-model TemplateItem {
-  id          String   @id @default(cuid())
-  text        String
-  description String?
-  order       Int      @default(0)
-  isOptional  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  category   TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  categoryId String
-}
-
-// ============================================
-// Infrastructure Check Models
-// ============================================
-
-enum CheckStatus {
-  SCHEDULED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  OVERDUE
-}
-
-model InfraCheck {
-  id                   String       @id @default(cuid())
-  status               CheckStatus  @default(SCHEDULED)
-  scheduledDate        DateTime
-  startedAt            DateTime?
-  completedAt          DateTime?
-  dueDate              DateTime? // Made optional - can be calculated
-  cadence              CheckCadence
-  calendarEventId      String? // Google Calendar event ID
-  calendarEventLink    String? // Google Calendar event link
-  slackMessageTs       String? // Slack message timestamp (for updates)
-  totalTimeSeconds     Int          @default(0)
-  notes                String?      @db.Text
-  assignedEngineerName String? // Store engineer name if not linked to User
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-
-  // Relations
-  client             Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  clientId           String
-  assignedEngineer   User?          @relation("AssignedEngineer", fields: [assignedEngineerId], references: [id])
-  assignedEngineerId String? // Made optional
-  completedBy        User?          @relation("CompletedBy", fields: [completedById], references: [id])
-  completedById      String?
-  template           CheckTemplate? @relation(fields: [templateId], references: [id])
-  templateId         String? // Made optional - not needed with Systems approach
-
-  // Check data
-  categoryResults CategoryResult[]
-  comments        CheckComment[]
-  timerSessions   TimerSession[]
-
-  @@index([clientId])
-  @@index([assignedEngineerId])
-  @@index([status])
-  @@index([scheduledDate])
-}
-
-model CategoryResult {
-  id        String   @id @default(cuid())
-  name      String // Category name at time of check
-  status    String   @default("pending") // pending, all_good, issues_found
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  check   InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
-  checkId String
-
-  items ItemResult[]
-}
-
-model ItemResult {
-  id        String   @id @default(cuid())
-  text      String // Item text at time of check
-  checked   Boolean  @default(false)
-  notes     String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  categoryResult   CategoryResult @relation(fields: [categoryResultId], references: [id], onDelete: Cascade)
-  categoryResultId String
-}
-
-model CheckComment {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  check    InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
-  checkId  String
-  author   User       @relation(fields: [authorId], references: [id])
-  authorId String
-}
-
-// ============================================
-// Time Tracking Models
-// ============================================
-
-model TimerSession {
-  id             String    @id @default(cuid())
-  startTime      DateTime
-  endTime        DateTime?
-  durationSecs   Int?
-  harvestEntryId String? // Harvest time entry ID
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  check   InfraCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
-  checkId String
-  user    User       @relation(fields: [userId], references: [id])
-  userId  String
-}
-
-// ============================================
-// Integration Settings (Org-wide)
-// ============================================
-
-model IntegrationSettings {
-  id       String  @id @default(cuid())
-  provider String  @unique // 'notion', 'slack', 'google_calendar', etc.
-  enabled  Boolean @default(false)
-
-  // Encrypted/secure storage for API keys and tokens
-  apiKey       String? @db.Text // API key or token
-  apiSecret    String? @db.Text // API secret (if needed)
-  accessToken  String? @db.Text // OAuth access token (if OAuth-based)
-  refreshToken String? @db.Text // OAuth refresh token (if OAuth-based)
-
-  // Provider-specific configuration (JSON)
-  config String? @db.Text // JSON string for provider-specific settings
-
-  // Metadata
-  connectedAt  DateTime?
-  lastTestedAt DateTime?
-  notes        String?   @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ============================================
-// Login Activity Tracking
-// ============================================
-
-model LoginActivity {
-  id        String   @id @default(cuid())
-  ipAddress String? // IP address of login
-  userAgent String? // Browser/device info
-  createdAt DateTime @default(now())
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
-
-  @@index([userId])
-  @@index([createdAt])
+enum UserRole {
+  ADMIN
+  IT_MANAGER
+  IT_ENGINEER
+  CONSULTANT
+  VIEWER
 }

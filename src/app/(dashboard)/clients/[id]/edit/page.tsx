@@ -204,10 +204,11 @@ export default function EditClientPage() {
   
   const fetchEngineers = async () => {
     try {
-      const res = await fetch('/api/users')
+      // Use limit=200 to get all users for dropdowns (pagination support)
+      const res = await fetch('/api/users?limit=200')
       if (res.ok) {
         const data = await res.json()
-        // Get all users for assignment selection
+        // Handle both paginated response (data.users) and array response (backward compatibility)
         const users = (data.users || data || [])
         setAllUsers(users)
       }

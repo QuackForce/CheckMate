@@ -28,6 +28,8 @@ import {
   Users,
   Save,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Plus,
   Loader2,
   User,
@@ -114,6 +116,8 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [userJobTitle, setUserJobTitle] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const usersPerPage = 30
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false)
   const [roleBreakdown, setRoleBreakdown] = useState<Record<string, number> | null>(null)
@@ -267,6 +271,17 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   )
 
   const topPerformer = sortedTeam.find(m => m.stats.completedThisMonth > 0)
+
+  // Pagination
+  const totalPages = Math.ceil(sortedTeam.length / usersPerPage)
+  const startIndex = (currentPage - 1) * usersPerPage
+  const endIndex = startIndex + usersPerPage
+  const paginatedTeam = sortedTeam.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, roleFilter])
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
@@ -567,7 +582,7 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       </div>
 
       <div className="divide-y divide-surface-700/50">
-        {sortedTeam.map((member, index) => {
+        {paginatedTeam.map((member, index) => {
           const isTop = member.id === topPerformer?.id && member.stats.completedThisMonth > 0
           const isCurrentUser = member.id === currentUserId
           const role = roleConfig[member.role] || {
@@ -772,6 +787,61 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
           )
         })}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-surface-700/50 flex items-center justify-between">
+          <div className="text-sm text-surface-400">
+            Showing {startIndex + 1}-{Math.min(endIndex, sortedTeam.length)} of {sortedTeam.length} members
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="btn-secondary flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = currentPage - 2 + i
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-sm transition-colors",
+                      currentPage === pageNum
+                        ? "bg-brand-500 text-white"
+                        : "bg-surface-800 text-surface-300 hover:bg-surface-700"
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="btn-secondary flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit/Merge Sheet */}
       <Sheet open={!!editingUser} onOpenChange={(open) => {

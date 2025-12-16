@@ -256,7 +256,7 @@ export function ClientsTableWrapper() {
       try {
         const [teamsRes, usersRes] = await Promise.all([
           fetch('/api/teams'),
-          fetch('/api/users'),
+          fetch('/api/users?limit=200'),
         ])
         
         if (teamsRes.ok) {

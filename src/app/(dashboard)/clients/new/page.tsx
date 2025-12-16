@@ -71,9 +71,11 @@ export default function NewClientPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/api/users')
+      // Use limit=200 to get all users for dropdowns (pagination support)
+      const res = await fetch('/api/users?limit=200')
       if (res.ok) {
         const data = await res.json()
+        // Handle both paginated response (data.users) and array response (backward compatibility)
         const users = (data.users || data || [])
         setAllUsers(users)
         // Also set engineers for infra check assignee dropdown
