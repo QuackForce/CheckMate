@@ -16,7 +16,7 @@ interface UserPreferences {
   slackUserId: string | null
    jobTitle?: string | null
    team?: string | null
-   manager?: { id: string; name: string | null; email: string | null; jobTitle: string | null } | null
+   User?: { id: string; name: string | null; email: string | null; jobTitle: string | null } | null
 }
 
 const TIMEZONES = [
@@ -42,7 +42,7 @@ export default function ProfilePreferencesPage() {
     slackUserId: null,
     jobTitle: null,
     team: null,
-    manager: null,
+    User: null,
   })
   const [savingTimezone, setSavingTimezone] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -252,8 +252,8 @@ export default function ProfilePreferencesPage() {
             {
               icon: <User className="w-4 h-4 text-surface-500" />,
               label: 'Manager:',
-              value: preferences.manager?.name
-                ? `${preferences.manager.name}${preferences.manager.jobTitle ? ` — ${preferences.manager.jobTitle}` : ''}`
+              value: preferences.User?.name
+                ? `${preferences.User.name}${preferences.User.jobTitle ? ` — ${preferences.User.jobTitle}` : ''}`
                 : 'Not set',
               valueClass: 'text-white',
             },

@@ -139,14 +139,14 @@ export default async function CheckPage({ params }: { params: { id: string } }) 
   // Use assignedEngineerName if assignedEngineer relation is not set
   const checkData = {
     id: check.id,
-    client: {
-      id: check.Client.id,
-      name: check.Client.name,
-      slackChannelName: check.Client.slackChannelName,
-      slackChannelId: check.Client.slackChannelId,
-      customCadenceDays: check.Client.customCadenceDays,
-      checkCadence: check.Client.checkCadence,
-    },
+      Client: {
+        id: check.Client.id,
+        name: check.Client.name,
+        slackChannelName: check.Client.slackChannelName,
+        slackChannelId: check.Client.slackChannelId,
+        customCadenceDays: check.Client.customCadenceDays,
+        checkCadence: check.Client.checkCadence,
+      },
     assignedEngineer: {
       id: check.User_InfraCheck_assignedEngineerIdToUser?.id || '',
       name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unassigned',

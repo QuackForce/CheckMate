@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         status: { in: ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED'] },
         OR: [
           {
-            client: {
+            Client: {
               name: { contains: searchTerm, mode: 'insensitive' },
             },
           },
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         image: true,
         jobTitle: true,
         team: true,
-        manager: {
+        User: {
           select: {
             id: true,
             name: true,
@@ -184,10 +184,10 @@ export async function GET(request: NextRequest) {
         image: u.image,
         jobTitle: u.jobTitle,
         team: u.team,
-        manager: u.manager ? {
-          id: u.manager.id,
-          name: u.manager.name,
-          email: u.manager.email,
+        manager: u.User ? {
+          id: u.User.id,
+          name: u.User.name,
+          email: u.User.email,
         } : null,
       })),
       systems: systems.map(s => ({

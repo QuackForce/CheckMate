@@ -290,7 +290,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         id: `completed-${check.id}`,
         type: 'completed' as const,
         client: check.Client.name,
-        user: check.User_InfraCheck_completedByIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unknown',
+        user: check.User_InfraCheck_completedByIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unknown',
         time: check.completedAt ? formatRelativeTime(check.completedAt) : 'Recently',
         timestamp: check.completedAt || new Date(),
       })),
@@ -298,7 +298,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         id: `started-${check.id}`,
         type: 'started' as const,
         client: check.Client.name,
-        user: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unknown',
+        user: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.updatedAt),
         timestamp: check.updatedAt,
       })),
@@ -306,7 +306,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         id: `scheduled-${check.id}`,
         type: 'scheduled' as const,
         client: check.Client.name,
-        user: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unknown',
+        user: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.createdAt),
         timestamp: check.createdAt,
       })),
@@ -314,7 +314,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         id: `slack-${check.id}`,
         type: 'slack' as const,
         client: check.Client.name,
-        user: check.User_InfraCheck_completedByIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unknown',
+        user: check.User_InfraCheck_completedByIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.updatedAt),
         timestamp: check.updatedAt,
       })),
@@ -357,7 +357,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         status: check.status,
         cadence: check.cadence,
         assignedEngineer: { 
-          name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unassigned', 
+          name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unassigned', 
           image: check.User_InfraCheck_assignedEngineerIdToUser?.image || null
         },
       })),
@@ -379,7 +379,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
         status: check.status,
         cadence: check.cadence,
         assignedEngineer: { 
-          name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.User_InfraCheck_assignedEngineerIdToUserName || 'Unassigned', 
+          name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unassigned', 
           image: check.User_InfraCheck_assignedEngineerIdToUser?.image || null
         },
       })),

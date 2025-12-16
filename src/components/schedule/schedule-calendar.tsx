@@ -22,7 +22,7 @@ interface ScheduledCheck {
   scheduledDate: string
   status: string
   calendarEventLink?: string | null
-  client: {
+  Client: {
     id: string
     name: string
   }
@@ -208,7 +208,7 @@ export function ScheduleCalendar() {
                 check.status === 'SCHEDULED' && 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30',
                 check.status === 'COMPLETED' && 'bg-brand-500/20 text-brand-400 hover:bg-brand-500/30'
               )}
-              title={`${check.client.name} - Click to open, Right-click to reschedule`}
+              title={`${check.Client.name} - Click to open, Right-click to reschedule`}
             >
               <span
                 onClick={(e) => handleCheckClick(check, e)}
@@ -218,7 +218,7 @@ export function ScheduleCalendar() {
                 }}
                 className="flex-1 truncate"
               >
-                {check.client.name}
+                {check.Client.name}
               </span>
               {check.calendarEventLink && (
                 <a

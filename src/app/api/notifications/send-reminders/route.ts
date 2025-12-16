@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         ],
       },
       include: {
-        client: { select: { name: true } },
+        Client: { select: { name: true } },
         assignedEngineer: { 
           select: { id: true, slackUserId: true, name: true } 
         },
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 
       checksByUser.get(userId)!.checks.push({
         checkId: check.id,
-        clientName: check.client.name,
+        clientName: check.Client.name,
         scheduledDate: check.scheduledDate,
         isOverdue,
       })
@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
         ],
       },
       include: {
-        client: { select: { name: true } },
+        Client: { select: { name: true } },
         assignedEngineer: { 
           select: { 
             id: true, 
@@ -211,7 +211,7 @@ export async function GET(req: NextRequest) {
       }
 
       return {
-        client: check.client.name,
+        client: check.Client.name,
         assignedTo: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned',
         hasSlackId,
         remindersEnabled,

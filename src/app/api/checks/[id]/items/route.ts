@@ -31,7 +31,7 @@ export async function POST(
         checkId: params.id,
       },
       include: {
-        items: true,
+        ItemResult: true,
       },
     })
 
@@ -40,7 +40,7 @@ export async function POST(
     }
 
     // Get the next order number
-    const nextOrder = category.items.length
+    const nextOrder = category.ItemResult.length
 
     // Create the new item
     const item = await db.itemResult.create({

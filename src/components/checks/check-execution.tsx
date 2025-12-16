@@ -52,7 +52,7 @@ interface CheckCategory {
 
 interface CheckData {
   id: string
-  client: {
+  Client: {
     id: string
     name: string
     slackChannelName: string | null
@@ -121,7 +121,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   }
   
   const [harvestNotes, setHarvestNotes] = useState(
-    `Infra Check - ${check.client.name} - ${new Date().toLocaleDateString()}`
+    `Infra Check - ${check.Client.name} - ${new Date().toLocaleDateString()}`
   )
   const [savingHarvest, setSavingHarvest] = useState(false)
   const [harvestLogHours, setHarvestLogHours] = useState(0)
@@ -144,18 +144,18 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   // Calculate next scheduled date for modal
   const nextCheckInfo = useMemo(() => {
     if (!showScheduleNextModal) return null
-    const effectiveCadence = check.client.checkCadence || check.cadence
+    const effectiveCadence = check.Client.checkCadence || check.cadence
     const nextDate = calculateNextScheduledDate(
       new Date(),
       effectiveCadence,
-      check.client.customCadenceDays
+      check.Client.customCadenceDays
     )
     return {
       effectiveCadence,
       nextDate,
       nextDateFormatted: formatDate(nextDate),
     }
-  }, [showScheduleNextModal, check.client.checkCadence, check.cadence, check.client.customCadenceDays])
+  }, [showScheduleNextModal, check.Client.checkCadence, check.cadence, check.Client.customCadenceDays])
   // Format date in local timezone to avoid timezone shifts
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear()
@@ -241,7 +241,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
           setHarvestProjects(projects) // Set projects directly
           
           // Try to auto-match the client name with a Harvest project
-          const clientName = check.client.name.toLowerCase()
+          const clientName = check.Client.name.toLowerCase()
           const matchedProject = projects.find((p: any) => {
             const projectName = p.name?.toLowerCase() || ''
             const clientNameInProject = p.client_name?.toLowerCase() || ''
@@ -673,7 +673,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     }
     
     // Use <!here> for @here mention to work in Slack
-    let report = `Hi <!here> this is ${check.client.name}'s infrastructure report!\n\n`
+    let report = `Hi <!here> this is ${check.Client.name}'s infrastructure report!\n\n`
 
     categories.forEach((cat) => {
       const allGood = cat.items.every((item) => item.checked)
@@ -798,7 +798,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-white">
-                  {check.client.name} - Infrastructure Check
+                  {check.Client.name} - Infrastructure Check
                 </h1>
                 <div className="flex items-center gap-3 text-sm text-surface-400 mt-0.5">
                   <span>{getCadenceLabel(check.cadence)} • Assigned to {check.assignedEngineer.name}</span>
@@ -1082,7 +1082,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               {/* Check Info */}
               <div className="p-4 bg-surface-800 rounded-lg">
                 <p className="text-sm text-surface-400 mb-1">Check</p>
-                <p className="font-medium text-white">{check.client.name} - Infrastructure Check</p>
+                <p className="font-medium text-white">{check.Client.name} - Infrastructure Check</p>
               </div>
 
               {/* Harvest Project Selection - Searchable */}
@@ -1292,11 +1292,11 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             <div className="p-4 overflow-y-auto max-h-[60vh]">
               <div className="mb-4">
                 <label className="label">Channel</label>
-                {check.client.slackChannelName ? (
+                {check.Client.slackChannelName ? (
                   <div className="flex items-center gap-2 p-3 bg-surface-800 rounded-lg">
                     <MessageSquare className="w-4 h-4 text-surface-400" />
                     <span className="text-surface-200">
-                      {check.client.slackChannelName}
+                      {check.Client.slackChannelName}
                     </span>
                   </div>
                 ) : (
@@ -1305,7 +1305,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                     <p className="text-xs text-surface-500">
                       Connect a Slack channel on the{' '}
                       <Link 
-                        href={`/clients/${check.client.id}`}
+                        href={`/clients/${check.Client.id}`}
                         className="text-brand-400 hover:text-brand-300 underline"
                         onClick={() => setShowSlackPreview(false)}
                       >
@@ -1333,7 +1333,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                 Cancel
               </button>
               <button
-                disabled={!check.client.slackChannelName}
+                disabled={!check.Client.slackChannelName}
                 onClick={async () => {
                   try {
                     // Fetch latest check data to ensure we have current assignee
@@ -1366,7 +1366,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                     }
 
                     toast.success('Posted to Slack!', {
-                      description: `Message sent to ${check.client.slackChannelName || 'Slack channel'}`,
+                      description: `Message sent to ${check.Client.slackChannelName || 'Slack channel'}`,
                     })
                     setShowSlackPreview(false)
                     // Refresh to get updated check data (including any assignee changes)
@@ -1465,7 +1465,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
               <div className="p-4 bg-surface-800 rounded-lg space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-surface-400">Client</span>
-                  <span className="text-sm text-surface-200">{check.client.name}</span>
+                  <span className="text-sm text-surface-200">{check.Client.name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-surface-400">Assigned To</span>
@@ -1690,7 +1690,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
             <div className="p-6 space-y-4">
               <p className="text-surface-300">
                 Would you like to automatically schedule the next infrastructure check for{' '}
-                <span className="font-semibold text-white">{check.client.name}</span>?
+                <span className="font-semibold text-white">{check.Client.name}</span>?
               </p>
               
               <div className="bg-surface-900/50 rounded-lg p-4 space-y-2">
@@ -1753,7 +1753,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          clientId: check.client.id,
+                          clientId: check.Client.id,
                           engineerName: check.assignedEngineer.name,
                           cadence: nextCheckInfo.effectiveCadence,
                           scheduledDate: nextCheckInfo.nextDate.toISOString(),

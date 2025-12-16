@@ -43,7 +43,7 @@ async function getTeamData() {
             jobTitle: true,
             team: true,
             managerId: true,
-            manager: {
+            User: {
               select: { id: true, name: true, email: true, jobTitle: true },
             },
             notionTeamMemberId: true,
@@ -52,7 +52,7 @@ async function getTeamData() {
             harvestAccessToken: true,
             createdAt: true,
             emailVerified: true, // Use this as fallback indicator of login
-            accounts: {
+            Account: {
               where: { provider: 'google' },
               select: { id: true },
             },
@@ -66,7 +66,7 @@ async function getTeamData() {
         // If lastLoginAt is null but user has emailVerified or Google account, they've logged in
         return users.map(user => {
           const userAny = user as any
-          const hasGoogleAccount = userAny.accounts && userAny.accounts.length > 0
+          const hasGoogleAccount = userAny.Account && userAny.Account.length > 0
           return {
             ...user,
             // If lastLoginAt is null but they have emailVerified or Google account, they've logged in before
@@ -89,7 +89,7 @@ async function getTeamData() {
             jobTitle: true,
             team: true,
             managerId: true,
-            manager: {
+            User: {
               select: { id: true, name: true, email: true, jobTitle: true },
             },
             notionTeamMemberId: true,
@@ -98,7 +98,7 @@ async function getTeamData() {
             harvestAccessToken: true,
             createdAt: true,
             emailVerified: true,
-            accounts: {
+            Account: {
               where: { provider: 'google' },
               select: { id: true },
             },
@@ -107,7 +107,7 @@ async function getTeamData() {
         // Use emailVerified as fallback indicator of login
         return users.map(user => {
           const userAny = user as any
-          const hasGoogleAccount = userAny.accounts && userAny.accounts.length > 0
+          const hasGoogleAccount = userAny.Account && userAny.Account.length > 0
           return {
             ...user,
             lastLoginAt: user.emailVerified && hasGoogleAccount ? user.emailVerified : null,
@@ -226,8 +226,8 @@ async function getTeamData() {
       image: user.image,
       jobTitle: user.jobTitle || null,
       team: user.team || null,
-      managerId: user.managerId || null,
-      manager: user.manager || null,
+      managerId: user.UserId || null,
+      manager: user.User || null,
       notionTeamMemberId: user.notionTeamMemberId,
       notionTeamMemberName: user.notionTeamMemberName,
       slackUsername: user.slackUsername,

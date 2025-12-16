@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         notes: true,
         assignedEngineerName: true, // Include assignedEngineerName field
         calendarEventLink: true, // Include calendarEventLink for schedule page
-        client: {
+        Client: {
           select: { id: true, name: true, websiteUrl: true },
         },
         assignedEngineer: {
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         assignedEngineerName: engineerName || null,
       },
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true },
         },
       },

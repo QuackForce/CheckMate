@@ -106,9 +106,11 @@ export async function POST(request: NextRequest) {
       // Create the admin user if they don't exist
       user = await db.user.create({
         data: {
+          id: crypto.randomUUID(),
           email: normalizedEmail,
           name: 'Emergency Admin',
           role: 'ADMIN',
+          updatedAt: new Date(),
         }
       })
       console.log(`[EMERGENCY LOGIN] Created new admin user: ${normalizedEmail}`)

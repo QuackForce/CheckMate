@@ -231,9 +231,9 @@ export function ChecksListWrapper() {
                   {/* Client & Details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      {getLogoUrl(check.client.websiteUrl) ? (
+                      {getLogoUrl(check.Client.websiteUrl) ? (
                         <img 
-                          src={getLogoUrl(check.client.websiteUrl)!} 
+                          src={getLogoUrl(check.Client.websiteUrl)!} 
                           alt=""
                           className="w-5 h-5 rounded bg-white p-0.5 object-contain flex-shrink-0"
                           onError={(e) => {
@@ -244,7 +244,7 @@ export function ChecksListWrapper() {
                         <Building2 className="w-4 h-4 text-surface-500" />
                       )}
                       <span className="font-medium text-white truncate">
-                        {check.client.name}
+                        {check.Client.name}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-sm text-surface-400">

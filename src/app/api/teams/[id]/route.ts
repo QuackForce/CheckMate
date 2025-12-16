@@ -53,7 +53,7 @@ export async function GET(
       const clientTeams = await (db as any).clientTeam.findMany({
         where: { teamId: params.id },
         include: {
-          client: {
+          Client: {
             select: {
               id: true,
               name: true,
@@ -214,7 +214,7 @@ export async function PATCH(
       const clientTeams = await (db as any).clientTeam.findMany({
         where: { teamId: params.id },
         include: {
-          client: {
+          Client: {
             select: {
               id: true,
               name: true,

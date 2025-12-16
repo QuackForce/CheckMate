@@ -15,7 +15,7 @@ export async function GET(
     const check = await db.infraCheck.findUnique({
       where: { id: params.id },
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true, slackChannelName: true },
         },
         assignedEngineer: {
@@ -66,7 +66,7 @@ export async function PATCH(
     const currentCheck = await db.infraCheck.findUnique({
       where: { id: params.id },
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true },
         },
       },
@@ -128,7 +128,7 @@ export async function PATCH(
       where: { id: params.id },
       data: updateData,
       include: {
-        client: {
+        Client: {
           select: { id: true, name: true },
         },
       },
@@ -225,8 +225,8 @@ export async function PATCH(
             } else {
               // Create new event
               const event = {
-                summary: `Infrastructure Check - ${check.client.name}`,
-                description: `Scheduled ${check.cadence.toLowerCase()} infrastructure check for ${check.client.name}.\n\nAssigned to: ${check.assignedEngineerName || 'TBD'}\n\nCheck ID: ${check.id}`,
+                summary: `Infrastructure Check - ${check.Client.name}`,
+                description: `Scheduled ${check.cadence.toLowerCase()} infrastructure check for ${check.Client.name}.\n\nAssigned to: ${check.assignedEngineerName || 'TBD'}\n\nCheck ID: ${check.id}`,
                 start: {
                   dateTime: eventStart.toISOString(),
                   timeZone: 'America/Los_Angeles',

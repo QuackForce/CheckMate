@@ -10,15 +10,15 @@ async function getReportsData() {
       status: 'COMPLETED',
     },
     include: {
-      client: {
+      Client: {
         select: { id: true, name: true },
       },
-      completedBy: {
+      User_InfraCheck_completedByIdToUser: {
         select: { name: true },
       },
-      categoryResults: {
+      CategoryResult: {
         include: {
-          items: true,
+          ItemResult: true,
         },
       },
     },
@@ -30,9 +30,9 @@ async function getReportsData() {
     let allGood = 0
     let issues = 0
 
-    check.categoryResults.forEach((category) => {
-      const allItemsChecked = category.items.every((item) => item.checked)
-      const hasNotes = category.items.some((item) => item.notes && item.notes.trim()) || 
+    check.CategoryResult.forEach((category) => {
+      const allItemsChecked = category.ItemResult.every((item) => item.checked)
+      const hasNotes = category.ItemResult.some((item) => item.notes && item.notes.trim()) || 
                       (category.notes && category.notes.trim())
       const categoryHasIssues = category.status === 'issues_found' || 
                                 !allItemsChecked || 
@@ -47,9 +47,9 @@ async function getReportsData() {
 
     return {
       id: check.id,
-      client: { id: check.client.id, name: check.client.name },
+      client: { id: check.Client.id, name: check.Client.name },
       completedBy: { 
-        name: check.completedBy?.name || 'Unknown' 
+        name: check.User_InfraCheck_completedByIdToUser?.name || 'Unknown' 
       },
       completedAt: check.completedAt ? new Date(check.completedAt) : new Date(check.updatedAt),
       duration: check.totalTimeSeconds,

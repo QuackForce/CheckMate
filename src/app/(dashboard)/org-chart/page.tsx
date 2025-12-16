@@ -166,7 +166,7 @@ export default async function OrgChartPage() {
       jobTitle: true,
       team: true,
       managerId: true,
-      manager: {
+        User: {
         select: {
           id: true,
           name: true,
@@ -189,7 +189,7 @@ export default async function OrgChartPage() {
       name: u.name ?? 'Unknown',
       jobTitle: u.jobTitle,
       team: u.team,
-      managerName: u.manager?.name ?? null,
+      managerName: u.User?.name ?? null,
     })
   })
 

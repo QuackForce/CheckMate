@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
             users: true,
           },
         },
-        manager: {
+        User: {
           select: {
             id: true,
             name: true,

@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const check = await db.infraCheck.findUnique({
       where: { id: checkId },
       include: {
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Check not found' }, { status: 404 })
     }
 
-    if (!check.client.slackChannelId) {
+    if (!check.Client.slackChannelId) {
       return NextResponse.json(
         { error: 'Client does not have a Slack channel configured' },
         { status: 400 }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        channel: check.client.slackChannelId,
+        channel: check.Client.slackChannelId,
         text: message,
         mrkdwn: true, // Enable markdown formatting
         unfurl_links: false,

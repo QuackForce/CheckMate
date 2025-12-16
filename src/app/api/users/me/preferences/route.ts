@@ -26,7 +26,7 @@ export async function GET() {
       slackUserId: true,
       jobTitle: true,
       team: true,
-      manager: {
+      User: {
         select: {
           id: true,
           name: true,
