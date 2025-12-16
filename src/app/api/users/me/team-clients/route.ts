@@ -75,7 +75,7 @@ export async function GET() {
     // Map assignments to match old format for backward compatibility
     clients = clients.map(c => ({
       ...c,
-      systemEngineer: c.assignments[0]?.user || null,
+      systemEngineer: c.assignments[0]?.User || null,
     }))
   } else if (jobTitle === 'GRC Manager') {
     managerType = 'GRC Manager'
@@ -107,7 +107,7 @@ export async function GET() {
     // Map assignments to match old format for backward compatibility
     clients = clients.map(c => ({
       ...c,
-      grceEngineer: c.assignments[0]?.user || null,
+      grceEngineer: c.assignments[0]?.User || null,
     }))
   } else if (jobTitle === 'IT Manager' && team) {
     managerType = 'IT Manager'

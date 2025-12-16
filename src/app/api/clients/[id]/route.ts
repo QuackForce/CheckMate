@@ -73,7 +73,7 @@ export async function GET(
         })
         
         // Filter out orphaned assignments (where user is null - user was deleted but assignment wasn't)
-        const assignments = allAssignments.filter((a: any) => a.user !== null)
+        const assignments = allAssignments.filter((a: any) => a.User !== null)
 
         // Fetch team assignments separately (with error handling in case table doesn't exist yet)
         let teamAssignments: any[] = []
@@ -297,23 +297,23 @@ export async function PATCH(
 
       const seUsers = (allAssignments as any[])
         .filter((a: any) => a.role === 'SE')
-        .map((a: any) => a.user.name)
+        .map((a: any) => a.User.name)
         .filter(Boolean)
       const primaryUsers = (allAssignments as any[])
         .filter((a: any) => a.role === 'PRIMARY')
-        .map((a: any) => a.user.name)
+        .map((a: any) => a.User.name)
         .filter(Boolean)
       const secondaryUsers = (allAssignments as any[])
         .filter((a: any) => a.role === 'SECONDARY')
-        .map((a: any) => a.user.name)
+        .map((a: any) => a.User.name)
         .filter(Boolean)
       const grceUsers = (allAssignments as any[])
         .filter((a: any) => a.role === 'GRCE')
-        .map((a: any) => a.user.name)
+        .map((a: any) => a.User.name)
         .filter(Boolean)
       const itManagerUsers = (allAssignments as any[])
         .filter((a: any) => a.role === 'IT_MANAGER')
-        .map((a: any) => a.user.name)
+        .map((a: any) => a.User.name)
         .filter(Boolean)
 
       // Update name fields (first name for each role, or null if none)

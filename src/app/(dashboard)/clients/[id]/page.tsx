@@ -80,7 +80,7 @@ async function getClient(id: string) {
   // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
   let infraCheckAssigneeUser = null
   const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
-  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+  const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].User : null
   const assigneeName = (client.infraCheckAssigneeName || seFromAssignments?.name || client.systemEngineerName)?.trim()
   
   // If we have SE from assignments, use that user directly

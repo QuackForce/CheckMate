@@ -108,9 +108,9 @@ export function ScheduleForm() {
       setCadence(selectedClient.defaultCadence || 'MONTHLY')
       // Priority: 1) SE from assignments, 2) legacy systemEngineerName
       // Filter out orphaned assignments where user is null
-      const validAssignments = selectedClient.assignments?.filter((a: any) => a.user !== null) || []
+      const validAssignments = selectedClient.assignments?.filter((a: any) => a.User !== null) || []
       const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
-      const seName = seAssignments.length > 0 ? seAssignments[0].user?.name : null
+      const seName = seAssignments.length > 0 ? seAssignments[0].User?.name : null
       
       if (seName) {
         setEngineerName(seName)

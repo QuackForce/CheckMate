@@ -289,7 +289,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       ...completed.map(check => ({
         id: `completed-${check.id}`,
         type: 'completed' as const,
-        client: check.client.name,
+        client: check.Client.name,
         user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
         time: check.completedAt ? formatRelativeTime(check.completedAt) : 'Recently',
         timestamp: check.completedAt || new Date(),
@@ -297,7 +297,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       ...inProgress.map(check => ({
         id: `started-${check.id}`,
         type: 'started' as const,
-        client: check.client.name,
+        client: check.Client.name,
         user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.updatedAt),
         timestamp: check.updatedAt,
@@ -305,7 +305,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       ...scheduled.map(check => ({
         id: `scheduled-${check.id}`,
         type: 'scheduled' as const,
-        client: check.client.name,
+        client: check.Client.name,
         user: check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.createdAt),
         timestamp: check.createdAt,
@@ -313,7 +313,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       ...slackPosted.map(check => ({
         id: `slack-${check.id}`,
         type: 'slack' as const,
-        client: check.client.name,
+        client: check.Client.name,
         user: check.completedBy?.name || check.assignedEngineer?.name || check.assignedEngineerName || 'Unknown',
         time: formatRelativeTime(check.updatedAt),
         timestamp: check.updatedAt,
@@ -352,7 +352,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       },
       checks: myUpcomingChecks.map(check => ({
         id: check.id,
-        client: { id: check.client.id, name: check.client.name },
+        client: { id: check.Client.id, name: check.Client.name },
         scheduledDate: check.scheduledDate,
         status: check.status,
         cadence: check.cadence,
@@ -374,7 +374,7 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
       },
       checks: teamUpcomingChecks.map(check => ({
         id: check.id,
-        client: { id: check.client.id, name: check.client.name },
+        client: { id: check.Client.id, name: check.Client.name },
         scheduledDate: check.scheduledDate,
         status: check.status,
         cadence: check.cadence,

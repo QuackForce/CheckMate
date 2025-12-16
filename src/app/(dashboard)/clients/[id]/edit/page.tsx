@@ -265,17 +265,17 @@ export default function EditClientPage() {
       // Load assignments from ClientEngineerAssignment table
       // Filter out orphaned assignments (where user is null)
       if (client.assignments) {
-        const validAssignments = client.assignments.filter((a: any) => a.user !== null)
+        const validAssignments = client.assignments.filter((a: any) => a.User !== null)
         
         // Store users from assignments for display (works even if allUsers is empty for non-admins)
         const usersMap = new Map<string, { id: string; name: string | null; email: string | null; image: string | null }>()
         validAssignments.forEach((a: any) => {
-          if (a.user) {
+          if (a.User) {
             usersMap.set(a.userId, {
-              id: a.user.id,
-              name: a.user.name,
-              email: a.user.email,
-              image: a.user.image,
+              id: a.User.id,
+              name: a.User.name,
+              email: a.User.email,
+              image: a.User.image,
             })
           }
         })

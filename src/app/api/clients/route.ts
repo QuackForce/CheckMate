@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
         
         // Collect user IDs from assignments
         allAssignments.forEach((a: any) => {
-          if (a.user?.id) assignedUserIds.add(a.user.id)
+          if (a.User?.id) assignedUserIds.add(a.User.id)
         })
         
         // Collect user IDs from legacy client fields (already included in clients query)

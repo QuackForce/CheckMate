@@ -624,7 +624,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {(() => {
                   // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const seAssignments = validAssignments.filter((a: any) => a.role === 'SE') || []
                   const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user?.name : null
                   const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
@@ -691,7 +691,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* Show SE(s) separately if there's an override OR if we have multiple SEs - Show overlapping bubbles if multiple */}
                 {(() => {
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const seAssignments = validAssignments.filter((a: any) => a.role === 'SE') || []
                   const seNames = client.systemEngineerName ? [client.systemEngineerName] : []
                   
@@ -701,7 +701,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                   
                   if ((hasOverride && (seAssignments.length > 0 || seNames.length > 0)) || (hasMultipleSEs && seAssignments.length > 0)) {
                     const users = seAssignments.length > 0 
-                      ? seAssignments.map((a: any) => a.user)
+                      ? seAssignments.map((a: any) => a.User)
                       : seNames.map((name: string) => ({ name, image: null, email: null }))
                     
                     return (
@@ -731,13 +731,13 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* Primary Consultant - Show overlapping bubbles if multiple */}
                 {(() => {
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const primaryAssignments = validAssignments.filter((a: any) => a.role === 'PRIMARY') || []
                   const primaryNames = client.primaryConsultantName ? [client.primaryConsultantName] : []
                   
                   if (primaryAssignments.length > 0 || primaryNames.length > 0) {
                     const users = primaryAssignments.length > 0 
-                      ? primaryAssignments.map((a: any) => a.user)
+                      ? primaryAssignments.map((a: any) => a.User)
                       : primaryNames.map((name: string) => ({ name, image: null, email: null }))
                     
                     return (
@@ -765,13 +765,13 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* Secondaries - Show overlapping bubbles if multiple */}
                 {(() => {
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const secondaryAssignments = validAssignments.filter((a: any) => a.role === 'SECONDARY') || []
                   const secondaryNames = client.secondaryConsultantNames || []
                   
                   if (secondaryAssignments.length > 0 || secondaryNames.length > 0) {
                     const users = secondaryAssignments.length > 0 
-                      ? secondaryAssignments.map((a: any) => a.user)
+                      ? secondaryAssignments.map((a: any) => a.User)
                       : secondaryNames.map((name: string) => ({ name, image: null, email: null }))
                     
                     return (
@@ -799,13 +799,13 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* IT Manager - Show overlapping bubbles if multiple */}
                 {(() => {
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const itManagerAssignments = validAssignments.filter((a: any) => a.role === 'IT_MANAGER') || []
                   const itManagerNames = client.itManagerName ? [client.itManagerName] : []
                   
                   if (itManagerAssignments.length > 0 || itManagerNames.length > 0) {
                     const users = itManagerAssignments.length > 0 
-                      ? itManagerAssignments.map((a: any) => a.user)
+                      ? itManagerAssignments.map((a: any) => a.User)
                       : itManagerNames.map((name: string) => ({ name, image: null, email: null }))
                     
                     return (
@@ -833,13 +833,13 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                 {/* GRCE (Compliance) - Show overlapping bubbles if multiple */}
                 {(() => {
                   // Filter out orphaned assignments where user is null
-                  const validAssignments = (client as any).assignments?.filter((a: any) => a.user !== null) || []
+                  const validAssignments = (client as any).assignments?.filter((a: any) => a.User !== null) || []
                   const grceAssignments = validAssignments.filter((a: any) => a.role === 'GRCE') || []
                   const grceNames = client.grceEngineerName ? [client.grceEngineerName] : []
                   
                   if (grceAssignments.length > 0 || grceNames.length > 0) {
                     const users = grceAssignments.length > 0 
-                      ? grceAssignments.map((a: any) => a.user)
+                      ? grceAssignments.map((a: any) => a.User)
                       : grceNames.map((name: string) => ({ name, image: null, email: null }))
                     
                     return (
