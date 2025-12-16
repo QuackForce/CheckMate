@@ -65,10 +65,10 @@ scripts/consolidate-all-teams.ts
 scripts/migrate-teams.ts
 scripts/fix-user-roles.ts
 
-# User-specific debugging scripts
-scripts/check-dylan-auth.ts
-scripts/diagnose-dylan-auth.ts
-scripts/link-dylan-account.ts
+# User-specific debugging scripts (kept for utility, but not in git)
+# scripts/check-user-auth.ts
+# scripts/diagnose-user-auth.ts
+# scripts/check-user-account.ts
 
 # Database backups (contain secrets)
 .env.supabase-backup
