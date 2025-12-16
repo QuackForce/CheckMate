@@ -306,16 +306,18 @@ export async function PATCH(
             // Create categoryResult for this system
             categoryResult = await db.categoryResult.create({
               data: {
+                id: crypto.randomUUID(),
                 checkId: params.id,
                 name: cat.name || system.name,
                 status: cat.status || 'pending',
                 notes: cat.notes || null,
+                updatedAt: new Date(),
               },
             })
 
             // Create itemResults with the checked state from client
-            for (let i = 0; i < system.checkItems.length; i++) {
-              const systemItem = system.checkItems[i]
+            for (let i = 0; i < system.SystemCheckItem.length; i++) {
+              const systemItem = system.SystemCheckItem[i]
               const clientItem = cat.items?.[i]
               
               await db.itemResult.create({
