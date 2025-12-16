@@ -322,11 +322,13 @@ export async function PATCH(
               
               await db.itemResult.create({
                 data: {
+                  id: crypto.randomUUID(),
                   categoryResultId: categoryResult.id,
                   text: systemItem.text,
                   checked: clientItem?.checked || false,
                   notes: clientItem?.notes || null,
                   order: systemItem.order,
+                  updatedAt: new Date(),
                 },
               })
               
