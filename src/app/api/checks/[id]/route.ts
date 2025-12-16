@@ -23,7 +23,7 @@ export async function GET(
         },
         CategoryResult: {
           include: {
-            items: { orderBy: { order: 'asc' } },
+            ItemResult: { orderBy: { order: 'asc' } },
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -380,7 +380,7 @@ export async function PATCH(
         const savedCat = await db.categoryResult.findUnique({
           where: { id: categoryResult.id },
           include: {
-            items: { orderBy: { order: 'asc' } },
+            ItemResult: { orderBy: { order: 'asc' } },
           },
         })
         
