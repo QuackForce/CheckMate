@@ -298,7 +298,7 @@ export async function PATCH(
           const system = await db.system.findUnique({
             where: { id: cat.id },
             include: {
-              checkItems: { orderBy: { order: 'asc' } },
+              SystemCheckItem: { orderBy: { order: 'asc' } },
             },
           })
 
