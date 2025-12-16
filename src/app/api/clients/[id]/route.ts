@@ -29,26 +29,26 @@ export async function GET(
         const clientData = await db.client.findUnique({
           where: { id: params.id },
           include: {
-            primaryEngineer: {
+            User_Client_primaryEngineerIdToUser: {
               select: { id: true, name: true, email: true, image: true },
             },
-            secondaryEngineer: {
+            User_Client_secondaryEngineerIdToUser: {
               select: { id: true, name: true, email: true, image: true },
             },
-            clientSystems: {
+            ClientSystem: {
               where: { isActive: true },
               include: {
-                system: {
+                System: {
                   select: { id: true, name: true, category: true },
                 },
               },
             },
-            checks: {
+            InfraCheck: {
               take: 5,
               orderBy: { scheduledDate: 'desc' },
             },
-            assignments: {
-              include: { user: { select: { id: true, name: true, email: true, image: true } } },
+            ClientEngineerAssignment: {
+              include: { User: { select: { id: true, name: true, email: true, image: true } } },
             },
           },
         })
@@ -62,13 +62,13 @@ export async function GET(
             id: true,
             userId: true,
             role: true,
-            user: {
+            User: {
               select: { id: true, name: true, email: true, image: true },
             },
           },
           orderBy: [
             { role: 'asc' },
-            { user: { name: 'asc' } },
+            { User: { name: 'asc' } },
           ],
         })
         
