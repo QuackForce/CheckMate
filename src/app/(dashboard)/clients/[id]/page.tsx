@@ -12,24 +12,24 @@ async function getClient(id: string) {
     db.client.findUnique({
       where: { id },
       include: {
-        primaryEngineer: true,
-        secondaryEngineer: true,
+        User_Client_primaryEngineerIdToUser: true,
+        User_Client_secondaryEngineerIdToUser: true,
         // Include assignments from ClientEngineerAssignment table
-        assignments: {
+        ClientEngineerAssignment: {
           select: {
             id: true,
             userId: true,
             role: true,
-            user: {
+            User: {
               select: { id: true, name: true, email: true, image: true },
             },
           },
           orderBy: [
             { role: 'asc' },
-            { user: { name: 'asc' } },
+            { User: { name: 'asc' } },
           ],
         },
-        checks: {
+        InfraCheck: {
           take: 5,
           orderBy: { scheduledDate: 'desc' },
         },
@@ -74,7 +74,7 @@ async function getClient(id: string) {
   if (!client) return null
   
   // Filter out orphaned assignments (where user is null - user was deleted but assignment wasn't)
-  const validAssignments = client.assignments?.filter(a => a.user !== null) || []
+  const validAssignments = client.ClientEngineerAssignment?.filter(a => a.User !== null) || []
   
   // Look up the infra check assignee user by name if set (using in-memory lookup)
   // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName

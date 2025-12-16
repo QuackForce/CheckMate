@@ -25,9 +25,9 @@ async function getCheck(id: string) {
           slackUserId: true,
         },
       },
-      categoryResults: {
+      CategoryResult: {
         include: {
-          items: {
+          ItemResult: {
             orderBy: { order: 'asc' },
           },
         },
@@ -40,16 +40,16 @@ async function getCheck(id: string) {
 
   // If check has saved category results, use them
   // Otherwise, we need to build from client's systems
-  if (check.categoryResults.length > 0) {
+  if (check.CategoryResult.length > 0) {
     return {
       ...check,
-      categories: check.categoryResults.map(cat => ({
+      categories: check.CategoryResult.map(cat => ({
         id: cat.id,
         name: cat.name,
         icon: 'clipboard', // Default icon
         status: cat.status,
         notes: cat.notes || '',
-        items: cat.items.map(item => ({
+        items: cat.ItemResult.map(item => ({
           id: item.id,
           text: item.text,
           checked: item.checked,
@@ -66,27 +66,27 @@ async function getCheck(id: string) {
       isActive: true,
     },
     include: {
-      system: {
+      System: {
         include: {
-          checkItems: {
+          SystemCheckItem: {
             orderBy: { order: 'asc' },
           },
         },
       },
     },
     orderBy: {
-      system: { category: 'asc' },
+      System: { category: 'asc' },
     },
   })
 
   // Build categories from client's systems
   const categories = clientSystems.map(cs => ({
-    id: cs.system.id,
-    name: cs.system.name,
-    icon: cs.system.icon || 'clipboard',
+    id: cs.System.id,
+    name: cs.System.name,
+    icon: cs.System.icon || 'clipboard',
     status: 'pending',
     notes: '',
-    items: cs.system.checkItems.map(item => ({
+    items: cs.System.SystemCheckItem.map(item => ({
       id: item.id,
       text: item.text,
       checked: false,
