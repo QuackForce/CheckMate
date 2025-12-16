@@ -114,7 +114,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 },
               },
               include: {
-                accounts: {
+                Account: {
                   where: { provider: 'google' },
                   select: { id: true, providerAccountId: true },
                 },
@@ -135,7 +135,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               }
               
               // Check if Google account is already linked
-              if (existingUser.accounts.length === 0 && account) {
+              if (existingUser.Account.length === 0 && account) {
                 console.log(`[Auth] ⚠️ User exists but no Google account linked - manually linking`)
                 
                 // Manually create the account link to prevent OAuthAccountNotLinked error
