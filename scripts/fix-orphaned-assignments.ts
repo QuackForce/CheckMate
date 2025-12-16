@@ -13,7 +13,7 @@ async function fixOrphanedAssignments() {
         clientId: true,
         userId: true,
         role: true,
-        client: {
+        Client: {
           select: {
             name: true,
           },
@@ -55,7 +55,7 @@ async function fixOrphanedAssignments() {
 
     // Report orphaned assignments
     Array.from(byClient.entries()).forEach(([clientId, assignments]) => {
-      const client = assignments[0].client
+      const client = assignments[0].Client
       console.log(`📋 Client: ${client.name} (${clientId})`)
       assignments.forEach(assignment => {
         console.log(`   - Role: ${assignment.role}, User ID: ${assignment.userId} (does not exist)`)

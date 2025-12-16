@@ -39,7 +39,7 @@ async function checkUserAssignments() {
       select: {
         clientId: true,
         role: true,
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
@@ -79,13 +79,13 @@ async function checkUserAssignments() {
     const userTeams = await prisma.userTeam.findMany({
       where: { userId: user.id },
       select: {
-        team: {
+        Team: {
           select: {
             id: true,
             name: true,
             tag: true,
             _count: {
-              select: { clients: true },
+              select: { ClientTeam: true },
             },
           },
         },
@@ -95,7 +95,7 @@ async function checkUserAssignments() {
     if (userTeams.length > 0) {
       console.log('👥 Team Memberships:')
       userTeams.forEach(ut => {
-        console.log(`  - ${ut.team.name}${ut.team.tag ? ` (${ut.team.tag})` : ''}: ${ut.team._count.clients} clients`)
+        console.log(`  - ${ut.Team.name}${ut.Team.tag ? ` (${ut.Team.tag})` : ''}: ${ut.Team._count.ClientTeam} clients`)
       })
       console.log('')
     }
@@ -108,8 +108,8 @@ async function checkUserAssignments() {
       .reduce((acc, a) => {
         if (!acc.has(a.clientId)) {
           acc.set(a.clientId, {
-            name: a.client.name,
-            status: a.client.status,
+            name: a.Client.name,
+            status: a.Client.status,
             roles: [],
           })
         }

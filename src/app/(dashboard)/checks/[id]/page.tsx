@@ -6,7 +6,7 @@ async function getCheck(id: string) {
   const check = await db.infraCheck.findUnique({
     where: { id },
     include: {
-      client: {
+      Client: {
         select: {
           id: true,
           name: true,
@@ -16,7 +16,7 @@ async function getCheck(id: string) {
           checkCadence: true,
         },
       },
-      assignedEngineer: {
+      User_InfraCheck_assignedEngineerIdToUser: {
         select: {
           id: true,
           name: true,
@@ -110,9 +110,9 @@ export default async function CheckPage({ params }: { params: { id: string } }) 
 
   // If check doesn't have assignedEngineer relation but has assignedEngineerName,
   // try to look up the user by name to get their slackUserId
-  let slackUserId = check.assignedEngineer?.slackUserId || null
-  let slackUsername = check.assignedEngineer?.slackUsername || null
-  
+  let slackUserId = check.User_InfraCheck_assignedEngineerIdToUser?.slackUserId || null
+  let slackUsername = check.User_InfraCheck_assignedEngineerIdToUser?.slackUsername || null
+
   if (!slackUserId && check.assignedEngineerName) {
     // Try to find user by name (exact match first, then contains)
     const userByName = await db.user.findFirst({
@@ -140,17 +140,17 @@ export default async function CheckPage({ params }: { params: { id: string } }) 
   const checkData = {
     id: check.id,
     client: {
-      id: check.client.id,
-      name: check.client.name,
-      slackChannelName: check.client.slackChannelName,
-      slackChannelId: check.client.slackChannelId,
-      customCadenceDays: check.client.customCadenceDays,
-      checkCadence: check.client.checkCadence,
+      id: check.Client.id,
+      name: check.Client.name,
+      slackChannelName: check.Client.slackChannelName,
+      slackChannelId: check.Client.slackChannelId,
+      customCadenceDays: check.Client.customCadenceDays,
+      checkCadence: check.Client.checkCadence,
     },
     assignedEngineer: {
-      id: check.assignedEngineer?.id || '',
-      name: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned',
-      email: check.assignedEngineer?.email || '',
+      id: check.User_InfraCheck_assignedEngineerIdToUser?.id || '',
+      name: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unassigned',
+      email: check.User_InfraCheck_assignedEngineerIdToUser?.email || '',
       slackUsername: slackUsername,
       slackUserId: slackUserId,
     },

@@ -1,4 +1,5 @@
 import { PrismaClient, SystemCategoryType } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -302,23 +303,27 @@ async function seedSystems() {
     // Create system with check items
     const system = await prisma.system.create({
       data: {
+        id: randomUUID(),
         name: systemData.name,
         category: systemData.category,
         icon: systemData.icon,
         description: systemData.description,
-        checkItems: {
+        updatedAt: new Date(),
+        SystemCheckItem: {
           create: systemData.checkItems.map((item, index) => ({
+            id: randomUUID(),
             text: item.text,
             description: item.description,
             isOptional: item.isOptional || false,
             order: index,
+            updatedAt: new Date(),
           })),
         },
       },
-      include: { checkItems: true },
+      include: { SystemCheckItem: true },
     })
 
-    console.log(`✅ Created ${system.name} with ${system.checkItems.length} check items`)
+    console.log(`✅ Created ${system.name} with ${system.SystemCheckItem.length} check items`)
   }
 
   // Summary

@@ -12,13 +12,13 @@ async function verifyTeamClients() {
       include: {
         _count: {
           select: {
-            clients: true,
-            users: true,
+            ClientTeam: true,
+            UserTeam: true,
           },
         },
-        clients: {
+        ClientTeam: {
           include: {
-            client: {
+            Client: {
               select: {
                 id: true,
                 name: true,
@@ -42,23 +42,23 @@ async function verifyTeamClients() {
     }> = []
 
     for (const team of teams) {
-      const clients = team.clients.map((ct: any) => ({
-        name: ct.client.name,
-        status: ct.client.status,
+      const clients = team.ClientTeam.map((ct: any) => ({
+        name: ct.Client.name,
+        status: ct.Client.status,
       }))
 
       summary.push({
         teamName: team.name,
-        clientCount: team._count.clients,
-        userCount: team._count.users,
+        clientCount: team._count.ClientTeam,
+        userCount: team._count.UserTeam,
         clients,
       })
 
       console.log(`\n📋 ${team.name}`)
       console.log(`   Tag: ${team.tag || 'None'}`)
       console.log(`   Manager: ${team.managerId ? 'Set' : 'Not set'}`)
-      console.log(`   Users: ${team._count.users}`)
-      console.log(`   Clients: ${team._count.clients}`)
+      console.log(`   Users: ${team._count.UserTeam}`)
+      console.log(`   Clients: ${team._count.ClientTeam}`)
       
       if (clients.length > 0) {
         console.log(`   Client list:`)
@@ -74,7 +74,7 @@ async function verifyTeamClients() {
     console.log(`\n\n🔍 Checking for clients without teams...`)
     const clientsWithoutTeams = await prisma.client.findMany({
       where: {
-        teamAssignments: {
+        ClientTeam: {
           none: {},
         },
       },
@@ -98,7 +98,7 @@ async function verifyTeamClients() {
     // Summary
     console.log(`\n\n📊 Summary:`)
     console.log(`   Total teams: ${teams.length}`)
-    console.log(`   Total clients assigned: ${teams.reduce((sum, t) => sum + t._count.clients, 0)}`)
+    console.log(`   Total clients assigned: ${teams.reduce((sum, t) => sum + t._count.ClientTeam, 0)}`)
     console.log(`   Clients without teams: ${clientsWithoutTeams.length}`)
     console.log(`   Teams with managers: ${teams.filter(t => t.managerId).length}`)
     console.log(`   Teams without managers: ${teams.filter(t => !t.managerId).length}`)
