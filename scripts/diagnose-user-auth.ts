@@ -26,8 +26,8 @@ async function diagnoseUserAuth(emailOrName?: string) {
       ],
     },
     include: {
-      Account: true,
-      Session: {
+      accounts: true,
+      sessions: {
         orderBy: { expires: 'desc' },
         take: 5,
       },
@@ -49,12 +49,12 @@ async function diagnoseUserAuth(emailOrName?: string) {
   console.log(`   Created: ${user.createdAt}`)
   console.log(`   Updated: ${user.updatedAt}`)
 
-  console.log(`\n📧 Google Accounts Linked: ${user.Account.length}`)
-  if (user.Account.length === 0) {
+  console.log(`\n📧 Google Accounts Linked: ${user.accounts.length}`)
+  if (user.accounts.length === 0) {
     console.log('   ❌ NO GOOGLE ACCOUNT LINKED - This is the problem!')
     console.log('   The OAuth flow is not completing successfully.')
   } else {
-    user.Account.forEach((acc, i) => {
+    user.accounts.forEach((acc, i) => {
       console.log(`   ${i + 1}. Provider: ${acc.provider}`)
       console.log(`      Account ID: ${acc.providerAccountId}`)
       console.log(`      Has Access Token: ${!!acc.access_token}`)
@@ -62,11 +62,11 @@ async function diagnoseUserAuth(emailOrName?: string) {
     })
   }
 
-  console.log(`\n🔐 Active Sessions: ${user.Session.length}`)
-  if (user.Session.length === 0) {
+  console.log(`\n🔐 Active Sessions: ${user.sessions.length}`)
+  if (user.sessions.length === 0) {
     console.log('   ❌ NO ACTIVE SESSIONS')
   } else {
-    user.Session.forEach((session, i) => {
+    user.sessions.forEach((session, i) => {
       const isExpired = new Date(session.expires) < new Date()
       console.log(`   ${i + 1}. Session: ${session.id}`)
       console.log(`      Expires: ${session.expires.toISOString()}`)
@@ -93,7 +93,7 @@ async function diagnoseUserAuth(emailOrName?: string) {
   }
 
   console.log('\n💡 Recommendations:')
-  if (user.Account.length === 0) {
+  if (user.accounts.length === 0) {
     console.log('   1. The OAuth flow is not completing - check:')
     console.log('      - Browser console for errors')
     console.log('      - Server logs when user tries to sign in')

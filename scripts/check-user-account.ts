@@ -21,7 +21,7 @@ async function checkUserAccount(emailOrName?: string) {
       ],
     },
     include: {
-      Account: true,
+      accounts: true,
     },
   })
 
@@ -36,11 +36,11 @@ async function checkUserAccount(emailOrName?: string) {
   console.log(`  Name: ${user.name}`)
   console.log(`  Email: ${user.email || '(not set)'}`)
   console.log(`  Role: ${user.role || '(not set)'}`)
-  console.log(`  Accounts linked: ${user.Account.length}\n`)
+  console.log(`  Accounts linked: ${user.accounts.length}\n`)
 
-  if (user.Account.length > 0) {
+  if (user.accounts.length > 0) {
     console.log('✅ User has accounts linked:')
-    user.Account.forEach((acc) => {
+    user.accounts.forEach((acc) => {
       console.log(`  - ${acc.provider} (${acc.providerAccountId})`)
     })
     console.log('\nIf you\'re still getting OAuthAccountNotLinked error:')

@@ -138,12 +138,12 @@ export async function POST(request: NextRequest) {
     const client = await db.client.findUnique({
       where: { id: clientId },
       include: {
-        clientSystems: {
+        ClientSystem: {
           where: { isActive: true },
           include: {
-            system: {
+            System: {
               include: {
-                checkItems: {
+                SystemCheckItem: {
                   orderBy: { order: 'asc' },
                 },
               },
@@ -160,12 +160,14 @@ export async function POST(request: NextRequest) {
     // Create the check
     const check = await db.infraCheck.create({
       data: {
+        id: crypto.randomUUID(),
         clientId,
         scheduledDate: new Date(scheduledDate),
         cadence: cadence || 'MONTHLY',
         status: 'SCHEDULED',
         notes: notes || null,
         assignedEngineerName: engineerName || null,
+        updatedAt: new Date(),
       },
       include: {
         Client: {
@@ -175,18 +177,22 @@ export async function POST(request: NextRequest) {
     })
 
     // Create category results from client's systems
-    if (client.clientSystems.length > 0) {
-      for (const cs of client.clientSystems) {
+    if (client.ClientSystem.length > 0) {
+      for (const cs of client.ClientSystem) {
         await db.categoryResult.create({
           data: {
+            id: crypto.randomUUID(),
             checkId: check.id,
-            name: cs.system.name,
+            name: cs.System.name,
             status: 'pending',
-            items: {
-              create: cs.system.checkItems.map((item, index) => ({
+            updatedAt: new Date(),
+            ItemResult: {
+              create: cs.System.SystemCheckItem.map((item, index) => ({
+                id: crypto.randomUUID(),
                 text: item.text,
                 checked: false,
                 order: index,
+                updatedAt: new Date(),
               })),
             },
           },

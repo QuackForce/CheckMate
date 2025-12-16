@@ -30,26 +30,133 @@ const hasGoogleAuth = googleClientId &&
   googleClientSecret &&
   googleClientSecret !== 'placeholder'
 
+// Debug logging
+console.log('[Auth] Initializing NextAuth with:', {
+  hasGoogleAuth,
+  hasClientId: !!googleClientId,
+  hasSecret: !!googleClientSecret,
+  providersCount: hasGoogleAuth ? 1 : 0,
+  hasAdapter: hasGoogleAuth,
+})
+
+// Initialize adapter only if Google auth is configured
+let adapter: ReturnType<typeof PrismaAdapter> | undefined
+if (hasGoogleAuth) {
+  try {
+    adapter = PrismaAdapter(db)
+    console.log('[Auth] PrismaAdapter initialized successfully')
+    // Test the adapter works
+    if (!adapter || typeof adapter.createUser !== 'function') {
+      throw new Error('PrismaAdapter is invalid - missing required methods')
+    }
+  } catch (error: any) {
+    console.error('[Auth] ❌ Failed to initialize PrismaAdapter:', error.message)
+    console.error('[Auth] Error stack:', error.stack)
+    throw new Error(`Failed to initialize PrismaAdapter: ${error.message}`)
+  }
+} else {
+  console.log('[Auth] ⚠️ Google auth not configured - adapter will be undefined')
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: hasGoogleAuth ? PrismaAdapter(db) : undefined,
+  // Only use adapter with database sessions (currently using JWT)
+  adapter: undefined, // Temporarily disabled to debug Configuration error
   secret: process.env.AUTH_SECRET || 'development-secret-change-in-production',
+  debug: process.env.NODE_ENV === 'development',
+  trustHost: true, // Allow NextAuth to trust the host header
   providers: hasGoogleAuth 
     ? [
         Google({
           clientId: googleClientId!,
           clientSecret: googleClientSecret!,
-          authorization: {
-            params: {
-              access_type: 'offline',
-              response_type: 'code',
-              // Basic auth only - calendar permissions requested separately
-              scope: 'openid email profile',
-            },
-          },
         }),
       ]
     : [],
   callbacks: {
+    async jwt({ token, user, account }) {
+      // When user first signs in, user object is available
+      if (user) {
+        // Try to find user by email first (more reliable than ID)
+        try {
+          const dbUser = user.email 
+            ? await db.user.findFirst({
+                where: { 
+                  email: {
+                    equals: user.email,
+                    mode: 'insensitive',
+                  }
+                },
+                select: {
+                  id: true,
+                  role: true,
+                  image: true,
+                  name: true,
+                  email: true,
+                },
+              })
+            : null
+          
+          if (dbUser) {
+            token.id = dbUser.id
+            token.role = dbUser.role
+            token.image = dbUser.image
+            token.name = dbUser.name
+            token.email = dbUser.email
+            console.log(`[Auth] JWT: Found user ${dbUser.id} (${dbUser.email}) with role ${dbUser.role}`)
+          } else if (user.id) {
+            // Fallback to ID lookup
+            const dbUserById = await db.user.findUnique({
+              where: { id: user.id },
+              select: {
+                id: true,
+                role: true,
+                image: true,
+                name: true,
+                email: true,
+              },
+            })
+            if (dbUserById) {
+              token.id = dbUserById.id
+              token.role = dbUserById.role
+              token.image = dbUserById.image
+              token.name = dbUserById.name
+              token.email = dbUserById.email
+              console.log(`[Auth] JWT: Found user by ID ${dbUserById.id} with role ${dbUserById.role}`)
+            } else {
+              token.id = user.id
+              console.log(`[Auth] JWT: User not found in DB, using user.id ${user.id}`)
+            }
+          }
+        } catch (error) {
+          console.error('[Auth] Error fetching user in jwt callback:', error)
+          if (user.id) token.id = user.id
+        }
+      } else if (token?.id) {
+        // On subsequent requests, refresh user data from database
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              id: true,
+              role: true,
+              image: true,
+              name: true,
+              email: true,
+            },
+          })
+          if (dbUser) {
+            token.id = dbUser.id
+            token.role = dbUser.role
+            token.image = dbUser.image
+            token.name = dbUser.name
+            token.email = dbUser.email
+          }
+        } catch (error) {
+          console.error('[Auth] Error refreshing user in jwt callback:', error)
+        }
+      }
+      return token
+    },
     async signIn({ user, account }) {
       try {
         // Domain restriction - only allow specific domains
@@ -114,7 +221,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 },
               },
               include: {
-                Account: {
+                accounts: {
                   where: { provider: 'google' },
                   select: { id: true, providerAccountId: true },
                 },
@@ -135,7 +242,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               }
               
               // Check if Google account is already linked
-              if (existingUser.Account.length === 0 && account) {
+              if (existingUser.accounts.length === 0 && account) {
                 console.log(`[Auth] ⚠️ User exists but no Google account linked - manually linking`)
                 
                 // Manually create the account link to prevent OAuthAccountNotLinked error
@@ -230,49 +337,76 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, user, token }) {
       try {
         if (session?.user) {
-          // In production with database, use user data
-          if (user?.id) {
-            session.user.id = user.id
-            // Default to CONSULTANT if role is null/undefined
-            session.user.role = (user.role || 'CONSULTANT') as UserRole
-            session.user.notionTeamMemberId = (user as any).notionTeamMemberId
-            
-            // For new users created by PrismaAdapter, set lastLoginAt if not already set
-            // This handles the case where PrismaAdapter creates the user but signIn callback doesn't run
+          // With JWT sessions, user is not available - use token instead
+          if (token?.id || token?.email) {
+            // Fetch fresh user data from database to ensure we have latest role and image
             try {
-              const dbUser = await db.user.findUnique({
-                where: { id: user.id },
-                select: { 
-                  emailVerified: true,
-                  // @ts-ignore - Prisma types may be out of sync, but this field exists in schema
-                  lastLoginAt: true,
-                },
-              })
+              let dbUser = null
               
-              // If user has emailVerified (signed in with Google) but no lastLoginAt, set it
-              if (dbUser?.emailVerified && !(dbUser as any).lastLoginAt) {
-                await db.user.update({
-                  where: { id: user.id },
-                  data: {
-                    // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
-                    lastLoginAt: new Date(),
-                    // @ts-ignore - Prisma types may be out of sync, but these fields exist in schema
-                    loginCount: { increment: 1 },
+              // Try to find by ID first
+              if (token.id) {
+                dbUser = await db.user.findUnique({
+                  where: { id: token.id as string },
+                  select: {
+                    id: true,
+                    role: true,
+                    image: true,
+                    name: true,
+                    email: true,
+                    notionTeamMemberId: true,
                   },
                 })
-                console.log(`[Auth] Set lastLoginAt for new user ${user.id}`)
               }
-            } catch (updateError) {
-              // Don't fail session creation if login tracking fails
-              console.error('[Auth] Error updating lastLoginAt in session callback:', updateError)
+              
+              // If not found by ID, try by email
+              if (!dbUser && token.email) {
+                dbUser = await db.user.findFirst({
+                  where: {
+                    email: {
+                      equals: token.email as string,
+                      mode: 'insensitive',
+                    }
+                  },
+                  select: {
+                    id: true,
+                    role: true,
+                    image: true,
+                    name: true,
+                    email: true,
+                    notionTeamMemberId: true,
+                  },
+                })
+              }
+              
+              if (dbUser) {
+                session.user.id = dbUser.id
+                session.user.role = (dbUser.role || 'CONSULTANT') as UserRole
+                session.user.image = dbUser.image
+                session.user.name = dbUser.name
+                session.user.email = dbUser.email || null
+                session.user.notionTeamMemberId = dbUser.notionTeamMemberId
+                console.log(`[Auth] Session created for user ${dbUser.id} (${dbUser.email}) with role ${dbUser.role}`)
+              } else {
+                // Fallback to token data if user not found
+                session.user.id = (token.id as string) || 'unknown'
+                session.user.role = (token.role as UserRole) || 'CONSULTANT'
+                session.user.image = token.image as string | null | undefined
+                session.user.name = token.name as string | null | undefined
+                console.log(`[Auth] User not found in DB, using token data for ${token.id || token.email}`)
+              }
+            } catch (dbError) {
+              console.error('[Auth] Error fetching user in session callback:', dbError)
+              // Fallback to token data
+              session.user.id = (token.id as string) || 'unknown'
+              session.user.role = (token.role as UserRole) || 'CONSULTANT'
+              session.user.image = token.image as string | null | undefined
             }
-            
+          } else if (user?.id) {
+            // Database session mode (if we switch back)
+            session.user.id = user.id
+            session.user.role = (user.role || 'CONSULTANT') as UserRole
+            session.user.notionTeamMemberId = (user as any).notionTeamMemberId
             console.log(`[Auth] Session created for user ${user.id} (${session.user.email}) with role ${session.user.role}`)
-          } else if (token?.sub) {
-            // JWT mode fallback
-            session.user.id = token.sub
-            session.user.role = (token.role as UserRole) || 'IT_ENGINEER'
-            console.log(`[Auth] Session created from token for ${token.sub}`)
           } else {
             // Fallback if neither user nor token is available
             console.warn('[Auth] ⚠️ Session callback: No user or token data available')
@@ -296,9 +430,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: '/login',
     error: '/login',
   },
-  // Use database session when Google OAuth is configured
+  // Temporarily use JWT sessions to debug Configuration error
+  // TODO: Switch back to database sessions once Configuration error is resolved
   session: {
-    strategy: hasGoogleAuth ? 'database' : 'jwt',
+    strategy: 'jwt', // Using JWT instead of database to avoid Configuration error
     maxAge: 8 * 60 * 60, // 8 hours
     updateAge: 60 * 60, // Refresh session every hour if active
   },

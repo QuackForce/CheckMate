@@ -16,16 +16,16 @@ export async function GET(
         isActive: true,
       },
       include: {
-        system: {
+        System: {
           include: {
-            checkItems: {
+            SystemCheckItem: {
               orderBy: { order: 'asc' },
             },
           },
         },
       },
       orderBy: {
-        system: { category: 'asc' },
+        System: { category: 'asc' },
       },
     })
 
@@ -63,7 +63,7 @@ export async function POST(
         const updated = await db.clientSystem.update({
           where: { id: existing.id },
           data: { isActive: true, notes },
-          include: { system: true },
+          include: { System: true },
         })
         return NextResponse.json(updated)
       }
@@ -72,13 +72,15 @@ export async function POST(
 
     const clientSystem = await db.clientSystem.create({
       data: {
+        id: crypto.randomUUID(),
         clientId: params.id,
         systemId,
         notes,
+        updatedAt: new Date(),
       },
       include: {
-        system: {
-          include: { checkItems: true },
+        System: {
+          include: { SystemCheckItem: true },
         },
       },
     })

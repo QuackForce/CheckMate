@@ -21,8 +21,8 @@ async function checkUserAuth(emailOrName?: string) {
       ],
     },
     include: {
-      Account: true,
-      Session: {
+      accounts: true,
+      sessions: {
         orderBy: { expires: 'desc' },
         take: 5,
       },
@@ -42,8 +42,8 @@ async function checkUserAuth(emailOrName?: string) {
   console.log(`  Role: ${user.role}`)
   console.log(`  Image: ${user.image || 'None'}\n`)
 
-  console.log(`Accounts linked: ${user.Account.length}`)
-  user.Account.forEach((account, i) => {
+  console.log(`Accounts linked: ${user.accounts.length}`)
+  user.accounts.forEach((account, i) => {
     console.log(`  Account ${i + 1}:`)
     console.log(`    Provider: ${account.provider}`)
     console.log(`    Provider Account ID: ${account.providerAccountId}`)
@@ -52,8 +52,8 @@ async function checkUserAuth(emailOrName?: string) {
     console.log(`    Expires At: ${account.expires_at ? new Date(account.expires_at * 1000).toISOString() : 'Never'}`)
   })
 
-  console.log(`\nRecent Sessions: ${user.Session.length}`)
-  user.Session.forEach((session, i) => {
+  console.log(`\nRecent Sessions: ${user.sessions.length}`)
+  user.sessions.forEach((session, i) => {
     const isExpired = session.expires < new Date()
     console.log(`  Session ${i + 1}:`)
     console.log(`    Token: ${session.sessionToken.substring(0, 20)}...`)
@@ -64,11 +64,11 @@ async function checkUserAuth(emailOrName?: string) {
   // Check if there are any issues
   console.log('\n🔍 Analysis:')
   
-  if (user.Account.length === 0) {
+  if (user.accounts.length === 0) {
     console.log('  ⚠️  No Google account linked! This could cause login issues.')
     console.log('  💡 Solution: User needs to log in with Google to create the account link.')
   } else {
-    const googleAccount = user.Account.find(a => a.provider === 'google')
+    const googleAccount = user.accounts.find(a => a.provider === 'google')
     if (!googleAccount) {
       console.log('  ⚠️  No Google account found (might have other provider)')
     } else {
@@ -76,7 +76,7 @@ async function checkUserAuth(emailOrName?: string) {
     }
   }
 
-  const activeSessions = user.Session.filter(s => s.expires > new Date())
+  const activeSessions = user.sessions.filter(s => s.expires > new Date())
   if (activeSessions.length === 0) {
     console.log('  ⚠️  No active sessions found')
   } else {

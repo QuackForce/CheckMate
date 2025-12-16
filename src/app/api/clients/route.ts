@@ -186,16 +186,16 @@ export async function GET(request: NextRequest) {
         const clients = await db.client.findMany({
           where,
           include: {
-            primaryEngineer: {
+            User_Client_primaryEngineerIdToUser: {
               select: { id: true, name: true, email: true, image: true },
             },
-            secondaryEngineer: {
+            User_Client_secondaryEngineerIdToUser: {
               select: { id: true, name: true, email: true, image: true },
             },
-            clientSystems: {
+            ClientSystem: {
               where: { isActive: true },
               include: {
-                system: {
+                System: {
                   select: { id: true, name: true, category: true },
                 },
               },
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
               select: {
                 clientId: true,
                 role: true,
-                user: {
+                User: {
                   select: { id: true, name: true, email: true, image: true },
                 },
               },
@@ -325,7 +325,7 @@ export async function GET(request: NextRequest) {
           let infraCheckAssigneeUser = null
           const clientAssignments = assignmentsByClient.get(client.id) || []
           const seAssignments = clientAssignments.filter((a: any) => a.role === 'SE')
-          const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].user : null
+          const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].User : null
           const assigneeName = (client.infraCheckAssigneeName || seFromAssignments?.name || client.systemEngineerName)?.trim()
           
           // If we have SE from assignments, use that user directly

@@ -21,7 +21,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation("AccountToUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -280,7 +280,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation("SessionToUser", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model System {
@@ -394,7 +394,7 @@ model User {
   managerId                                      String?
   lastLoginAt                                    DateTime?
   loginCount                                     Int                        @default(0)
-  Account                                        Account[]
+  accounts                                       Account[]                   @relation("AccountToUser")
   CheckComment                                   CheckComment[]
   Client_Client_grceEngineerIdToUser             Client[]                   @relation("Client_grceEngineerIdToUser")
   Client_Client_itManagerIdToUser                Client[]                   @relation("Client_itManagerIdToUser")
@@ -405,7 +405,7 @@ model User {
   InfraCheck_InfraCheck_assignedEngineerIdToUser InfraCheck[]               @relation("InfraCheck_assignedEngineerIdToUser")
   InfraCheck_InfraCheck_completedByIdToUser      InfraCheck[]               @relation("InfraCheck_completedByIdToUser")
   LoginActivity                                  LoginActivity[]
-  Session                                        Session[]
+  sessions                                      Session[]                   @relation("SessionToUser")
   Team                                           Team[]
   TimerSession                                   TimerSession[]
   User                                           User?                      @relation("UserToUser", fields: [managerId], references: [id])

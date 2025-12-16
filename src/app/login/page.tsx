@@ -82,7 +82,18 @@ export default async function LoginPage({
               <form
                 action={async () => {
                   'use server'
-                  await signIn('google', { redirectTo: '/dashboard' })
+                  console.log('[Login] Server action called - attempting signIn')
+                  try {
+                    const result = await signIn('google', { redirectTo: '/dashboard' })
+                    console.log('[Login] signIn result:', result)
+                    return result
+                  } catch (error: any) {
+                    console.error('[Login] ❌ signIn error:', error)
+                    console.error('[Login] Error stack:', error?.stack)
+                    console.error('[Login] Error message:', error?.message)
+                    // Re-throw to show error to user
+                    throw error
+                  }
                 }}
               >
                 <button
