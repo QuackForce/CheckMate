@@ -45,11 +45,13 @@ export async function POST(
     // Create the new item
     const item = await db.itemResult.create({
       data: {
+        id: crypto.randomUUID(),
         categoryResultId: categoryId,
         text,
         checked: false,
         order: nextOrder,
         notes: isOptional ? '(Custom item)' : null,
+        updatedAt: new Date(),
       },
     })
 
