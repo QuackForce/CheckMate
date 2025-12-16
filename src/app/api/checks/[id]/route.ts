@@ -394,7 +394,7 @@ export async function PATCH(
             name: savedCat.name,
             status: savedCat.status,
             notes: savedCat.notes || '',
-            items: savedCat.items.map(item => ({
+            items: savedCat.ItemResult.map(item => ({
               id: item.id,
               text: item.text,
               checked: item.checked,
