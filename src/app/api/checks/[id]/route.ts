@@ -18,7 +18,7 @@ export async function GET(
         Client: {
           select: { id: true, name: true, slackChannelName: true },
         },
-        assignedEngineer: {
+        User_InfraCheck_assignedEngineerIdToUser: {
           select: { id: true, name: true, email: true },
         },
         categoryResults: {
