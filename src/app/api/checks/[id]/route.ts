@@ -21,7 +21,7 @@ export async function GET(
         User_InfraCheck_assignedEngineerIdToUser: {
           select: { id: true, name: true, email: true },
         },
-        categoryResults: {
+        CategoryResult: {
           include: {
             items: { orderBy: { order: 'asc' } },
           },
