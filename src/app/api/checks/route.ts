@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         Client: {
           select: { id: true, name: true, websiteUrl: true },
         },
-        assignedEngineer: {
+        User_InfraCheck_assignedEngineerIdToUser: {
           select: { id: true, name: true },
         },
       },
