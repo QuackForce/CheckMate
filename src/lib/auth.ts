@@ -31,7 +31,7 @@ const hasGoogleAuth = googleClientId &&
   googleClientSecret !== 'placeholder'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: hasGoogleAuth ? (PrismaAdapter(db) as any) : undefined,
+  adapter: hasGoogleAuth ? PrismaAdapter(db) : undefined,
   secret: process.env.AUTH_SECRET || 'development-secret-change-in-production',
   providers: hasGoogleAuth 
     ? [
