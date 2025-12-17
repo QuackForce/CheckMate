@@ -97,11 +97,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             : null
           
           if (dbUser) {
+            // Only store user ID in token to minimize cookie size
+            // All other data will be fetched in session callback
             token.id = dbUser.id
-            token.role = dbUser.role
-            token.image = dbUser.image
-            token.name = dbUser.name
-            token.email = dbUser.email
             console.log(`[Auth] JWT: Found user ${dbUser.id} (${dbUser.email}) with role ${dbUser.role}`)
           } else if (user.id) {
             // Fallback to ID lookup
@@ -109,19 +107,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               where: { id: user.id },
               select: {
                 id: true,
-                role: true,
-                image: true,
-                name: true,
-                email: true,
               },
             })
             if (dbUserById) {
               token.id = dbUserById.id
-              token.role = dbUserById.role
-              token.image = dbUserById.image
-              token.name = dbUserById.name
-              token.email = dbUserById.email
-              console.log(`[Auth] JWT: Found user by ID ${dbUserById.id} with role ${dbUserById.role}`)
+              console.log(`[Auth] JWT: Found user by ID ${dbUserById.id}`)
             } else {
               token.id = user.id
               console.log(`[Auth] JWT: User not found in DB, using user.id ${user.id}`)
@@ -132,28 +122,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (user.id) token.id = user.id
         }
       } else if (token?.id) {
-        // On subsequent requests, refresh user data from database
-        try {
-          const dbUser = await db.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              id: true,
-              role: true,
-              image: true,
-              name: true,
-              email: true,
-            },
-          })
-          if (dbUser) {
-            token.id = dbUser.id
-            token.role = dbUser.role
-            token.image = dbUser.image
-            token.name = dbUser.name
-            token.email = dbUser.email
-          }
-        } catch (error) {
-          console.error('[Auth] Error refreshing user in jwt callback:', error)
-        }
+        // On subsequent requests, keep only the ID in the token
+        // User data will be fetched fresh in the session callback
+        // This minimizes cookie size to prevent "REQUEST_HEADER_TOO_LARGE" errors
       }
       return token
     },
