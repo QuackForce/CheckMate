@@ -249,6 +249,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 try {
                   await db.account.create({
                     data: {
+                      id: crypto.randomUUID(),
                       userId: existingUser.id,
                       type: account.type,
                       provider: account.provider,
@@ -383,7 +384,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 session.user.role = (dbUser.role || 'CONSULTANT') as UserRole
                 session.user.image = dbUser.image
                 session.user.name = dbUser.name
-                session.user.email = dbUser.email || null
+                 session.user.email = dbUser.email ?? ''
                 session.user.notionTeamMemberId = dbUser.notionTeamMemberId
                 console.log(`[Auth] Session created for user ${dbUser.id} (${dbUser.email}) with role ${dbUser.role}`)
               } else {

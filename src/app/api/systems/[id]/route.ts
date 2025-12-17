@@ -14,7 +14,7 @@ export async function GET(
   try {
     const system = await db.system.findUnique({
       where: { id: params.id },
-      include: { checkItems: { orderBy: { order: 'asc' } } },
+      include: { SystemCheckItem: { orderBy: { order: 'asc' } } },
     })
 
     if (!system) {
@@ -57,7 +57,7 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive }),
       },
-      include: { checkItems: true },
+      include: { SystemCheckItem: true },
     })
 
     return NextResponse.json(system)

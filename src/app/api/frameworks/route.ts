@@ -52,10 +52,12 @@ export async function POST(request: NextRequest) {
 
     const framework = await db.framework.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         category,
         description,
         source: source || 'APP',
+        updatedAt: new Date(),
       },
     })
 

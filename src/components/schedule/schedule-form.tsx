@@ -16,12 +16,12 @@ interface Client {
     id: string
     userId: string
     role: string
-    user: {
+    User: {
       id: string
       name: string | null
       email: string | null
       image: string | null
-    }
+    } | null
   }>
 }
 
@@ -108,7 +108,17 @@ export function ScheduleForm() {
       setCadence(selectedClient.defaultCadence || 'MONTHLY')
       // Priority: 1) SE from assignments, 2) legacy systemEngineerName
       // Filter out orphaned assignments where user is null
-      const validAssignments = selectedClient.assignments?.filter((a: any) => a.User !== null) || []
+      const validAssignments = (selectedClient.assignments?.filter((a: any) => a.User !== null) || []) as Array<{
+        id: string
+        userId: string
+        role: string
+        User: {
+          id: string
+          name: string | null
+          email: string | null
+          image: string | null
+        } | null
+      }>
       const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
       const seName = seAssignments.length > 0 ? seAssignments[0].User?.name : null
       

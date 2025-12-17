@@ -58,15 +58,15 @@ export async function GET() {
       select: { id: true, name: true, image: true },
     })
     clients = await db.client.findMany({
-      where: { assignments: { some: { role: 'SE' } } },
+      where: { ClientEngineerAssignment: { some: { role: 'SE' } } },
       select: {
         id: true,
         name: true,
         websiteUrl: true,
         status: true,
-        assignments: {
+        ClientEngineerAssignment: {
           where: { role: 'SE' },
-          select: { user: { select: { id: true, name: true, image: true } } },
+          select: { User: { select: { id: true, name: true, image: true } } },
           take: 1,
         },
       },
@@ -75,7 +75,7 @@ export async function GET() {
     // Map assignments to match old format for backward compatibility
     clients = clients.map(c => ({
       ...c,
-      systemEngineer: c.assignments[0]?.User || null,
+      systemEngineer: c.ClientEngineerAssignment[0]?.User || null,
     }))
   } else if (jobTitle === 'GRC Manager') {
     managerType = 'GRC Manager'
@@ -90,15 +90,15 @@ export async function GET() {
       select: { id: true, name: true, image: true },
     })
     clients = await db.client.findMany({
-      where: { assignments: { some: { role: 'GRCE' } } },
+      where: { ClientEngineerAssignment: { some: { role: 'GRCE' } } },
       select: {
         id: true,
         name: true,
         websiteUrl: true,
         status: true,
-        assignments: {
+        ClientEngineerAssignment: {
           where: { role: 'GRCE' },
-          select: { user: { select: { id: true, name: true, image: true } } },
+          select: { User: { select: { id: true, name: true, image: true } } },
           take: 1,
         },
       },
@@ -107,7 +107,7 @@ export async function GET() {
     // Map assignments to match old format for backward compatibility
     clients = clients.map(c => ({
       ...c,
-      grceEngineer: c.assignments[0]?.User || null,
+      grceEngineer: c.ClientEngineerAssignment[0]?.User || null,
     }))
   } else if (jobTitle === 'IT Manager' && team) {
     managerType = 'IT Manager'
@@ -122,7 +122,7 @@ export async function GET() {
     const teamMemberIds = teamMembers.map((m) => m.id)
     clients = await db.client.findMany({
       where: {
-        assignments: {
+        ClientEngineerAssignment: {
           some: {
             userId: { in: teamMemberIds },
             role: { in: ['PRIMARY', 'SECONDARY'] },
@@ -134,8 +134,8 @@ export async function GET() {
         name: true,
         websiteUrl: true,
         status: true,
-        primaryEngineer: { select: { id: true, name: true, image: true } },
-        secondaryEngineer: { select: { id: true, name: true, image: true } },
+        User_Client_primaryEngineerIdToUser: { select: { id: true, name: true, image: true } },
+        User_Client_secondaryEngineerIdToUser: { select: { id: true, name: true, image: true } },
       },
       orderBy: { name: 'asc' },
     })

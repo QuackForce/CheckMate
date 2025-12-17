@@ -23,8 +23,8 @@ export async function GET(
       include: {
         _count: {
           select: {
-            clients: true,
-            users: true,
+            ClientTeam: true,
+            UserTeam: true,
           },
         },
         users: {
@@ -188,8 +188,8 @@ export async function PATCH(
       include: {
         _count: {
           select: {
-            clients: true,
-            users: true,
+            ClientTeam: true,
+            UserTeam: true,
           },
         },
         users: {
@@ -264,8 +264,8 @@ export async function DELETE(
       include: {
         _count: {
           select: {
-            clients: true,
-            users: true,
+            ClientTeam: true,
+            UserTeam: true,
           },
         },
       },

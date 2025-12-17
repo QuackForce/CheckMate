@@ -58,12 +58,12 @@ interface Client {
     id: string
     userId: string
     role: string
-    user: {
+    User: {
       id: string
       name: string | null
       email: string | null
       image: string | null
-    }
+    } | null
   }>
 }
 
@@ -605,7 +605,17 @@ export function ClientsTableWrapper() {
           ) : (
             clients.map((client) => {
               // Get assignee info (filter out orphaned assignments where user is null)
-              const validAssignments = client.assignments?.filter((a: any) => a.User !== null) || []
+              const validAssignments = (client.assignments?.filter((a: any) => a.User !== null) || []) as Array<{
+                id: string
+                userId: string
+                role: string
+                User: {
+                  id: string
+                  name: string | null
+                  email: string | null
+                  image: string | null
+                } | null
+              }>
               const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
               const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].User?.name : null
               const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName
@@ -1106,7 +1116,17 @@ export function ClientsTableWrapper() {
                       {(() => {
                         // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
                         // Filter out orphaned assignments where user is null
-                        const validAssignments = client.assignments?.filter((a: any) => a.User !== null) || []
+                        const validAssignments = (client.assignments?.filter((a: any) => a.User !== null) || []) as Array<{
+                          id: string
+                          userId: string
+                          role: string
+                          User: {
+                            id: string
+                            name: string | null
+                            email: string | null
+                            image: string | null
+                          } | null
+                        }>
                         const seAssignments = validAssignments.filter(a => a.role === 'SE') || []
                         const seFromAssignments = seAssignments.length > 0 ? seAssignments[0].User?.name : null
                         const assignee = client.infraCheckAssigneeName || seFromAssignments || client.systemEngineerName

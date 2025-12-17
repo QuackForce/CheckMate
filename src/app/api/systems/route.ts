@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         ...where,
         isActive: true,
       },
-      include: includeItems ? { checkItems: { orderBy: { order: 'asc' } } } : undefined,
+      include: includeItems ? { SystemCheckItem: { orderBy: { order: 'asc' } } } : undefined,
       orderBy: [{ category: 'asc' }, { order: 'asc' }, { name: 'asc' }],
     })
 
@@ -50,23 +50,27 @@ export async function POST(request: NextRequest) {
 
     const system = await db.system.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         category,
         icon,
         description,
         source: source || 'APP',
-        checkItems: checkItems
+        updatedAt: new Date(),
+        SystemCheckItem: checkItems
           ? {
               create: checkItems.map((item: any, index: number) => ({
+                id: crypto.randomUUID(),
                 text: item.text,
                 description: item.description,
                 isOptional: item.isOptional || false,
                 order: index,
+                updatedAt: new Date(),
               })),
             }
           : undefined,
       },
-      include: { checkItems: true },
+      include: { SystemCheckItem: true },
     })
 
     return NextResponse.json(system)

@@ -78,6 +78,7 @@ export async function PATCH(
       where: { provider },
       update: updateData,
       create: {
+        id: crypto.randomUUID(),
         provider,
         enabled: enabled ?? false,
         apiKey: apiKey || null,
@@ -87,6 +88,7 @@ export async function PATCH(
         config: config || null,
         notes: notes || null,
         connectedAt: (enabled && apiKey) ? new Date() : null,
+        updatedAt: new Date(),
       },
     })
     

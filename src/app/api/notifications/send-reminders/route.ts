@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       },
       include: {
         Client: { select: { name: true } },
-        assignedEngineer: { 
+        User_InfraCheck_assignedEngineerIdToUser: { 
           select: { id: true, slackUserId: true, name: true } 
         },
       },
@@ -94,18 +94,18 @@ export async function POST(req: NextRequest) {
 
     for (const check of checks) {
       // Skip if no assigned engineer
-      if (!check.assignedEngineer?.id) {
+      if (!check.User_InfraCheck_assignedEngineerIdToUser?.id) {
         results.skipped++
         continue
       }
 
-      const userId = check.assignedEngineer.id
+      const userId = check.User_InfraCheck_assignedEngineerIdToUser.id
       const isOverdue = check.scheduledDate <= todayStart
 
       if (!checksByUser.has(userId)) {
         checksByUser.set(userId, {
           userId,
-          slackUserId: check.assignedEngineer.slackUserId,
+          slackUserId: check.User_InfraCheck_assignedEngineerIdToUser.slackUserId,
           checks: [],
         })
       }
@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         Client: { select: { name: true } },
-        assignedEngineer: { 
+        User_InfraCheck_assignedEngineerIdToUser: { 
           select: { 
             id: true, 
             slackUserId: true, 
@@ -200,9 +200,9 @@ export async function GET(req: NextRequest) {
 
     const preview = checks.map(check => {
       const isOverdue = check.scheduledDate <= todayStart
-      const hasSlackId = !!check.assignedEngineer?.slackUserId
-      const remindersEnabled = check.assignedEngineer?.notifySlackReminders !== false
-      const overdueEnabled = check.assignedEngineer?.notifyOverdueChecks !== false
+      const hasSlackId = !!check.User_InfraCheck_assignedEngineerIdToUser?.slackUserId
+      const remindersEnabled = check.User_InfraCheck_assignedEngineerIdToUser?.notifySlackReminders !== false
+      const overdueEnabled = check.User_InfraCheck_assignedEngineerIdToUser?.notifyOverdueChecks !== false
       
       // Determine if would actually send
       let wouldSend = hasSlackId && remindersEnabled
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
 
       return {
         client: check.Client.name,
-        assignedTo: check.assignedEngineer?.name || check.assignedEngineerName || 'Unassigned',
+        assignedTo: check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName || 'Unassigned',
         hasSlackId,
         remindersEnabled,
         overdueEnabled,

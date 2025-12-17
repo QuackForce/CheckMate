@@ -21,8 +21,8 @@ import { Combobox } from '@/components/ui/combobox'
 
 interface Check {
   id: string
-  client: { id: string; name: string; websiteUrl: string | null }
-  assignedEngineer: { id: string; name: string | null } | null
+  Client: { id: string; name: string; websiteUrl: string | null }
+  User_InfraCheck_assignedEngineerIdToUser: { id: string; name: string | null } | null
   assignedEngineerName?: string | null
   scheduledDate: string
   status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED'
@@ -252,10 +252,10 @@ export function ChecksListWrapper() {
                         <Calendar className="w-3.5 h-3.5" />
                         {formatDate(new Date(check.scheduledDate))}
                       </span>
-                      {(check.assignedEngineer?.name || check.assignedEngineerName) && (
+                      {(check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName) && (
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5" />
-                          {check.assignedEngineer?.name || check.assignedEngineerName}
+                          {check.User_InfraCheck_assignedEngineerIdToUser?.name || check.assignedEngineerName}
                         </span>
                       )}
                     </div>

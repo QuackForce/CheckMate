@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { client: { name: { contains: search, mode: 'insensitive' } } },
-        { assignedEngineer: { name: { contains: search, mode: 'insensitive' } } },
+        { assignedEngineerName: { contains: search, mode: 'insensitive' } },
       ]
     }
 

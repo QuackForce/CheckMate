@@ -32,11 +32,13 @@ export async function POST(
 
     const checkItem = await db.systemCheckItem.create({
       data: {
+        id: crypto.randomUUID(),
         systemId: params.id,
         text,
         description,
         isOptional: isOptional || false,
         order: (maxOrder._max.order || 0) + 1,
+        updatedAt: new Date(),
       },
     })
 

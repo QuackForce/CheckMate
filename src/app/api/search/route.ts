@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
             },
           },
           {
-            assignedEngineer: {
+            User_InfraCheck_assignedEngineerIdToUser: {
               OR: [
                 { name: { contains: searchTerm, mode: 'insensitive' } },
                 { email: { contains: searchTerm, mode: 'insensitive' } },
@@ -77,13 +77,13 @@ export async function GET(request: NextRequest) {
         id: true,
         status: true,
         scheduledDate: true,
-        client: {
+        Client: {
           select: {
             id: true,
             name: true,
           },
         },
-        assignedEngineer: {
+        User_InfraCheck_assignedEngineerIdToUser: {
           select: {
             id: true,
             name: true,
@@ -169,10 +169,10 @@ export async function GET(request: NextRequest) {
       })),
       checks: checks.map(c => ({
         id: c.id,
-        name: `${c.client.name} - ${c.status}`,
+        name: `${c.Client.name} - ${c.status}`,
         type: 'check',
         url: `/checks/${c.id}`,
-        clientName: c.client.name,
+        clientName: c.Client.name,
         status: c.status,
       })),
       team: team.map(u => ({

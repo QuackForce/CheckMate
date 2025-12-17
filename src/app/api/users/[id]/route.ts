@@ -16,10 +16,10 @@ export async function GET(
       include: {
         _count: {
           select: {
-            assignedChecks: true,
-            completedChecks: true,
-            primaryClients: true,
-            secondaryClients: true,
+            InfraCheck_InfraCheck_assignedEngineerIdToUser: true,
+            InfraCheck_InfraCheck_completedByIdToUser: true,
+            Client_Client_primaryEngineerIdToUser: true,
+            Client_Client_secondaryEngineerIdToUser: true,
           }
         }
       }

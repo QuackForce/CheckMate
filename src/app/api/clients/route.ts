@@ -530,9 +530,11 @@ export async function POST(request: NextRequest) {
     // Create client in database (notionPageId will be null - app-created)
     const client = await db.client.create({
       data: {
+        id: crypto.randomUUID(),
         name: name.trim(),
         status,
         priority: priority || null,
+        updatedAt: new Date(),
         defaultCadence,
         websiteUrl: websiteUrl?.trim() || null,
         pocEmail: pocEmail?.trim() || null,

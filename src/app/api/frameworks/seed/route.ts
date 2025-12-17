@@ -71,6 +71,8 @@ export async function POST() {
 
       await db.framework.create({
         data: {
+          id: crypto.randomUUID(),
+          updatedAt: new Date(),
           ...framework,
           category: framework.category as any,
           source: 'SEEDED',

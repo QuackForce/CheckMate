@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       createdAt: true,
       _count: {
         select: {
-          assignedChecks: true,
-          completedChecks: true,
+          InfraCheck_InfraCheck_assignedEngineerIdToUser: true,
+          InfraCheck_InfraCheck_completedByIdToUser: true,
         }
       }
     } : {

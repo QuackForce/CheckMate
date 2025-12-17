@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             slackChannelName: true,
           },
         },
-        assignedEngineer: {
+        User_InfraCheck_assignedEngineerIdToUser: {
           select: {
             id: true,
             name: true,

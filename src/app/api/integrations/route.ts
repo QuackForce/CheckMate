@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
         connectedAt: (enabled && apiKey) ? new Date() : undefined,
       },
       create: {
+        id: crypto.randomUUID(),
         provider,
         enabled: enabled ?? false,
         apiKey: apiKey || null,
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
         refreshToken: refreshToken || null,
         config: config || null,
         connectedAt: (enabled && apiKey) ? new Date() : null,
+        updatedAt: new Date(),
       },
     })
     
