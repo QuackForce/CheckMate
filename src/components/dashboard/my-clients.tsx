@@ -63,9 +63,19 @@ export function MyClients() {
         if (cancelled) return
         if (res.ok) {
           const json = await res.json()
-          setClients(json.clients || [])
-          // Use the pagination total if available, otherwise use clients length
-          setTotalCount(json.pagination?.total || json.clients?.length || 0)
+          if (json.clients && Array.isArray(json.clients)) {
+            setClients(json.clients)
+            // Use the pagination total if available, otherwise use clients length
+            setTotalCount(json.pagination?.total || json.clients.length || 0)
+          } else {
+            console.error('Invalid API response:', json)
+            setClients([])
+            setTotalCount(0)
+          }
+        } else {
+          console.error('Failed to fetch clients:', res.status, res.statusText)
+          setClients([])
+          setTotalCount(0)
         }
       } catch (err) {
         console.error('Failed to load my clients', err)

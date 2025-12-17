@@ -445,11 +445,22 @@ export function ClientsTableWrapper() {
       }
 
       const res = await fetch(`/api/clients?${params}`)
+      if (!res.ok) {
+        console.error('Failed to fetch clients:', res.status, res.statusText)
+        setClients([])
+        setTotal(0)
+        return
+      }
+      
       const data = await res.json()
       
-      if (data.clients) {
+      if (data.clients && Array.isArray(data.clients)) {
         setClients(data.clients)
         setTotal(data.pagination?.total || data.clients.length)
+      } else {
+        console.error('Invalid API response:', data)
+        setClients([])
+        setTotal(0)
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error)
@@ -677,7 +688,7 @@ export function ClientsTableWrapper() {
                       </div>
 
                       {/* Teams */}
-                      {client.teamAssignments && client.teamAssignments.length > 0 && (
+                      {client.teamAssignments && Array.isArray(client.teamAssignments) && client.teamAssignments.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {client.teamAssignments.slice(0, 2).map((teamAssignment) => {
                             const tag = teamAssignment.team.tag || teamAssignment.team.name
@@ -1057,7 +1068,7 @@ export function ClientsTableWrapper() {
 
                     {/* Teams */}
                     <td className="py-3 px-4 text-sm">
-                      {client.teamAssignments && client.teamAssignments.length > 0 ? (
+                      {client.teamAssignments && Array.isArray(client.teamAssignments) && client.teamAssignments.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {client.teamAssignments.slice(0, 2).map((teamAssignment) => {
                             const tag = teamAssignment.team.tag || teamAssignment.team.name
@@ -1082,7 +1093,7 @@ export function ClientsTableWrapper() {
                             </span>
                           )}
                         </div>
-                      ) : client.teams && client.teams.length > 0 ? (
+                      ) : client.teams && Array.isArray(client.teams) && client.teams.length > 0 ? (
                         // Fallback to legacy teams array
                         <div className="flex flex-wrap gap-1">
                           {client.teams.slice(0, 2).map((team) => (
@@ -1116,7 +1127,7 @@ export function ClientsTableWrapper() {
                       {(() => {
                         // Priority: 1) infraCheckAssigneeName override, 2) SE from assignments table, 3) legacy systemEngineerName
                         // Filter out orphaned assignments where user is null
-                        const validAssignments = (client.assignments?.filter((a: any) => a.User !== null) || []) as Array<{
+                        const validAssignments = (client.assignments && Array.isArray(client.assignments) ? client.assignments.filter((a: any) => a.User !== null) : []) as Array<{
                           id: string
                           userId: string
                           role: string
