@@ -1,0 +1,5 @@
+# Run type checking before commit
+npm run type-check
+
+# Run lint-staged for staged files
+npx lint-staged
