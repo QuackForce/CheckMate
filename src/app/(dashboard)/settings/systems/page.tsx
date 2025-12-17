@@ -46,7 +46,8 @@ interface System {
   description: string | null
   isActive: boolean
   source: 'APP' | 'NOTION' | 'SEEDED'
-  checkItems: SystemCheckItem[]
+  SystemCheckItem?: SystemCheckItem[]
+  checkItems?: SystemCheckItem[] // Legacy support
 }
 
 const categoryLabels: Record<string, string> = {
@@ -134,7 +135,12 @@ export default function SystemsSettingsPage() {
       const res = await fetch('/api/systems?includeItems=true')
       if (res.ok) {
         const data = await res.json()
-        setSystems(data)
+        // Normalize SystemCheckItem to checkItems for backward compatibility
+        const normalized = Array.isArray(data) ? data.map((system: any) => ({
+          ...system,
+          checkItems: system.SystemCheckItem || system.checkItems || []
+        })) : []
+        setSystems(normalized)
       }
     } catch (error) {
       console.error('Error fetching systems:', error)
@@ -242,7 +248,7 @@ export default function SystemsSettingsPage() {
         const query = searchQuery.toLowerCase()
         const matchesName = system.name.toLowerCase().includes(query)
         const matchesDescription = system.description?.toLowerCase().includes(query) || false
-        const matchesCheckItems = system.checkItems.some(
+        const matchesCheckItems = (system.checkItems || []).some(
           (item) =>
             item.text.toLowerCase().includes(query) ||
             item.description?.toLowerCase().includes(query)
@@ -296,7 +302,7 @@ export default function SystemsSettingsPage() {
         <div className="flex-1">
           <h2 className="text-xl font-semibold text-white">Systems Database</h2>
           <p className="text-sm text-surface-400 mt-1">
-            {filteredSystems.length} {searchQuery ? 'matching' : ''} systems with {filteredSystems.reduce((acc, s) => acc + s.checkItems.length, 0)} total check items
+            {filteredSystems.length} {searchQuery ? 'matching' : ''} systems with {filteredSystems.reduce((acc, s) => acc + (s.checkItems || []).length, 0)} total check items
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -365,7 +371,7 @@ export default function SystemsSettingsPage() {
                             )}
                           </div>
                           <span className="text-xs text-surface-500 ml-2">
-                            {system.checkItems.length} items
+                            {(system.checkItems || []).length} items
                           </span>
                         </div>
                         {canEdit && (
@@ -397,10 +403,10 @@ export default function SystemsSettingsPage() {
                       {/* Expanded: Check Items */}
                       {isExpanded && (
                         <div className="mt-4 ml-7 space-y-2">
-                          {system.checkItems.length === 0 ? (
+                          {(system.checkItems || []).length === 0 ? (
                             <p className="text-sm text-surface-500 italic">No check items defined yet.</p>
                           ) : (
-                            system.checkItems.map((item) => (
+                            (system.checkItems || []).map((item) => (
                               <div
                                 key={item.id}
                                 className="flex items-start gap-3 p-3 bg-surface-800/50 rounded-lg group"

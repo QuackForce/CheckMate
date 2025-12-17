@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     where.OR = [
       ...(where.OR || []),
       // Use assignment table (all roles including SE, PRIMARY, SECONDARY, GRCE, IT_MANAGER)
-      { assignments: { some: { userId: session.user.id } } },
+      { ClientEngineerAssignment: { some: { userId: session.user.id } } },
       // Also include clients where user has infra checks assigned
       ...(clientIdsWithMyChecks.length > 0 ? [{ id: { in: clientIdsWithMyChecks } }] : []),
     ]
@@ -133,12 +133,12 @@ export async function GET(request: NextRequest) {
     if (managerTeam === 'se') {
       where.OR = [
         ...(where.OR || []),
-        { assignments: { some: { role: 'SE' } } },
+        { ClientEngineerAssignment: { some: { role: 'SE' } } },
       ]
     } else if (managerTeam === 'grc') {
       where.OR = [
         ...(where.OR || []),
-        { assignments: { some: { role: 'GRCE' } } },
+        { ClientEngineerAssignment: { some: { role: 'GRCE' } } },
       ]
     } else if (managerTeam.startsWith('consultant-team-')) {
       const teamNum = managerTeam.replace('consultant-team-', '')

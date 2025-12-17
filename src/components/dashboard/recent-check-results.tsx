@@ -11,7 +11,7 @@ interface CheckItem {
   id: string
   status: CheckStatus
   scheduledDate: string | null
-  client: { id: string; name: string }
+  Client: { id: string; name: string } | null
   assignedEngineerName?: string | null
 }
 
@@ -92,7 +92,7 @@ export function RecentCheckResults() {
             >
               <Icon className={cn('w-4 h-4', style.className)} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{check.client?.name || 'Unknown client'}</p>
+                <p className="text-sm font-medium text-white truncate">{check.Client?.name || 'Unknown client'}</p>
                 <p className="text-xs text-surface-500 truncate">
                   {style.label} • {date}
                   {check.assignedEngineerName ? ` • ${check.assignedEngineerName}` : ''}
