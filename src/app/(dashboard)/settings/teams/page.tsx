@@ -15,6 +15,7 @@ import {
   ChevronDown,
   AlertTriangle,
   Info,
+  Palette,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -88,6 +89,8 @@ export default function TeamsSettingsPage() {
   const [openComboboxes, setOpenComboboxes] = useState<Set<string>>(new Set())
   const [openSection, setOpenSection] = useState<string | null>(null) // Track which section is open
   const [teamToDeactivate, setTeamToDeactivate] = useState<Team | null>(null)
+  const [showCustomColorPicker, setShowCustomColorPicker] = useState(false)
+  const [customColorHex, setCustomColorHex] = useState('')
   
   // Helper functions for section state
   const showTeamInfo = openSection === 'info'
@@ -114,6 +117,13 @@ export default function TeamsSettingsPage() {
       fetchAllUsers()
     }
   }, [hasAccess])
+
+  // Sync selectedUserIds with editingTeam.members when editingTeam changes
+  useEffect(() => {
+    if (editingTeam?.members) {
+      setSelectedUserIds(editingTeam.members.map((m: TeamMember) => m.id))
+    }
+  }, [editingTeam?.id]) // Only sync when team ID changes, not on every render
 
 
   const fetchAllUsers = async () => {
@@ -169,6 +179,9 @@ export default function TeamsSettingsPage() {
         toast.success('Team created')
         setShowNewModal(false)
         setFormData({ name: '', description: '', color: '', tag: '', managerId: '' })
+        setShowCustomColorPicker(false)
+        setCustomColorHex('')
+        setOpenSection(null)
         fetchTeams()
       } else {
         const error = await res.json()
@@ -186,13 +199,32 @@ export default function TeamsSettingsPage() {
 
     setSaving(true)
     try {
+      const requestBody: any = {
+        ...formData,
+      }
+      
+      // Only send userIds if:
+      // 1. editingTeam.members was successfully loaded (not undefined)
+      // 2. AND selectedUserIds is properly initialized (not empty when original had members)
+      // This prevents accidentally clearing members if the fetch failed or selectedUserIds wasn't initialized
+      const originalMemberIds = editingTeam.members?.map((m: TeamMember) => m.id) || []
+      const hasOriginalMembers = originalMemberIds.length > 0
+      const hasSelectedMembers = selectedUserIds.length > 0
+      
+      // Only send userIds if members were successfully loaded
+      // If original had members but selectedUserIds is empty, don't send (preserve existing)
+      if (editingTeam.members !== undefined) {
+        // Only send if we have selections OR if we're intentionally clearing (original had none)
+        if (hasSelectedMembers || !hasOriginalMembers) {
+          requestBody.userIds = selectedUserIds
+        }
+        // If hasOriginalMembers but !hasSelectedMembers, don't send userIds (preserve existing)
+      }
+
       const res = await fetch(`/api/teams/${editingTeam.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          userIds: selectedUserIds, // Include selected user IDs
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (res.ok) {
@@ -209,6 +241,11 @@ export default function TeamsSettingsPage() {
           }))
         }
         fetchTeams() // Refresh the teams list
+        // Close the sheet
+        setEditingTeam(null)
+        setSelectedUserIds([])
+        setOpenSection(null)
+        setShowCustomColorPicker(false)
       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to update team')
@@ -279,6 +316,13 @@ export default function TeamsSettingsPage() {
       managerId: team.managerId || '',
     })
     setOpenSection(null) // All sections closed by default when editing
+    setShowCustomColorPicker(false) // Close custom color picker
+    // If team has a custom color (not in presets), set it in customColorHex
+    if (team.color && !colorPresets.find(p => p.value === team.color)) {
+      setCustomColorHex(team.color)
+    } else {
+      setCustomColorHex('')
+    }
     
     // Fetch full team data with members and clients
     try {
@@ -287,6 +331,10 @@ export default function TeamsSettingsPage() {
         const fullTeam = await res.json()
         setEditingTeam(fullTeam)
         setSelectedUserIds(fullTeam.members?.map((m: TeamMember) => m.id) || [])
+        // Update customColorHex if the fetched team has a custom color
+        if (fullTeam.color && !colorPresets.find(p => p.value === fullTeam.color)) {
+          setCustomColorHex(fullTeam.color)
+        }
       } else {
         // Fallback to basic team data
         setEditingTeam(team)
@@ -350,7 +398,7 @@ export default function TeamsSettingsPage() {
     { value: '#8B5CF6', label: 'Purple' },
     { value: '#EC4899', label: 'Pink' },
     { value: '#06B6D4', label: 'Cyan' },
-    { value: '#84CC16', label: 'Lime' },
+    // Last color (Lime) replaced with custom picker
   ]
 
   // Don't show access denied while session is still loading
@@ -423,6 +471,8 @@ export default function TeamsSettingsPage() {
             onClick={() => {
               setFormData({ name: '', description: '', color: '', tag: '', managerId: '' })
               setOpenSection('info') // Open Team Information for new teams
+              setShowCustomColorPicker(false)
+              setCustomColorHex('')
               setShowNewModal(true)
             }}
             className="btn-primary flex items-center gap-2"
@@ -609,6 +659,8 @@ export default function TeamsSettingsPage() {
           <button
             onClick={() => {
               setFormData({ name: '', description: '', color: '', tag: '', managerId: '' })
+              setShowCustomColorPicker(false)
+              setCustomColorHex('')
               setShowNewModal(true)
             }}
             className="btn-primary"
@@ -625,6 +677,7 @@ export default function TeamsSettingsPage() {
           setEditingTeam(null)
           setSelectedUserIds([])
           setOpenSection(null) // Reset sections
+          setShowCustomColorPicker(false) // Close custom color picker
         }
       }}>
         <SheetContent side="right" className="w-[600px] sm:w-[700px] overflow-y-auto">
@@ -708,7 +761,10 @@ export default function TeamsSettingsPage() {
                         <button
                           key={preset.value}
                           type="button"
-                          onClick={() => setFormData({ ...formData, color: preset.value })}
+                          onClick={() => {
+                            setFormData({ ...formData, color: preset.value })
+                            setShowCustomColorPicker(false)
+                          }}
                           className={cn(
                             "w-8 h-8 rounded border-2 transition-all",
                             formData.color === preset.value 
@@ -719,6 +775,111 @@ export default function TeamsSettingsPage() {
                           title={preset.label}
                         />
                       ))}
+                      {/* Custom Color Button - replaces last preset color */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCustomColorPicker(!showCustomColorPicker)
+                            // If opening picker and there's a custom color, set it as the initial value
+                            if (!showCustomColorPicker && formData.color && !colorPresets.find(p => p.value === formData.color)) {
+                              setCustomColorHex(formData.color)
+                            } else if (!showCustomColorPicker) {
+                              setCustomColorHex('#000000')
+                            }
+                          }}
+                          className={cn(
+                            "w-8 h-8 rounded border-2 transition-all flex items-center justify-center",
+                            formData.color && !colorPresets.find(p => p.value === formData.color)
+                              ? "border-white scale-110" 
+                              : "border-surface-600 hover:border-surface-500 border-dashed"
+                          )}
+                          style={{ 
+                            backgroundColor: formData.color && !colorPresets.find(p => p.value === formData.color) 
+                              ? formData.color 
+                              : 'transparent' 
+                          }}
+                          title="Custom Color"
+                        >
+                          <Palette className={cn(
+                            "w-4 h-4",
+                            formData.color && !colorPresets.find(p => p.value === formData.color)
+                              ? "text-white"
+                              : "text-surface-400"
+                          )} />
+                        </button>
+                        {/* Custom Color Picker Dropdown */}
+                        {showCustomColorPicker && (
+                          <div className="absolute top-10 right-0 z-50 bg-surface-800 border border-surface-700 rounded-lg p-4 shadow-xl min-w-[280px]">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-surface-300">Custom Color</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCustomColorPicker(false)}
+                                  className="text-surface-400 hover:text-white"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                              {/* Color Picker Input */}
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="color"
+                                  value={customColorHex || '#000000'}
+                                  onChange={(e) => {
+                                    const newColor = e.target.value
+                                    setCustomColorHex(newColor)
+                                    setFormData({ ...formData, color: newColor })
+                                  }}
+                                  className="w-16 h-16 rounded border-2 border-surface-600 cursor-pointer"
+                                  title="Color Picker"
+                                />
+                                {/* Hex Input */}
+                                <div className="flex-1">
+                                  <label className="block text-xs text-surface-400 mb-1">Hex Code</label>
+                                  <input
+                                    type="text"
+                                    value={customColorHex || ''}
+                                    onChange={(e) => {
+                                      let value = e.target.value
+                                      // Remove # if user types it
+                                      if (value.startsWith('#')) {
+                                        value = value.slice(1)
+                                      }
+                                      // Only allow hex characters
+                                      value = value.replace(/[^0-9A-Fa-f]/g, '')
+                                      // Limit to 6 characters
+                                      if (value.length > 6) {
+                                        value = value.slice(0, 6)
+                                      }
+                                      // Add # back
+                                      const hexValue = value ? `#${value}` : ''
+                                      setCustomColorHex(hexValue)
+                                      // Only update formData if it's a valid hex color
+                                      if (value.length === 6) {
+                                        setFormData({ ...formData, color: hexValue })
+                                      }
+                                    }}
+                                    placeholder="#000000"
+                                    className="w-full px-3 py-2 bg-surface-900 border border-surface-600 rounded text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500"
+                                  />
+                                </div>
+                              </div>
+                              {/* Preview */}
+                              <div className="flex items-center gap-2 pt-2 border-t border-surface-700">
+                                <div 
+                                  className="w-8 h-8 rounded border border-surface-600"
+                                  style={{ backgroundColor: customColorHex || formData.color || '#000000' }}
+                                />
+                                <span className="text-xs text-surface-400 font-mono">
+                                  {customColorHex || formData.color || 'No color selected'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

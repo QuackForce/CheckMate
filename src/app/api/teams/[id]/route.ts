@@ -162,7 +162,9 @@ export async function PATCH(
     })
 
     // Handle team member updates if provided
-    if (body.userIds !== undefined) {
+    // Only update members if userIds is explicitly provided (not undefined)
+    // This allows updating other fields without affecting members
+    if (body.userIds !== undefined && Array.isArray(body.userIds)) {
       const userIds = body.userIds as string[]
 
       // Delete existing user team associations
@@ -170,8 +172,8 @@ export async function PATCH(
         where: { teamId: params.id },
       })
 
-      // Create new user team associations if userIds provided
-      if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+      // Create new user team associations if userIds provided (even if empty array to clear all)
+      if (userIds.length > 0) {
         // Validate that all user IDs exist
         const existingUsers = await db.user.findMany({
           where: { 
@@ -184,6 +186,7 @@ export async function PATCH(
         
         if (validUserIds.length > 0) {
           const userTeamsToCreate = validUserIds.map(userId => ({
+            id: crypto.randomUUID(),
             userId,
             teamId: params.id,
           }))
@@ -194,6 +197,7 @@ export async function PATCH(
           })
         }
       }
+      // If userIds is empty array, we've already deleted all members above
     }
 
     // Fetch updated team with members and clients

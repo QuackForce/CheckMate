@@ -175,9 +175,12 @@ export default function EditClientPage() {
   const [syncingTrustCenter, setSyncingTrustCenter] = useState(false)
   
   // Systems
-  const [clientSystems, setClientSystems] = useState<Array<{ id: string; system: { id: string; name: string; category: string } }>>([])
+  const [clientSystems, setClientSystems] = useState<Array<{ id: string; system: { id: string; name: string; category: string } | null }>>([])
   const [allSystems, setAllSystems] = useState<Array<{ id: string; name: string; category: string }>>([])
   const [addingSystem, setAddingSystem] = useState(false)
+  // Track pending system changes (to be applied on save)
+  const [pendingSystemAdditions, setPendingSystemAdditions] = useState<string[]>([])
+  const [pendingSystemRemovals, setPendingSystemRemovals] = useState<string[]>([])
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['basicInfo'])) // Basic Info open by default
   
   // Track which comboboxes are open for z-index management
@@ -340,14 +343,20 @@ export default function EditClientPage() {
       
       // Load systems from client response if available, otherwise fetch
       if ((client as any).clientSystems) {
-        setClientSystems((client as any).clientSystems.map((cs: any) => ({
-          id: cs.id,
-          system: {
-            id: cs.system.id,
-            name: cs.system.name,
-            category: cs.system.category,
-          },
-        })))
+        const normalized = (client as any).clientSystems.map((cs: any) => {
+          // Handle both System (capitalized) and system (lowercase) from API
+          const system = cs.System || cs.system
+          if (!system) return null
+          return {
+            id: cs.id,
+            system: {
+              id: system.id,
+              name: system.name,
+              category: system.category,
+            },
+          }
+        }).filter((cs: any) => cs !== null) // Filter out null entries
+        setClientSystems(normalized)
       } else {
         fetchClientSystems()
       }
@@ -364,7 +373,12 @@ export default function EditClientPage() {
       const res = await fetch(`/api/clients/${clientId}/systems`)
       if (res.ok) {
         const data = await res.json()
-        setClientSystems(data)
+        // Normalize API response: map System (capitalized) to system (lowercase)
+        const normalized = data.map((cs: any) => ({
+          id: cs.id,
+          system: cs.System || cs.system || null, // Handle both capitalized and lowercase
+        })).filter((cs: any) => cs.system !== null) // Filter out any with missing system
+        setClientSystems(normalized)
       }
     } catch (err) {
       console.error('Failed to load client systems:', err)
@@ -383,45 +397,35 @@ export default function EditClientPage() {
     }
   }
   
-  const handleAddSystem = async (systemId: string) => {
-    setAddingSystem(true)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/systems`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemId }),
-      })
-      if (res.ok) {
-        await fetchClientSystems()
-        toast.success('System added')
-      } else {
-        const error = await res.json()
-        toast.error(error.error || 'Failed to add system')
-      }
-    } catch (err) {
-      toast.error('Failed to add system')
-    } finally {
-      setAddingSystem(false)
+  const handleAddSystem = (systemId: string) => {
+    // Check if already pending removal (cancel the removal)
+    if (pendingSystemRemovals.includes(systemId)) {
+      setPendingSystemRemovals(prev => prev.filter(id => id !== systemId))
+    } else {
+      // Add to pending additions
+      setPendingSystemAdditions(prev => [...prev, systemId])
     }
+    toast.success('System will be added when you save')
   }
   
-  const handleRemoveSystem = async (clientSystemId: string) => {
-    try {
-      const res = await fetch(`/api/clients/${clientId}/systems`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientSystemId }),
-      })
-      if (res.ok) {
-        await fetchClientSystems()
-        toast.success('System removed')
-      } else {
-        const error = await res.json()
-        toast.error(error.error || 'Failed to remove system')
-      }
-    } catch (err) {
-      toast.error('Failed to remove system')
+  const handleRemoveSystem = (clientSystemId: string) => {
+    // Find the systemId from the clientSystems array
+    const clientSystem = clientSystems.find(cs => cs.id === clientSystemId)
+    if (!clientSystem || !clientSystem.system) {
+      toast.error('System not found')
+      return
     }
+    
+    const systemId = clientSystem.system.id
+    
+    // Check if pending addition (cancel the addition)
+    if (pendingSystemAdditions.includes(systemId)) {
+      setPendingSystemAdditions(prev => prev.filter(id => id !== systemId))
+    } else {
+      // Add to pending removals
+      setPendingSystemRemovals(prev => [...prev, systemId])
+    }
+    toast.success('System will be removed when you save')
   }
   
   const toggleSection = (section: string) => {
@@ -479,6 +483,34 @@ export default function EditClientPage() {
     setError(null)
 
     try {
+      // First, apply pending system changes
+      for (const systemId of pendingSystemAdditions) {
+        const res = await fetch(`/api/clients/${clientId}/systems`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemId }),
+        })
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(`Failed to add system: ${error.error || 'Unknown error'}`)
+        }
+      }
+      
+      for (const systemId of pendingSystemRemovals) {
+        const res = await fetch(`/api/clients/${clientId}/systems?systemId=${systemId}`, {
+          method: 'DELETE',
+        })
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(`Failed to remove system: ${error.error || 'Unknown error'}`)
+        }
+      }
+      
+      // Clear pending changes
+      setPendingSystemAdditions([])
+      setPendingSystemRemovals([])
+      
+      // Then save the main client data
       const res = await fetch(`/api/clients/${clientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -534,6 +566,9 @@ export default function EditClientPage() {
         throw new Error(data.error || 'Failed to update client')
       }
 
+      // Refresh systems to reflect saved state
+      await fetchClientSystems()
+      
       toast.success('Client updated successfully!')
       router.push(`/clients/${clientId}`)
       router.refresh() // Refresh server component data
@@ -1522,28 +1557,95 @@ export default function EditClientPage() {
                   <div className="space-y-2">
                     <label className="label">Current Systems</label>
                     <div className="space-y-2">
-                      {clientSystems.map((cs) => {
-                        const isGRC = cs.system.category === 'GRC'
-                        const isSecurityTraining = cs.system.category === 'SECURITY_TRAINING'
-                        return (
-                          <div key={cs.id} className="flex items-center justify-between p-3 bg-surface-800 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              {isGRC && <ClipboardCheck className="w-4 h-4 text-emerald-400" />}
-                              {isSecurityTraining && <GraduationCap className="w-4 h-4 text-violet-400" />}
-                              {!isGRC && !isSecurityTraining && <Laptop className="w-4 h-4 text-surface-400" />}
-                              <span className="text-white">{cs.system.name}</span>
-                              <span className="text-xs text-surface-500">({cs.system.category})</span>
+                      {clientSystems
+                        .filter((cs) => cs.system !== null && cs.system !== undefined) // Safety check
+                        .map((cs) => {
+                          if (!cs.system) return null // Additional safety check
+                          const isGRC = cs.system.category === 'GRC'
+                          const isSecurityTraining = cs.system.category === 'SECURITY_TRAINING'
+                          const isPendingRemoval = pendingSystemRemovals.includes(cs.system.id)
+                          return (
+                            <div key={cs.id} className={cn(
+                              "flex items-center justify-between p-3 rounded-lg",
+                              isPendingRemoval 
+                                ? "bg-red-500/20 border border-red-500/30" 
+                                : "bg-surface-800"
+                            )}>
+                              <div className="flex items-center gap-2">
+                                {isGRC && <ClipboardCheck className="w-4 h-4 text-emerald-400" />}
+                                {isSecurityTraining && <GraduationCap className="w-4 h-4 text-violet-400" />}
+                                {!isGRC && !isSecurityTraining && <Laptop className="w-4 h-4 text-surface-400" />}
+                                <span className={cn(
+                                  "text-white",
+                                  isPendingRemoval && "opacity-60"
+                                )}>{cs.system.name}</span>
+                                <span className="text-xs text-surface-500">({cs.system.category})</span>
+                                {isPendingRemoval && (
+                                  <span className="text-xs text-red-400">(pending removal)</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPendingRemoval) {
+                                    // Cancel removal
+                                    setPendingSystemRemovals(prev => prev.filter(id => id !== cs.system!.id))
+                                    toast.success('System removal cancelled')
+                                  } else {
+                                    // Mark for removal
+                                    handleRemoveSystem(cs.id)
+                                  }
+                                }}
+                                className={cn(
+                                  "p-1 transition-colors",
+                                  isPendingRemoval 
+                                    ? "text-green-400 hover:text-green-300" 
+                                    : "text-red-400 hover:text-red-300"
+                                )}
+                                title={isPendingRemoval ? "Cancel removal" : "Remove system"}
+                              >
+                                {isPendingRemoval ? (
+                                  <Check className="w-4 h-4" />
+                                ) : (
+                                  <X className="w-4 h-4" />
+                                )}
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSystem(cs.id)}
-                              className="p-1 text-red-400 hover:text-red-300"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )
-                      })}
+                          )
+                        })
+                        .filter((item) => item !== null)}
+                      {/* Show pending additions */}
+                      {pendingSystemAdditions
+                        .filter(systemId => !clientSystems.some(cs => cs.system?.id === systemId))
+                        .map(systemId => {
+                          const system = allSystems.find(s => s.id === systemId)
+                          if (!system) return null
+                          const isGRC = system.category === 'GRC'
+                          const isSecurityTraining = system.category === 'SECURITY_TRAINING'
+                          return (
+                            <div key={`pending-${systemId}`} className="flex items-center justify-between p-3 bg-brand-500/20 border border-brand-500/30 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                {isGRC && <ClipboardCheck className="w-4 h-4 text-emerald-400" />}
+                                {isSecurityTraining && <GraduationCap className="w-4 h-4 text-violet-400" />}
+                                {!isGRC && !isSecurityTraining && <Laptop className="w-4 h-4 text-surface-400" />}
+                                <span className="text-white">{system.name}</span>
+                                <span className="text-xs text-surface-500">({system.category})</span>
+                                <span className="text-xs text-brand-400">(pending addition)</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPendingSystemAdditions(prev => prev.filter(id => id !== systemId))
+                                  toast.success('System addition cancelled')
+                                }}
+                                className="p-1 text-red-400 hover:text-red-300"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )
+                        })
+                        .filter((item) => item !== null)}
                     </div>
                   </div>
                 )}
@@ -1559,7 +1661,13 @@ export default function EditClientPage() {
                       }
                     }}
                     options={allSystems
-                      .filter(s => !clientSystems.some(cs => cs.system.id === s.id))
+                      .filter(s => {
+                        // Exclude systems already assigned
+                        const isAssigned = clientSystems.some(cs => cs.system?.id === s.id)
+                        // Exclude systems pending addition
+                        const isPendingAddition = pendingSystemAdditions.includes(s.id)
+                        return !isAssigned && !isPendingAddition
+                      })
                       .map(s => ({
                         value: s.id,
                         label: `${s.name} (${s.category})`,
