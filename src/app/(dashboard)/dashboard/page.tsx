@@ -41,7 +41,8 @@ async function getDashboardData(userId?: string, isManager?: boolean) {
   } : undefined
 
   // Base where clause for "My Team" (all checks if manager, otherwise empty)
-  const myTeamFilter = isManager ? undefined : { id: 'never-match' }
+  // Use an impossible filter that will never match any records
+  const myTeamFilter = isManager ? undefined : { id: { in: [] } }
 
   // Helper to combine filters
   const combineWhere = (baseFilter: any, additionalConditions: any) => {

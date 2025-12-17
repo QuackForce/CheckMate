@@ -903,7 +903,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
                   View all
                 </Link>
               </div>
-              {client.checks.length > 0 ? (
+              {client.checks && client.checks.length > 0 ? (
                 <div className="space-y-3">
                   {client.checks.map((check) => (
                     <Link

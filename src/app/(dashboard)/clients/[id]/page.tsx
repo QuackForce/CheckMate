@@ -115,6 +115,7 @@ async function getClient(id: string) {
   return {
     ...client,
     assignments: validAssignments, // Only include assignments with valid users
+    checks: client.InfraCheck || [], // Map InfraCheck to checks for component
     infraCheckAssigneeUser,
     teamAssignments,
   } as any

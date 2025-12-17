@@ -556,17 +556,21 @@ export async function POST(request: NextRequest) {
     // Create ClientEngineerAssignment records if assignments provided
     if (assignments) {
       const assignmentsToCreate: Array<{
+        id: string
         clientId: string
         userId: string
         role: string
+        updatedAt: Date
       }> = []
 
       if (assignments.SE) {
         assignments.SE.forEach((userId: string) => {
           assignmentsToCreate.push({
+            id: crypto.randomUUID(),
             clientId: client.id,
             userId,
             role: ClientEngineerRole.SE as string,
+            updatedAt: new Date(),
           })
         })
       }
@@ -574,9 +578,11 @@ export async function POST(request: NextRequest) {
       if (assignments.PRIMARY) {
         assignments.PRIMARY.forEach((userId: string) => {
           assignmentsToCreate.push({
+            id: crypto.randomUUID(),
             clientId: client.id,
             userId,
             role: ClientEngineerRole.PRIMARY as string,
+            updatedAt: new Date(),
           })
         })
       }
@@ -584,9 +590,11 @@ export async function POST(request: NextRequest) {
       if (assignments.SECONDARY) {
         assignments.SECONDARY.forEach((userId: string) => {
           assignmentsToCreate.push({
+            id: crypto.randomUUID(),
             clientId: client.id,
             userId,
             role: ClientEngineerRole.SECONDARY as string,
+            updatedAt: new Date(),
           })
         })
       }
@@ -594,9 +602,11 @@ export async function POST(request: NextRequest) {
       if (assignments.GRCE) {
         assignments.GRCE.forEach((userId: string) => {
           assignmentsToCreate.push({
+            id: crypto.randomUUID(),
             clientId: client.id,
             userId,
             role: ClientEngineerRole.GRCE as string,
+            updatedAt: new Date(),
           })
         })
       }
@@ -604,9 +614,11 @@ export async function POST(request: NextRequest) {
       if (assignments.IT_MANAGER) {
         assignments.IT_MANAGER.forEach((userId: string) => {
           assignmentsToCreate.push({
+            id: crypto.randomUUID(),
             clientId: client.id,
             userId,
             role: ClientEngineerRole.IT_MANAGER as string,
+            updatedAt: new Date(),
           })
         })
       }

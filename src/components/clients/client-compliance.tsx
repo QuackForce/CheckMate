@@ -49,7 +49,12 @@ export function ClientCompliance({
       const res = await fetch(`/api/clients/${clientId}/systems`)
       if (res.ok) {
         const data = await res.json()
-        setSystems(data)
+        // Normalize the data: API returns System (capitalized), component expects system (lowercase)
+        const normalized = data.map((item: any) => ({
+          ...item,
+          system: item.System || item.system, // Handle both cases
+        }))
+        setSystems(normalized)
       }
     } catch (error) {
       console.error('Failed to fetch systems:', error)
@@ -59,8 +64,8 @@ export function ClientCompliance({
   }
 
   // Filter for GRC and Security Training systems only
-  const grcSystem = systems.find(s => s.system.category === 'GRC')
-  const securityTrainingSystem = systems.find(s => s.system.category === 'SECURITY_TRAINING')
+  const grcSystem = systems.find(s => s.system?.category === 'GRC')
+  const securityTrainingSystem = systems.find(s => s.system?.category === 'SECURITY_TRAINING')
 
   if (loading) {
     return (
@@ -91,7 +96,7 @@ export function ClientCompliance({
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs",
                 "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
               )}>
-                {grcSystem.system.name}
+                {grcSystem.system?.name || 'GRC'}
               </span>
             </div>
           ) : (
@@ -111,7 +116,7 @@ export function ClientCompliance({
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs",
                 "bg-violet-500/20 text-violet-400 border border-violet-500/30"
               )}>
-                {securityTrainingSystem.system.name}
+                {securityTrainingSystem.system?.name || 'Security Training'}
               </span>
             </div>
           ) : (

@@ -24,7 +24,13 @@ export async function GET(request: NextRequest) {
       orderBy: [{ category: 'asc' }, { order: 'asc' }, { name: 'asc' }],
     })
 
-    return NextResponse.json(systems)
+    // Normalize SystemCheckItem to checkItems for frontend compatibility
+    const normalizedSystems = systems.map((system: any) => ({
+      ...system,
+      checkItems: system.SystemCheckItem || [],
+    }))
+
+    return NextResponse.json(normalizedSystems)
   } catch (error: any) {
     console.error('Error fetching systems:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -73,7 +79,13 @@ export async function POST(request: NextRequest) {
       include: { SystemCheckItem: true },
     })
 
-    return NextResponse.json(system)
+    // Normalize SystemCheckItem to checkItems for frontend compatibility
+    const normalizedSystem = {
+      ...system,
+      checkItems: (system as any).SystemCheckItem || [],
+    }
+
+    return NextResponse.json(normalizedSystem)
   } catch (error: any) {
     console.error('Error creating system:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

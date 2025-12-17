@@ -176,7 +176,8 @@ export async function PATCH(
     }
 
     // Handle assignments if provided
-    if (body.assignments) {
+    // Only update assignments if the assignments field is explicitly provided
+    if (body.assignments !== undefined) {
       const assignments = body.assignments as {
         SE?: string[]
         PRIMARY?: string[]
@@ -218,81 +219,105 @@ export async function PATCH(
         )
       }
 
-      // Delete existing assignments for this client
-      await (db as any).clientEngineerAssignment.deleteMany({
-        where: { clientId: params.id },
-      })
+      // Check if there are any assignments to process
+      const hasAssignments = 
+        (assignments.SE && assignments.SE.length > 0) ||
+        (assignments.PRIMARY && assignments.PRIMARY.length > 0) ||
+        (assignments.SECONDARY && assignments.SECONDARY.length > 0) ||
+        (assignments.GRCE && assignments.GRCE.length > 0) ||
+        (assignments.IT_MANAGER && assignments.IT_MANAGER.length > 0)
 
-      // Create new assignments
-      const assignmentsToCreate: Array<{
-        clientId: string
-        userId: string
-        role: string
-      }> = []
+      // Only update assignments if there are actual assignments to set
+      // This prevents deleting assignments when only other fields are being updated
+      if (hasAssignments) {
+        // Delete existing assignments for this client
+        await (db as any).clientEngineerAssignment.deleteMany({
+          where: { clientId: params.id },
+        })
 
-      if (assignments.SE) {
-        assignments.SE.forEach(userId => {
-          assignmentsToCreate.push({
-            clientId: params.id,
-            userId,
-            role: ClientEngineerRole.SE as string,
+        // Create new assignments
+        const assignmentsToCreate: Array<{
+          id: string
+          clientId: string
+          userId: string
+          role: string
+          updatedAt: Date
+        }> = []
+
+        if (assignments.SE) {
+          assignments.SE.forEach(userId => {
+            assignmentsToCreate.push({
+              id: crypto.randomUUID(),
+              clientId: params.id,
+              userId,
+              role: ClientEngineerRole.SE as string,
+              updatedAt: new Date(),
+            })
           })
-        })
-      }
+        }
 
-      if (assignments.PRIMARY) {
-        assignments.PRIMARY.forEach(userId => {
-          assignmentsToCreate.push({
-            clientId: params.id,
-            userId,
-            role: ClientEngineerRole.PRIMARY as string,
+        if (assignments.PRIMARY) {
+          assignments.PRIMARY.forEach(userId => {
+            assignmentsToCreate.push({
+              id: crypto.randomUUID(),
+              clientId: params.id,
+              userId,
+              role: ClientEngineerRole.PRIMARY as string,
+              updatedAt: new Date(),
+            })
           })
-        })
-      }
+        }
 
-      if (assignments.SECONDARY) {
-        assignments.SECONDARY.forEach(userId => {
-          assignmentsToCreate.push({
-            clientId: params.id,
-            userId,
-            role: ClientEngineerRole.SECONDARY as string,
+        if (assignments.SECONDARY) {
+          assignments.SECONDARY.forEach(userId => {
+            assignmentsToCreate.push({
+              id: crypto.randomUUID(),
+              clientId: params.id,
+              userId,
+              role: ClientEngineerRole.SECONDARY as string,
+              updatedAt: new Date(),
+            })
           })
-        })
-      }
+        }
 
-      if (assignments.GRCE) {
-        assignments.GRCE.forEach(userId => {
-          assignmentsToCreate.push({
-            clientId: params.id,
-            userId,
-            role: ClientEngineerRole.GRCE as string,
+        if (assignments.GRCE) {
+          assignments.GRCE.forEach(userId => {
+            assignmentsToCreate.push({
+              id: crypto.randomUUID(),
+              clientId: params.id,
+              userId,
+              role: ClientEngineerRole.GRCE as string,
+              updatedAt: new Date(),
+            })
           })
-        })
-      }
+        }
 
-      if (assignments.IT_MANAGER) {
-        assignments.IT_MANAGER.forEach(userId => {
-          assignmentsToCreate.push({
-            clientId: params.id,
-            userId,
-            role: ClientEngineerRole.IT_MANAGER as string,
+        if (assignments.IT_MANAGER) {
+          assignments.IT_MANAGER.forEach(userId => {
+            assignmentsToCreate.push({
+              id: crypto.randomUUID(),
+              clientId: params.id,
+              userId,
+              role: ClientEngineerRole.IT_MANAGER as string,
+              updatedAt: new Date(),
+            })
           })
-        })
-      }
+        }
 
-      // Create all assignments
-      if (assignmentsToCreate.length > 0) {
-        await (db as any).clientEngineerAssignment.createMany({
-          data: assignmentsToCreate,
-          skipDuplicates: true,
-        })
+        // Create all assignments
+        if (assignmentsToCreate.length > 0) {
+          await (db as any).clientEngineerAssignment.createMany({
+            data: assignmentsToCreate,
+            skipDuplicates: true,
+          })
+        }
       }
 
       // Update name fields from assignments for backward compatibility
       // This ensures name fields stay in sync with assignments
       const allAssignments = await (db as any).clientEngineerAssignment.findMany({
         where: { clientId: params.id },
-        include: { user: { select: { name: true } } },
+        include: { User: { select: { name: true } } },
       })
 
       const seUsers = (allAssignments as any[])

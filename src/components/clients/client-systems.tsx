@@ -104,7 +104,12 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
       const res = await fetch(`/api/clients/${clientId}/systems`)
       if (res.ok) {
         const data = await res.json()
-        setClientSystems(data)
+        // Normalize the data: API returns System (capitalized), component expects system (lowercase)
+        const normalized = data.map((item: any) => ({
+          ...item,
+          system: item.System || item.system, // Handle both cases
+        }))
+        setClientSystems(normalized)
       }
     } catch (error) {
       console.error('Error fetching client systems:', error)
@@ -150,7 +155,7 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
         method: 'DELETE',
       })
       if (res.ok) {
-        setClientSystems(prev => prev.filter(cs => cs.system.id !== systemId))
+        setClientSystems(prev => prev.filter(cs => cs.system?.id !== systemId))
       }
     } catch (error) {
       console.error('Error removing system:', error)
@@ -159,7 +164,8 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
 
   // Group systems by category
   const groupedSystems = clientSystems.reduce((acc, cs) => {
-    const category = cs.system.category
+    const category = cs.system?.category
+    if (!category) return acc // Skip if system or category is undefined
     if (!acc[category]) acc[category] = []
     acc[category].push(cs)
     return acc
@@ -167,7 +173,7 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
 
   // Get systems not yet assigned to client
   const availableSystems = allSystems.filter(
-    s => !clientSystems.some(cs => cs.system.id === s.id)
+    s => !clientSystems.some(cs => cs.system?.id === s.id)
   )
 
   // Group available systems by category
@@ -221,6 +227,7 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
               </div>
               <div className="space-y-2">
                 {systems.map(cs => {
+                  if (!cs.system) return null // Skip if system is undefined
                   const Icon = categoryIcons[cs.system.category] || Boxes
                   const isExpanded = expandedSystem === cs.system.id
                   
@@ -241,7 +248,7 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
                           <div>
                             <span className="font-medium">{cs.system.name}</span>
                             <span className="text-xs ml-2 opacity-60">
-                              {cs.system.checkItems.length} check items
+                              {cs.system.checkItems?.length || 0} check items
                             </span>
                           </div>
                         </div>
@@ -266,7 +273,7 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t border-white/10">
                           <ul className="mt-3 space-y-2">
-                            {cs.system.checkItems.map(item => (
+                            {cs.system.checkItems?.map(item => (
                               <li
                                 key={item.id}
                                 className="flex items-start gap-2 text-sm"

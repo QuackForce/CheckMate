@@ -193,9 +193,15 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
       // Fetch role breakdown and teams
       setLoadingRoleBreakdown(true)
       fetch(`/api/users/${editingUser.id}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch user data: ${res.status} ${res.statusText}`)
+          }
+          return res.json()
+        })
         .then(data => {
-          if (data.roleBreakdown) {
+          console.log('User data fetched:', { roleBreakdown: data.roleBreakdown, totalUniqueClients: data.totalUniqueClients })
+          if (data.roleBreakdown && typeof data.roleBreakdown === 'object') {
             setRoleBreakdown(data.roleBreakdown)
           } else {
             setRoleBreakdown({})

@@ -226,7 +226,7 @@ async function getTeamData() {
       image: user.image,
       jobTitle: user.jobTitle || null,
       team: user.team || null,
-      managerId: user.UserId || null,
+      managerId: user.managerId || null,
       manager: user.User || null,
       notionTeamMemberId: user.notionTeamMemberId,
       notionTeamMemberName: user.notionTeamMemberName,

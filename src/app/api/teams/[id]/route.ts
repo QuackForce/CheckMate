@@ -27,9 +27,18 @@ export async function GET(
             UserTeam: true,
           },
         },
-        users: {
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            jobTitle: true,
+          },
+        },
+        UserTeam: {
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -63,9 +72,9 @@ export async function GET(
         },
       })
       clients = clientTeams.map((ct: any) => ({
-        id: ct.client.id,
-        name: ct.client.name,
-        status: ct.client.status,
+        id: ct.Client.id,
+        name: ct.Client.name,
+        status: ct.Client.status,
         clientTeamId: ct.id, // Include the join table ID for removal
       }))
     } catch (error) {
@@ -73,11 +82,16 @@ export async function GET(
       console.error('Error fetching team clients:', error)
     }
 
-    // Transform the response to include users array
+    // Transform the response to match frontend expectations
     const teamWithUsers = {
       ...team,
-      members: team.users.map((ut: any) => ut.user),
+      manager: team.User || null,
+      members: team.UserTeam?.map((ut: any) => ut.User) || [],
       clients,
+      _count: {
+        clients: team._count?.ClientTeam || 0,
+        users: team._count?.UserTeam || 0,
+      },
     }
 
     return NextResponse.json(teamWithUsers)
@@ -192,9 +206,18 @@ export async function PATCH(
             UserTeam: true,
           },
         },
-        users: {
+        User: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            jobTitle: true,
+          },
+        },
+        UserTeam: {
           include: {
-            user: {
+            User: {
               select: {
                 id: true,
                 name: true,
@@ -224,19 +247,25 @@ export async function PATCH(
         },
       })
       clients = clientTeams.map((ct: any) => ({
-        id: ct.client.id,
-        name: ct.client.name,
-        status: ct.client.status,
+        id: ct.Client.id,
+        name: ct.Client.name,
+        status: ct.Client.status,
         clientTeamId: ct.id,
       }))
     } catch (error) {
       console.error('Error fetching team clients:', error)
     }
 
+    // Transform the response to match frontend expectations
     const teamWithUsers = {
       ...updatedTeam,
-      members: updatedTeam?.users.map((ut: any) => ut.user) || [],
+      manager: updatedTeam?.User || null,
+      members: updatedTeam?.UserTeam?.map((ut: any) => ut.User) || [],
       clients,
+      _count: {
+        clients: updatedTeam?._count?.ClientTeam || 0,
+        users: updatedTeam?._count?.UserTeam || 0,
+      },
     }
 
     return NextResponse.json(teamWithUsers)

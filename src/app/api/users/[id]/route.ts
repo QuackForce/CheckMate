@@ -68,7 +68,7 @@ export async function GET(
     const userTeams = await (db as any).userTeam.findMany({
       where: { userId: params.id },
       include: {
-        team: {
+        Team: {
           select: {
             id: true,
             name: true,
@@ -83,7 +83,7 @@ export async function GET(
       ...user,
       roleBreakdown,
       totalUniqueClients: uniqueClientIds.size,
-      teams: userTeams.map((ut: any) => ut.team),
+      teams: userTeams.map((ut: any) => ut.Team),
     })
   } catch (error: any) {
     console.error('Error fetching user:', error)

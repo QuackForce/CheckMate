@@ -21,7 +21,13 @@ export async function GET(
       return NextResponse.json({ error: 'System not found' }, { status: 404 })
     }
 
-    return NextResponse.json(system)
+    // Normalize SystemCheckItem to checkItems for frontend compatibility
+    const normalizedSystem = {
+      ...system,
+      checkItems: (system as any).SystemCheckItem || [],
+    }
+
+    return NextResponse.json(normalizedSystem)
   } catch (error: any) {
     console.error('Error fetching system:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -60,7 +66,13 @@ export async function PATCH(
       include: { SystemCheckItem: true },
     })
 
-    return NextResponse.json(system)
+    // Normalize SystemCheckItem to checkItems for frontend compatibility
+    const normalizedSystem = {
+      ...system,
+      checkItems: (system as any).SystemCheckItem || [],
+    }
+
+    return NextResponse.json(normalizedSystem)
   } catch (error: any) {
     console.error('Error updating system:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

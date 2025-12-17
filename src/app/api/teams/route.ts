@@ -45,7 +45,17 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(teams)
+    // Map the response to match frontend expectations
+    const mappedTeams = teams.map((team: any) => ({
+      ...team,
+      manager: team.User || null,
+      _count: {
+        clients: team._count?.ClientTeam || 0,
+        users: team._count?.UserTeam || 0,
+      },
+    }))
+
+    return NextResponse.json(mappedTeams)
   } catch (error: any) {
     console.error('Error fetching teams:', error)
     return NextResponse.json(
