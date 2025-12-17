@@ -351,27 +351,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               }
               
               if (dbUser) {
+                // User found - set session data from database
+                // This ensures we always have fresh, accurate data
                 session.user.id = dbUser.id
                 session.user.role = (dbUser.role || 'CONSULTANT') as UserRole
                 session.user.image = dbUser.image
                 session.user.name = dbUser.name
-                 session.user.email = dbUser.email ?? ''
+                session.user.email = dbUser.email ?? ''
                 session.user.notionTeamMemberId = dbUser.notionTeamMemberId
                 console.log(`[Auth] Session created for user ${dbUser.id} (${dbUser.email}) with role ${dbUser.role}`)
               } else {
-                // Fallback to token data if user not found
-                session.user.id = (token.id as string) || 'unknown'
-                session.user.role = (token.role as UserRole) || 'CONSULTANT'
-                session.user.image = token.image as string | null | undefined
-                session.user.name = token.name as string | null | undefined
-                console.log(`[Auth] User not found in DB, using token data for ${token.id || token.email}`)
+                // User not found in database - invalidate session for security
+                // This could happen if user was deleted or token is invalid
+                console.warn(`[Auth] ⚠️ User ${token.id || token.email} not found in database - invalidating session`)
+                session.user.id = 'invalid'
+                session.user.role = 'VIEWER' // Minimal permissions
+                session.user.email = ''
+                session.user.name = null
+                session.user.image = null
               }
             } catch (dbError) {
+              // Database error - invalidate session to prevent unauthorized access
               console.error('[Auth] Error fetching user in session callback:', dbError)
-              // Fallback to token data
-              session.user.id = (token.id as string) || 'unknown'
-              session.user.role = (token.role as UserRole) || 'CONSULTANT'
-              session.user.image = token.image as string | null | undefined
+              session.user.id = 'error'
+              session.user.role = 'VIEWER' // Minimal permissions
+              session.user.email = ''
+              session.user.name = null
+              session.user.image = null
             }
           } else if (user?.id) {
             // Database session mode (if we switch back)
@@ -380,10 +386,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             session.user.notionTeamMemberId = (user as any).notionTeamMemberId
             console.log(`[Auth] Session created for user ${user.id} (${session.user.email}) with role ${session.user.role}`)
           } else {
-            // Fallback if neither user nor token is available
-            console.warn('[Auth] ⚠️ Session callback: No user or token data available')
-            session.user.id = 'unknown'
-            session.user.role = 'CONSULTANT'
+            // Fallback if neither user nor token is available - invalidate session
+            console.warn('[Auth] ⚠️ Session callback: No user or token data available - invalidating session')
+            session.user.id = 'invalid'
+            session.user.role = 'VIEWER' // Most restrictive role
+            session.user.email = ''
+            session.user.name = null
+            session.user.image = null
           }
         }
         return session
