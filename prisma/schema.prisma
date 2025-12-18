@@ -136,6 +136,8 @@ model Client {
   ClientSystem                          ClientSystem[]
   ClientTeam                            ClientTeam[]
   InfraCheck                            InfraCheck[]
+  ComplianceAudit                        ComplianceAudit[]
+  AccessReview                          AccessReview[]
 
   @@index([grceEngineerId])
   @@index([itManagerId])
@@ -199,6 +201,24 @@ model Framework {
   source      SystemSource      @default(APP)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime
+  AuditTypes  AuditType[]
+}
+
+model AuditType {
+  id          String   @id @default(cuid())
+  frameworkId String
+  name        String   // e.g., "Type I", "Type II", "Surveillance"
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  Framework   Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  
+  @@unique([frameworkId, name])
+  @@index([frameworkId])
+  @@index([isActive])
 }
 
 model RoleConfiguration {
@@ -385,6 +405,106 @@ model TimerSession {
   User           User       @relation(fields: [userId], references: [id])
 }
 
+model ComplianceAudit {
+  id              String   @id @default(cuid())
+  clientId        String
+  framework       String   // "SOC2", "ISO27001", "HIPAA"
+  auditType       String   // "Type I", "Type II", "Surveillance", "Recertification", "Risk Assessment"
+  lastAuditDate   DateTime // When last audit was completed
+  auditPeriod     Int      // Period in months (12 for annual, 36 for 3-year)
+  nextAuditDue    DateTime // Calculated: lastAuditDate + auditPeriod, but editable
+  actualDate      DateTime? // When audit actually happened (may differ from scheduled)
+  status          String   // "SCHEDULED", "IN_PROGRESS", "COMPLETED", "OVERDUE"
+  auditor         String?  // Auditor name/company
+  evidenceUrl     String?  // Link to audit report
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?  // Who created this audit period
+  updatedById     String?  // Who last updated
+  
+  Client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  CreatedBy       User?    @relation("CreatedAudits", fields: [createdById], references: [id])
+  UpdatedBy       User?    @relation("UpdatedAudits", fields: [updatedById], references: [id])
+  
+  @@index([clientId])
+  @@index([framework])
+  @@index([status])
+  @@index([nextAuditDue])
+}
+
+model AccessReview {
+  id              String   @id @default(cuid())
+  clientId        String
+  framework       String?  // "SOC2", "ISO27001", "HIPAA", or null for general
+  reviewDate      DateTime // When review is scheduled/due
+  dueDate         DateTime
+  cadence         String   // "QUARTERLY", "SEMI_ANNUAL", "ANNUAL", "CUSTOM"
+  customDays      Int?     // For custom cadence
+  status          String   // "SCHEDULED", "IN_PROGRESS", "COMPLETED", "OVERDUE"
+  assignedToId    String?  // User ID (typically GRC Engineer)
+  completedById   String?  // User ID (who actually completed it)
+  completedAt     DateTime? // When it was completed
+  evidenceUrl     String?  // Link to review report/documentation
+  notes           String?
+  totalTimeSeconds Int     @default(0) // Time spent on review
+  autoSchedule    Boolean  @default(true) // Whether to auto-schedule next
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  Client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  AssignedTo      User?    @relation("AssignedAccessReviews", fields: [assignedToId], references: [id])
+  CompletedBy     User?    @relation("CompletedAccessReviews", fields: [completedById], references: [id])
+  
+  // Audit trail
+  AuditLog        AccessReviewAuditLog[]
+  TimerSession    AccessReviewTimerSession[]
+  
+  @@index([clientId])
+  @@index([reviewDate])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([framework])
+  @@index([completedAt])
+}
+
+// Audit trail for access reviews
+model AccessReviewAuditLog {
+  id              String   @id @default(cuid())
+  reviewId        String
+  action          String   // "CREATED", "UPDATED", "COMPLETED", "EVIDENCE_ADDED", "NOTES_UPDATED"
+  field           String?  // Which field was changed
+  oldValue        String?  // Previous value
+  newValue        String?  // New value
+  userId          String   // Who made the change
+  timestamp       DateTime @default(now())
+  notes           String?  // Additional context
+  
+  Review          AccessReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  User            User         @relation(fields: [userId], references: [id])
+  
+  @@index([reviewId])
+  @@index([userId])
+  @@index([timestamp])
+}
+
+// Time tracking for access reviews
+model AccessReviewTimerSession {
+  id              String   @id @default(cuid())
+  reviewId        String
+  userId          String
+  startTime       DateTime
+  endTime         DateTime?
+  durationSeconds Int?     // Calculated duration
+  notes           String?
+  
+  Review          AccessReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  User            User         @relation(fields: [userId], references: [id])
+  
+  @@index([reviewId])
+  @@index([userId])
+}
+
 model User {
   id                                             String                     @id
   name                                           String?
@@ -430,6 +550,12 @@ model User {
   User                                           User?                      @relation("UserToUser", fields: [managerId], references: [id])
   other_User                                     User[]                     @relation("UserToUser")
   UserTeam                                       UserTeam[]
+  CreatedAudits                                  ComplianceAudit[]           @relation("CreatedAudits")
+  UpdatedAudits                                  ComplianceAudit[]           @relation("UpdatedAudits")
+  AssignedAccessReviews                          AccessReview[]             @relation("AssignedAccessReviews")
+  CompletedAccessReviews                         AccessReview[]             @relation("CompletedAccessReviews")
+  AccessReviewAuditLog                           AccessReviewAuditLog[]
+  AccessReviewTimerSession                       AccessReviewTimerSession[]
 }
 
 model UserTeam {

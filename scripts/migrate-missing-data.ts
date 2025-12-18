@@ -252,8 +252,22 @@ async function migrateMissingData(dryRun: boolean = true) {
     (s) => s.id,
     async (system) => {
       // Remove relations
-      const { ClientSystem, ...systemData } = system as any
+      const { ClientSystem, SystemCheckItem, ...systemData } = system as any
       return (newDb as any).system.create({ data: systemData })
+    },
+    dryRun
+  ))
+
+  // Migrate SystemCheckItem (check items for systems)
+  stats.push(await migrateTable(
+    'SystemCheckItem',
+    () => (oldDb as any).systemCheckItem.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).systemCheckItem.findMany({ orderBy: { createdAt: 'asc' } }),
+    (item) => item.id,
+    async (item) => {
+      // Remove relations
+      const { System, ...itemData } = item as any
+      return (newDb as any).systemCheckItem.create({ data: itemData })
     },
     dryRun
   ))

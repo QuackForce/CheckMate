@@ -353,9 +353,9 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
   ].filter(link => link.url)
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface-950/80 backdrop-blur-xl border-b border-surface-800">
+      <div className="sticky top-0 z-[110] bg-surface-950/80 backdrop-blur-xl border-b border-surface-800">
         <div className="px-6 py-4">
           <div className="flex items-center gap-4 mb-4">
             <Link 
@@ -422,7 +422,8 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 space-y-6">
         {/* Quick Links */}
         {quickLinks.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -937,6 +938,7 @@ export function ClientDetailView({ client, canEdit = true }: ClientDetailViewPro
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 

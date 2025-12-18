@@ -20,6 +20,28 @@ async function getCheckStats() {
   }
 }
 
+async function getAccessReviewStats() {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const [overdueReviews, totalReviews] = await Promise.all([
+      db.accessReview.count({
+        where: {
+          status: { not: 'COMPLETED' },
+          dueDate: { lt: today },
+        },
+      }),
+      db.accessReview.count(),
+    ])
+    
+    return { overdueReviews, totalReviews }
+  } catch (error) {
+    console.error('Error fetching access review stats:', error)
+    return { overdueReviews: 0, totalReviews: 0 }
+  }
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -50,12 +72,20 @@ export default async function DashboardLayout({
     role: userRole as 'IT_ENGINEER' | 'ADMIN' | 'VIEWER' | 'IT_MANAGER' | 'CONSULTANT',
   }
 
-  const checkStats = await getCheckStats()
+  const [checkStats, reviewStats] = await Promise.all([
+    getCheckStats(),
+    getAccessReviewStats(),
+  ])
+
+  const stats = {
+    ...checkStats,
+    ...reviewStats,
+  }
 
   const SidebarWrapper = USE_NEW_SIDEBAR ? NewMobileSidebarWrapper : MobileSidebarWrapper
 
   return (
-    <SidebarWrapper user={user} stats={checkStats}>
+    <SidebarWrapper user={user} stats={stats}>
       {children}
     </SidebarWrapper>
   )

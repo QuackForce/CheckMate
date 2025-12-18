@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ClipboardCheck, GraduationCap, Loader2, Shield, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ComplianceSummarySection } from './compliance-summary-section'
 
 interface System {
   id: string
@@ -69,7 +70,7 @@ export function ClientCompliance({
 
   if (loading) {
     return (
-      <div className="card p-6">
+      <div id="compliance" className="card p-6 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-4">Compliance</h2>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="w-6 h-6 animate-spin text-surface-500" />
@@ -79,7 +80,7 @@ export function ClientCompliance({
   }
 
   return (
-    <div className="card p-6">
+    <div id="compliance" className="card p-6 scroll-mt-6">
       <h2 className="text-lg font-semibold text-white mb-4">Compliance</h2>
       
       {/* GRC, Security Training, and Frameworks - Inline */}
@@ -174,6 +175,9 @@ export function ClientCompliance({
           )}
         </div>
       </div>
+
+      {/* Compliance Summary */}
+      <ComplianceSummarySection clientId={clientId} />
     </div>
   )
 }

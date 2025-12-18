@@ -315,6 +315,10 @@ export function ClientsTableWrapper() {
     setShowMyClientsOnly(newValue)
     setPage(1) // Reset to first page when toggling
     
+    // Notify parent component when filter changes
+    const event = new CustomEvent('clients-filter-change', { detail: newValue })
+    window.dispatchEvent(event)
+    
     // Update URL
     const params = new URLSearchParams(searchParams.toString())
     if (newValue) {
@@ -691,22 +695,18 @@ export function ClientsTableWrapper() {
             isLoading={loading && searchInput !== search}
           />
 
-          {/* My Clients Only Checkbox - moved to right */}
+          {/* My Clients Toggle - matching checks page design */}
           <button
             onClick={handleMyClientsToggle}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
               showMyClientsOnly
-                ? 'bg-brand-500/10 text-brand-400 border-brand-500/30 hover:bg-brand-500/20'
-                : 'text-surface-400 border-surface-700 hover:bg-surface-800 hover:text-white'
+                ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
+                : 'bg-surface-800 text-surface-400 border border-surface-700 hover:bg-surface-700'
             )}
           >
-            {showMyClientsOnly ? (
-              <CheckSquare className="w-4 h-4" />
-            ) : (
-              <Square className="w-4 h-4" />
-            )}
-            <span className="text-sm font-medium">My Clients Only</span>
+            <Users className="w-4 h-4" />
+            My Clients
           </button>
 
           {/* Results count */}

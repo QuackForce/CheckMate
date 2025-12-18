@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import { 
   Plus, 
@@ -18,12 +19,24 @@ import {
   Cloud,
   Sparkles,
   Download,
+  ChevronDown,
+  FileText,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
 import { SearchInput } from '@/components/ui/search-input'
 import { hasPermission } from '@/lib/permissions'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 
 interface Framework {
   id: string
@@ -32,6 +45,14 @@ interface Framework {
   description: string | null
   isActive: boolean
   source: 'APP' | 'NOTION' | 'SEEDED'
+}
+
+interface AuditType {
+  id: string
+  name: string
+  description: string | null
+  isActive: boolean
+  order: number
 }
 
 const categoryLabels: Record<string, string> = {
@@ -75,6 +96,20 @@ export default function FrameworksSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // Audit types state (for framework edit sheet)
+  const [frameworkAuditTypes, setFrameworkAuditTypes] = useState<AuditType[]>([])
+  const [loadingAuditTypes, setLoadingAuditTypes] = useState(false)
+  const [editingAuditType, setEditingAuditType] = useState<AuditType | null>(null)
+  const [auditTypeFormData, setAuditTypeFormData] = useState({
+    name: '',
+    description: '',
+    order: 0,
+  })
+  // Audit type counts for display in cards
+  const [auditTypeCounts, setAuditTypeCounts] = useState<Record<string, number>>({})
+  // Delete confirmation state
+  const [auditTypeToDelete, setAuditTypeToDelete] = useState<AuditType | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -82,6 +117,13 @@ export default function FrameworksSettingsPage() {
     category: 'SECURITY',
     description: '',
   })
+  
+  // Collapsible sections state (accordion - only one open at a time)
+  const [openSection, setOpenSection] = useState<string | null>(null)
+  
+  const toggleSection = (section: string) => {
+    setOpenSection(openSection === section ? null : section)
+  }
 
   useEffect(() => {
     fetchFrameworks()
@@ -93,11 +135,35 @@ export default function FrameworksSettingsPage() {
       if (res.ok) {
         const data = await res.json()
         setFrameworks(data)
+        // Fetch audit type counts for all frameworks
+        fetchAuditTypeCounts(data)
       }
     } catch (error) {
       console.error('Failed to fetch frameworks:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAuditTypeCounts = async (frameworks: Framework[]) => {
+    try {
+      const counts: Record<string, number> = {}
+      await Promise.all(
+        frameworks.map(async (framework) => {
+          try {
+            const res = await fetch(`/api/audit-types?frameworkId=${framework.id}&activeOnly=false`)
+            if (res.ok) {
+              const auditTypes = await res.json()
+              counts[framework.id] = auditTypes.length
+            }
+          } catch (error) {
+            counts[framework.id] = 0
+          }
+        })
+      )
+      setAuditTypeCounts(counts)
+    } catch (error) {
+      console.error('Failed to fetch audit type counts:', error)
     }
   }
 
@@ -138,7 +204,7 @@ export default function FrameworksSettingsPage() {
         toast.success('Framework created')
         setShowNewModal(false)
         setFormData({ name: '', category: 'SECURITY', description: '' })
-        fetchFrameworks()
+        await fetchFrameworks()
       } else {
         const error = await res.json()
         toast.error(error.error || 'Failed to create framework')
@@ -164,7 +230,7 @@ export default function FrameworksSettingsPage() {
       if (res.ok) {
         toast.success('Framework updated')
         setEditingFramework(null)
-        fetchFrameworks()
+        await fetchFrameworks()
       } else {
         toast.error('Failed to update framework')
       }
@@ -207,13 +273,146 @@ export default function FrameworksSettingsPage() {
     }
   }
 
-  const openEditModal = (framework: Framework) => {
+  const openEditModal = async (framework: Framework) => {
     setFormData({
       name: framework.name,
       category: framework.category,
       description: framework.description || '',
     })
     setEditingFramework(framework)
+    
+    // Fetch audit types for this framework
+    setLoadingAuditTypes(true)
+    try {
+      const res = await fetch(`/api/audit-types?frameworkId=${framework.id}&activeOnly=false`)
+      if (res.ok) {
+        const data = await res.json()
+        setFrameworkAuditTypes(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch audit types:', error)
+    } finally {
+      setLoadingAuditTypes(false)
+    }
+  }
+
+  const openAuditTypeForm = (auditType?: AuditType) => {
+    if (auditType) {
+      setEditingAuditType(auditType)
+      setAuditTypeFormData({
+        name: auditType.name,
+        description: auditType.description || '',
+        order: auditType.order,
+      })
+    } else {
+      // Create new - use a placeholder object to indicate "new" mode
+      setEditingAuditType({ id: '', name: '', description: null, isActive: true, order: 0 } as AuditType)
+      setAuditTypeFormData({ name: '', description: '', order: 0 })
+    }
+  }
+
+  const handleAuditTypeSave = async () => {
+    if (!editingFramework || !auditTypeFormData.name.trim() || !editingAuditType) {
+      toast.error('Name is required')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const isEdit = editingAuditType.id !== ''
+      const url = isEdit
+        ? `/api/audit-types/${editingAuditType.id}`
+        : '/api/audit-types'
+      
+      const method = isEdit ? 'PATCH' : 'POST'
+      const body = isEdit
+        ? { name: auditTypeFormData.name, description: auditTypeFormData.description, order: auditTypeFormData.order }
+        : { frameworkId: editingFramework.id, name: auditTypeFormData.name, description: auditTypeFormData.description, order: auditTypeFormData.order }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (res.ok) {
+        toast.success(isEdit ? 'Audit type updated' : 'Audit type created')
+        setEditingAuditType(null)
+        setAuditTypeFormData({ name: '', description: '', order: 0 })
+        // Refresh audit types
+        if (editingFramework) {
+          const res = await fetch(`/api/audit-types?frameworkId=${editingFramework.id}&activeOnly=false`)
+          if (res.ok) {
+            const data = await res.json()
+            setFrameworkAuditTypes(data)
+            // Update count in the card display
+            setAuditTypeCounts(prev => ({ ...prev, [editingFramework.id]: data.length }))
+          }
+        }
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to save audit type')
+      }
+    } catch (error) {
+      toast.error('Failed to save audit type')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAuditTypeDelete = async () => {
+    if (!auditTypeToDelete || !editingFramework) return
+
+    try {
+      const res = await fetch(`/api/audit-types/${auditTypeToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        toast.success('Audit type deleted')
+        setAuditTypeToDelete(null)
+        // Refresh audit types
+        const res = await fetch(`/api/audit-types?frameworkId=${editingFramework.id}&activeOnly=false`)
+        if (res.ok) {
+          const data = await res.json()
+          setFrameworkAuditTypes(data)
+          // Update count in the card display
+          setAuditTypeCounts(prev => ({ ...prev, [editingFramework.id]: data.length }))
+        }
+      } else {
+        const error = await res.json()
+        toast.error(error.error || 'Failed to delete audit type')
+        setAuditTypeToDelete(null)
+      }
+    } catch (error) {
+      toast.error('Failed to delete audit type')
+      setAuditTypeToDelete(null)
+    }
+  }
+
+  const handleAuditTypeToggleActive = async (auditType: AuditType) => {
+    if (!editingFramework) return
+
+    try {
+      const res = await fetch(`/api/audit-types/${auditType.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !auditType.isActive }),
+      })
+
+      if (res.ok) {
+        // Refresh audit types
+        const res = await fetch(`/api/audit-types?frameworkId=${editingFramework.id}&activeOnly=false`)
+        if (res.ok) {
+          const data = await res.json()
+          setFrameworkAuditTypes(data)
+          // Update count in the card display
+          setAuditTypeCounts(prev => ({ ...prev, [editingFramework.id]: data.length }))
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to update audit type')
+    }
   }
 
   // Filter frameworks based on search query
@@ -381,6 +580,20 @@ export default function FrameworksSettingsPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* Audit Types Display */}
+                    <div className="mt-3 pt-3 border-t border-surface-700/50">
+                      <div className="flex items-center gap-1.5 text-xs text-surface-400">
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Audit Types</span>
+                        {auditTypeCounts[framework.id] !== undefined && (
+                          <span className="text-surface-500">
+                            ({auditTypeCounts[framework.id]})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
                   </div>
                 )
               })}
@@ -408,26 +621,46 @@ export default function FrameworksSettingsPage() {
         </div>
       )}
 
-      {/* New/Edit Modal */}
-      {(showNewModal || editingFramework) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-surface-900 rounded-xl p-6 w-full max-w-md border border-surface-700 relative">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                {editingFramework ? 'Edit Framework' : 'New Framework'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowNewModal(false)
-                  setEditingFramework(null)
-                }}
-                className="p-1 hover:bg-surface-800 rounded"
-              >
-                <X className="w-5 h-5 text-surface-400" />
-              </button>
-            </div>
+      {/* New/Edit Sheet */}
+      <Sheet open={showNewModal || !!editingFramework} onOpenChange={(open) => {
+        if (!open && !auditTypeToDelete) {
+          setShowNewModal(false)
+          setEditingFramework(null)
+          setEditingAuditType(null)
+          setFrameworkAuditTypes([])
+          setAuditTypeFormData({ name: '', description: '', order: 0 })
+          setOpenSection(null) // Reset sections (all closed)
+        }
+      }}>
+        <SheetContent side="right" className="w-[600px] sm:w-[700px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              {editingFramework ? 'Edit Framework' : 'New Framework'}
+            </SheetTitle>
+            <SheetDescription>
+              {editingFramework ? 'Update framework details and manage audit types' : 'Create a new compliance framework'}
+            </SheetDescription>
+          </SheetHeader>
 
-            <div className="space-y-4">
+          <div className="mt-6">
+              {/* Framework Details Section */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => toggleSection('frameworkDetails')}
+                  className="w-full flex items-center justify-between p-2 hover:bg-surface-800/50 rounded-lg transition-colors"
+                >
+                  <label className="block text-sm font-medium text-surface-300 cursor-pointer flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Framework Details
+                  </label>
+                  <ChevronDown className={cn(
+                    'w-4 h-4 text-surface-400 transition-transform',
+                    openSection === 'frameworkDetails' && 'rotate-180'
+                  )} />
+                </button>
+                {openSection === 'frameworkDetails' && (
+                <div className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-surface-300 mb-1">
                   Name *
@@ -469,32 +702,320 @@ export default function FrameworksSettingsPage() {
                 />
               </div>
             </div>
+                )}
+              </div>
 
-            <div className="flex justify-end gap-2 mt-6">
+              {/* Audit Types Section - Only show when editing */}
+              {editingFramework && (
+                <div className="mt-6 pt-6 border-t border-surface-700">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection('auditTypes')}
+                    className="w-full flex items-center justify-between p-2 hover:bg-surface-800/50 rounded-lg transition-colors mb-3"
+                  >
+                    <label className="flex items-center gap-2 text-sm font-medium text-white cursor-pointer">
+                      <FileText className="w-4 h-4" />
+                      Audit Types
+                    </label>
+                    <ChevronDown className={cn(
+                      'w-4 h-4 text-surface-400 transition-transform',
+                      openSection === 'auditTypes' && 'rotate-180'
+                    )} />
+                  </button>
+
+                  {openSection === 'auditTypes' && (
+                  <>
+
+                  {loadingAuditTypes ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-surface-500" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {frameworkAuditTypes.length > 0 ? (
+                        frameworkAuditTypes.map((auditType) => (
+                          <div
+                            key={auditType.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              auditType.isActive
+                                ? "bg-surface-800/50 border-surface-700"
+                                : "bg-surface-900/50 border-surface-800 opacity-60"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className={cn(
+                                "text-xs px-2 py-1 rounded",
+                                auditType.isActive
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-surface-700 text-surface-500"
+                              )}>
+                                {auditType.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-white">{auditType.name}</div>
+                                {auditType.description && (
+                                  <div className="text-xs text-surface-400 mt-0.5">{auditType.description}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                onClick={() => handleAuditTypeToggleActive(auditType)}
+                                className="p-1.5 hover:bg-surface-700 rounded transition-colors"
+                                title={auditType.isActive ? 'Deactivate' : 'Activate'}
+                              >
+                                {auditType.isActive ? (
+                                  <Shield className="w-4 h-4 text-green-400" />
+                                ) : (
+                                  <Shield className="w-4 h-4 text-surface-500" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => openAuditTypeForm(auditType)}
+                                className="p-1.5 hover:bg-surface-700 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4 text-surface-400" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setAuditTypeToDelete(auditType)
+                                }}
+                                className="p-1.5 hover:bg-red-500/20 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-400" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 border border-dashed border-surface-700 rounded-lg">
+                          <FileText className="w-8 h-8 text-surface-600 mx-auto mb-2" />
+                          <p className="text-sm text-surface-400">No audit types yet</p>
+                          <p className="text-xs text-surface-500 mt-1">Add audit types for this framework</p>
+                        </div>
+                      )}
+                      
+                      {/* Add Type Button - Card Style */}
+                      {!editingAuditType && (
+                        <button
+                          type="button"
+                          onClick={() => openAuditTypeForm()}
+                          className="w-full flex items-center gap-2 p-3 bg-surface-800/50 border-2 border-dashed border-surface-600 rounded-lg hover:border-brand-500/50 hover:bg-surface-800 transition-colors"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center flex-shrink-0">
+                            <Plus className="w-4 h-4 text-green-400" />
+                          </div>
+                          <span className="text-sm text-surface-300">Add Audit Type</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Add/Edit Audit Type Form */}
+                  {editingAuditType && (
+                    <div className="mt-4 p-4 bg-surface-800/50 rounded-lg border border-surface-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-medium text-white">
+                          {editingAuditType.id ? 'Edit Audit Type' : 'New Audit Type'}
+                        </h4>
               <button
                 onClick={() => {
-                  setShowNewModal(false)
-                  setEditingFramework(null)
+                            setEditingAuditType(null)
+                            setAuditTypeFormData({ name: '', description: '', order: 0 })
+                          }}
+                          className="p-1 hover:bg-surface-700 rounded"
+                        >
+                          <X className="w-4 h-4 text-surface-400" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-surface-300 mb-1">
+                            Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={auditTypeFormData.name}
+                            onChange={e => setAuditTypeFormData({ ...auditTypeFormData, name: e.target.value })}
+                            className="input w-full text-sm"
+                            placeholder="e.g., Type I, Type II"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-surface-300 mb-1">
+                            Description
+                          </label>
+                          <textarea
+                            value={auditTypeFormData.description}
+                            onChange={e => setAuditTypeFormData({ ...auditTypeFormData, description: e.target.value })}
+                            className="input w-full text-sm"
+                            rows={2}
+                            placeholder="Optional description..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-surface-300 mb-1">
+                            Order
+                          </label>
+                          <input
+                            type="number"
+                            value={auditTypeFormData.order}
+                            onChange={e => setAuditTypeFormData({ ...auditTypeFormData, order: parseInt(e.target.value) || 0 })}
+                            className="input w-full text-sm"
+                            placeholder="0"
+                            min="0"
+                          />
+                          <p className="text-xs text-surface-500 mt-1">Lower numbers appear first</p>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2">
+                          <Button
+                            onClick={() => {
+                              setEditingAuditType(null)
+                              setAuditTypeFormData({ name: '', description: '', order: 0 })
+                            }}
+                            variant="outline"
+                            size="sm"
+              >
+                Cancel
+                          </Button>
+                          <Button
+                            onClick={handleAuditTypeSave}
+                            disabled={saving || !auditTypeFormData.name.trim()}
+                            size="sm"
+                            className="btn-primary"
+              >
+                {saving ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                                Saving...
+                              </>
+                ) : (
+                              editingAuditType ? 'Update' : 'Create'
+                )}
+                          </Button>
+            </div>
+          </div>
+        </div>
+      )}
+                  </>
+                  )}
+                </div>
+              )}
+          </div>
+
+          <SheetFooter className="mt-8">
+            <Button
+              onClick={() => {
+                setShowNewModal(false)
+                setEditingFramework(null)
+                setEditingAuditType(null)
+                setFrameworkAuditTypes([])
+                setAuditTypeFormData({ name: '', description: '', order: 0 })
+              }}
+              variant="outline"
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={editingFramework ? handleUpdate : handleCreate}
+              disabled={saving || !formData.name.trim()}
+              className="btn-primary"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingFramework ? 'Update Framework' : 'Create Framework'}
+                </>
+              )}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Audit Type Confirmation Modal */}
+      {auditTypeToDelete && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+          style={{ 
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            pointerEvents: 'auto'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setAuditTypeToDelete(null)
+            }
+          }}
+        >
+          <div 
+            className="card w-full max-w-md p-6 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30">
+                <AlertTriangle className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white">
+                  Delete Audit Type
+                </h3>
+                <p className="text-sm text-surface-400 mt-1">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-surface-800 rounded-lg">
+              <p className="text-sm text-surface-300">
+                Are you sure you want to delete{' '}
+                <span className="font-semibold text-white">
+                  "{auditTypeToDelete.name}"
+                </span>?
+              </p>
+              <p className="text-xs text-surface-500 mt-2">
+                This audit type will be permanently removed from the framework.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setAuditTypeToDelete(null)
                 }}
-                className="btn-ghost"
+                className="btn-secondary flex-1"
               >
                 Cancel
               </button>
               <button
-                onClick={editingFramework ? handleUpdate : handleCreate}
-                disabled={saving || !formData.name.trim()}
-                className="btn-primary flex items-center gap-2"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleAuditTypeDelete()
+                }}
+                className="btn-primary flex-1 bg-red-500 hover:bg-red-600"
               >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {editingFramework ? 'Update' : 'Create'}
+                Delete
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

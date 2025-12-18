@@ -33,6 +33,8 @@ interface BottomNavProps {
   stats?: {
     overdueCount: number
     totalChecks: number
+    overdueReviews: number
+    totalReviews: number
   }
 }
 
@@ -44,6 +46,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { name: 'Clients', href: '/clients', icon: Building2, permissions: ['clients:view_all', 'clients:view_own'] },
   { name: 'Checks', href: '/checks', icon: ClipboardCheck, permissions: ['checks:view_all', 'checks:view_own'] },
+  { name: 'Compliance', href: '/compliance', icon: Shield, permissions: ['clients:view_all', 'clients:view_own'] },
   { name: 'Schedule', href: '/schedule', icon: Calendar, permission: 'schedule:view' },
   { name: 'Users', href: '/team', icon: Users, permission: 'team:view' },
 ]
@@ -83,9 +86,12 @@ export function BottomNav({ user, stats }: BottomNavProps) {
         {filteredNavigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
           const isChecksLink = item.href === '/checks'
+          const isComplianceLink = item.href === '/compliance'
           const hasOverdue = isChecksLink && stats?.overdueCount !== undefined && stats.overdueCount > 0
           const hasTotal = isChecksLink && stats?.totalChecks !== undefined && stats.totalChecks > 0
-          const showBadge = hasOverdue || (hasTotal && !hasOverdue)
+          const hasOverdueReviews = isComplianceLink && stats?.overdueReviews !== undefined && stats.overdueReviews > 0
+          const hasTotalReviews = isComplianceLink && stats?.totalReviews !== undefined && stats.totalReviews > 0
+          const showBadge = hasOverdue || (hasTotal && !hasOverdue) || hasOverdueReviews || (hasTotalReviews && !hasOverdueReviews)
 
           return (
             <Link
@@ -103,11 +109,11 @@ export function BottomNav({ user, stats }: BottomNavProps) {
                 {showBadge && (
                   <span className={cn(
                     'absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-medium',
-                    hasOverdue
+                    (hasOverdue || hasOverdueReviews)
                       ? 'bg-red-500 text-white'
                       : 'bg-surface-700 text-surface-300'
                   )}>
-                    {hasOverdue ? stats.overdueCount : stats.totalChecks}
+                    {hasOverdue ? stats.overdueCount : hasOverdueReviews ? stats.overdueReviews : hasTotalReviews ? stats.totalReviews : stats.totalChecks}
                   </span>
                 )}
               </div>

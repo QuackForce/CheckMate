@@ -1,55 +1,21 @@
 import { Header } from '@/components/layout/header'
 import { ClientsTableWrapper } from '@/components/clients/clients-table-wrapper'
 import { ClientsFilters } from '@/components/clients/clients-filters'
-import { db } from '@/lib/db'
+import { ClientsPageContent } from '@/components/clients/clients-page-content'
 
 export const dynamic = 'force-dynamic'
 
-async function getClientStats() {
-  const [total, active, onboarding, inactive] = await Promise.all([
-    db.client.count(),
-    db.client.count({ where: { status: 'ACTIVE' } }),
-    db.client.count({ where: { status: 'OFFBOARDING' } }),
-    db.client.count({ where: { status: 'INACTIVE' } }),
-  ])
-  
-  return { total, active, onboarding, inactive }
-}
-
-export default async function ClientsPage() {
-  const stats = await getClientStats()
-
+export default function ClientsPage() {
   return (
-    <>
+    <div className="flex-1 flex flex-col min-h-0">
       <Header 
         title="Clients"
         action={{ label: 'Add Client', href: '/clients/new' }}
       />
 
-      <div className="flex-1 px-6 pt-4 pb-4 space-y-4">
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card p-4">
-            <p className="text-sm text-surface-400">Total Clients</p>
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-surface-400">Active</p>
-            <p className="text-2xl font-bold text-brand-400">{stats.active}</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-surface-400">Offboarding</p>
-            <p className="text-2xl font-bold text-amber-400">{stats.onboarding}</p>
-          </div>
-          <div className="card p-4">
-            <p className="text-sm text-surface-400">Inactive</p>
-            <p className="text-2xl font-bold text-surface-500">{stats.inactive}</p>
-          </div>
-        </div>
-        
-        <ClientsFilters />
-        <ClientsTableWrapper />
+      <div className="flex-1 overflow-y-auto">
+        <ClientsPageContent />
       </div>
-    </>
+    </div>
   )
 }

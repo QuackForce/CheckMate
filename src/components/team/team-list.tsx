@@ -924,9 +924,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
               <div>
                 <button
                   onClick={() => toggleSection('basicInfo')}
-                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors"
                 >
-                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                  <label className="block text-sm font-medium text-surface-300 cursor-pointer flex items-center gap-2">
                     <Info className="w-4 h-4" />
                     Basic Information
                   </label>
@@ -1020,12 +1020,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
               </div>
 
               {/* Role Breakdown Section */}
-              <div className="pt-6 border-t border-surface-700">
+              <div className="mt-6 pt-6 border-t border-surface-700">
                 <button
                   onClick={() => toggleSection('roleBreakdown')}
-                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors"
                 >
-                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                  <label className="flex items-center gap-2 text-sm font-medium text-white cursor-pointer">
                     <Building2 className="w-4 h-4" />
                     Client Role Breakdown
                   </label>
@@ -1092,12 +1092,12 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
 
 
               {/* Quick Actions */}
-              <div className="pt-6 border-t border-surface-700">
+              <div className="mt-6 pt-6 border-t border-surface-700">
                 <button
                   onClick={() => toggleSection('quickActions')}
-                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors -mx-2"
+                  className="w-full flex items-center justify-between mb-3 p-2 hover:bg-surface-800/50 rounded-lg transition-colors"
                 >
-                  <label className="label flex items-center gap-2 cursor-pointer mb-0">
+                  <label className="flex items-center gap-2 text-sm font-medium text-white cursor-pointer">
                     <Wrench className="w-4 h-4" />
                     Quick Actions
                   </label>

@@ -171,6 +171,14 @@ async function compareDatabases() {
     (s) => s.id
   ))
 
+  // Compare SystemCheckItem (check items for systems)
+  results.push(await compareTable(
+    'SystemCheckItem',
+    () => (oldDb as any).systemCheckItem.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).systemCheckItem.findMany({ orderBy: { createdAt: 'asc' } }),
+    (item) => item.id
+  ))
+
   // Print results
   console.log('📊 Comparison Results:\n')
   console.log('Table'.padEnd(30), 'Old Count'.padEnd(12), 'New Count'.padEnd(12), 'Missing'.padEnd(12), 'New After Mig'.padEnd(15), 'Conflicts')

@@ -17,6 +17,7 @@ import {
   User,
   Menu,
   X,
+  Shield,
 } from 'lucide-react'
 import {
   hasPermission,
@@ -50,6 +51,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard:view' },
   { name: 'Clients', href: '/clients', icon: Building2, permissions: ['clients:view_all', 'clients:view_own'] },
   { name: 'Checks', href: '/checks', icon: ClipboardCheck, permissions: ['checks:view_all', 'checks:view_own'] },
+  { name: 'Compliance', href: '/compliance', icon: Shield, permissions: ['clients:view_all', 'clients:view_own'] },
   { name: 'Schedule', href: '/schedule', icon: Calendar, permission: 'schedule:view' },
   { name: 'Users', href: '/team', icon: Users, permission: 'team:view' },
   // Temporarily removed - can be restored later

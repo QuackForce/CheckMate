@@ -14,6 +14,8 @@ interface MobileSidebarWrapperProps {
   stats?: {
     overdueCount: number
     totalChecks: number
+    overdueReviews: number
+    totalReviews: number
   }
   children: React.ReactNode
 }

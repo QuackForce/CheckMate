@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireEngineer } from '@/lib/auth-utils'
 import { auth } from '@/lib/auth'
 import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit'
+import { hasPermission } from '@/lib/permissions'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -20,12 +21,22 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const userRole = session.user.role
+  const userId = session.user.id
+  const canViewAll = hasPermission(userRole, 'checks:view_all')
+
   const searchParams = request.nextUrl.searchParams
   
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
   const search = searchParams.get('search') || ''
   const status = searchParams.get('status')
+  const tab = searchParams.get('tab') || 'active' // active, upcoming, completed, all
+  const assignee = searchParams.get('assignee') // 'me' or null
   const startDate = searchParams.get('startDate')
   const endDate = searchParams.get('endDate')
   
@@ -33,13 +44,116 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     
-    if (status && status !== 'all') {
-      where.status = status
+    // Permission-based filtering: If user can only view own, always filter to their clients
+    // If user can view all, check assignee parameter (default: false for managers)
+    const shouldFilterToMyClients = !canViewAll || assignee === 'me'
+    
+    if (shouldFilterToMyClients && userId) {
+      // Get client IDs where user has assignments
+      const clientAssignments = await db.clientEngineerAssignment.findMany({
+        where: { userId },
+        select: { clientId: true },
+        distinct: ['clientId'],
+      })
+      const assignedClientIds = clientAssignments.map(a => a.clientId)
+      
+      // Get client IDs where user is assigned as engineer
+      const checksAssignedToMe = await db.infraCheck.findMany({
+        where: { assignedEngineerId: userId },
+        select: { clientId: true },
+        distinct: ['clientId'],
+      })
+      const engineerClientIds = checksAssignedToMe.map(c => c.clientId)
+      
+      const myClientIds = Array.from(new Set([...assignedClientIds, ...engineerClientIds]))
+      
+      if (myClientIds.length > 0) {
+        where.clientId = { in: myClientIds }
+      } else {
+        // User has no clients, return empty
+        where.clientId = { in: [] }
+      }
     }
     
-    if (search) {
+    // Tab-based filtering
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    const tabConditions: any[] = []
+    
+    if (tab === 'active') {
+      // Active: Overdue + In Progress + Today
+      tabConditions.push(
+        // Overdue: scheduled date is in the past and not completed/cancelled
+        {
+          AND: [
+            { scheduledDate: { lt: today } },
+            { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          ],
+        },
+        // In Progress
+        { status: 'IN_PROGRESS' },
+        // Today
+        {
+          AND: [
+            { scheduledDate: { gte: today } },
+            { scheduledDate: { lt: tomorrow } },
+            { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+          ],
+        }
+      )
+    } else if (tab === 'upcoming') {
+      // Upcoming: Scheduled (future dates, not today)
+      tabConditions.push({
+        AND: [
+          { scheduledDate: { gte: tomorrow } },
+          { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+        ],
+      })
+    } else if (tab === 'completed') {
+      // Completed: Only completed checks
+      tabConditions.push({ status: 'COMPLETED' })
+    } else if (tab === 'all') {
+      // All: Everything (no status filter)
+      // Only allow if user can view all
+      if (!canViewAll) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      // No tab conditions for 'all'
+    } else {
+      // Legacy: status filter (for backward compatibility)
+      if (status && status !== 'all') {
+        tabConditions.push({ status })
+      }
+    }
+    
+    // Combine tab conditions with search if needed
+    if (tabConditions.length > 0) {
+      if (search) {
+        // Need to combine tab conditions with search
+        where.AND = [
+          { OR: tabConditions },
+          {
+            OR: [
+              { Client: { name: { contains: search, mode: 'insensitive' } } },
+              { assignedEngineerName: { contains: search, mode: 'insensitive' } },
+            ],
+          },
+        ]
+      } else {
+        // Just tab conditions
+        if (tabConditions.length === 1) {
+          Object.assign(where, tabConditions[0])
+        } else {
+          where.OR = tabConditions
+        }
+      }
+    } else if (search) {
+      // No tab conditions, just search
       where.OR = [
-        { client: { name: { contains: search, mode: 'insensitive' } } },
+        { Client: { name: { contains: search, mode: 'insensitive' } } },
         { assignedEngineerName: { contains: search, mode: 'insensitive' } },
       ]
     }
@@ -61,6 +175,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         scheduledDate: true,
+        completedAt: true,
         status: true,
         notes: true,
         assignedEngineerName: true, // Include assignedEngineerName field
@@ -72,7 +187,9 @@ export async function GET(request: NextRequest) {
           select: { id: true, name: true },
         },
       },
-      orderBy: { scheduledDate: 'desc' },
+      orderBy: tab === 'completed' 
+        ? { completedAt: 'desc' } 
+        : { scheduledDate: tab === 'active' ? 'asc' : 'asc' },
       skip: (page - 1) * limit,
       take: limit,
     })

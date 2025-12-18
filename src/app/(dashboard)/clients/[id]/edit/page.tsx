@@ -592,9 +592,9 @@ export default function EditClientPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-surface-950/80 backdrop-blur-xl">
+      <div className="sticky top-0 z-[110] bg-surface-950/80 backdrop-blur-xl border-b border-surface-800">
         <div className="px-6 py-4">
           <div className="flex items-center gap-4">
             <Link 
@@ -611,7 +611,8 @@ export default function EditClientPage() {
         </div>
       </div>
 
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-4xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
@@ -621,7 +622,7 @@ export default function EditClientPage() {
           )}
 
           {/* Basic Information */}
-          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50 overflow-visible")}>
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "overflow-visible")}>
             <button
               type="button"
               onClick={() => toggleSection('basicInfo')}
@@ -782,7 +783,7 @@ export default function EditClientPage() {
           </div>
 
           {/* User Assignments */}
-          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50 overflow-visible")}>
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "overflow-visible")}>
             <button
               type="button"
               onClick={() => toggleSection('assignments')}
@@ -1257,7 +1258,7 @@ export default function EditClientPage() {
           </div>
 
           {/* Teams Selection */}
-          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50 overflow-visible")}>
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "overflow-visible")}>
             <button
               type="button"
               onClick={() => toggleSection('teams')}
@@ -1337,7 +1338,7 @@ export default function EditClientPage() {
           </div>
 
           {/* Service Settings */}
-          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "relative z-50 overflow-visible")}>
+          <div className={cn("card p-6 space-y-4", openComboboxes.size > 0 && "overflow-visible")}>
             <button
               type="button"
               onClick={() => toggleSection('service')}
@@ -1423,7 +1424,7 @@ export default function EditClientPage() {
           </div>
 
           {/* Compliance Frameworks */}
-          <div className={cn("card p-6 space-y-4", showFrameworkDropdown && "relative z-50 overflow-visible")}>
+          <div className={cn("card p-6 space-y-4", showFrameworkDropdown && "overflow-visible")}>
             <button
               type="button"
               onClick={() => toggleSection('frameworks')}
@@ -1988,6 +1989,7 @@ export default function EditClientPage() {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   )

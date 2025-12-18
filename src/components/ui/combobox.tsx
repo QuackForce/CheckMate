@@ -38,6 +38,7 @@ export function Combobox({
 }: ComboboxProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [isAbove, setIsAbove] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -53,7 +54,7 @@ export function Combobox({
       )
     : options
 
-  // Position dropdown using fixed positioning
+  // Position dropdown using fixed positioning with boundary detection
   useEffect(() => {
     if (!isOpen || !inputRef.current || !dropdownRef.current) return
 
@@ -61,16 +62,108 @@ export function Combobox({
       if (!inputRef.current || !dropdownRef.current) return
       
       const rect = inputRef.current.getBoundingClientRect()
-      dropdownRef.current.style.top = `${rect.bottom + 4}px`
-      dropdownRef.current.style.left = `${rect.left}px`
-      dropdownRef.current.style.width = `${rect.width}px`
+      const dropdown = dropdownRef.current
+      
+      // Get accurate measurements - force a layout recalculation
+      const dropdownHeight = dropdown.scrollHeight > 256 ? 256 : dropdown.scrollHeight
+      const dropdownWidth = rect.width
+      
+      // Check if dropdown should appear above input
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+      
+      let top: number
+      let left: number
+      let width: number
+      
+      if (shouldShowAbove) {
+        setIsAbove(true)
+        // Smaller gap when above for better visual connection
+        top = rect.top - dropdownHeight - 2
+        
+        // Check if dropdown would overlap with header (header is typically ~64px tall)
+        const headerHeight = 64
+        if (top < headerHeight) {
+          // Position below input instead if it would overlap header
+          setIsAbove(false)
+          top = rect.bottom + 4
+          dropdown.style.maxHeight = '256px'
+          left = rect.left
+          width = dropdownWidth
+          
+          // Adjust if would go off right edge
+          if (left + width > window.innerWidth - 8) {
+            left = window.innerWidth - width - 8
+          }
+          
+          // Adjust if would go off left edge
+          if (left < 8) {
+            left = 8
+            width = Math.min(width, window.innerWidth - 16)
+            dropdown.style.maxWidth = `${width}px`
+          } else {
+            dropdown.style.maxWidth = 'none'
+          }
+        } else {
+          // If still off top (but below header), position at top of viewport
+          if (top < 8) {
+            top = 8
+            // Constrain height if needed
+            dropdown.style.maxHeight = `${rect.top - 16}px`
+          } else {
+            dropdown.style.maxHeight = '256px'
+          }
+          // When above, always match input exactly - use Math.floor to avoid sub-pixel issues
+          left = Math.floor(rect.left)
+          width = Math.floor(rect.width)
+        }
+      } else {
+        setIsAbove(false)
+        top = rect.bottom + 4
+        dropdown.style.maxHeight = '256px'
+        
+        // When below, calculate position with edge adjustments
+        left = rect.left
+        width = dropdownWidth
+        
+        // Adjust if would go off right edge
+        if (left + width > window.innerWidth - 8) {
+          left = window.innerWidth - width - 8
+        }
+        
+        // Adjust if would go off left edge
+        if (left < 8) {
+          left = 8
+          // Constrain width if needed
+          width = Math.min(width, window.innerWidth - 16)
+          dropdown.style.maxWidth = `${width}px`
+        } else {
+          dropdown.style.maxWidth = 'none'
+        }
+      }
+      
+      // Apply all styles - use Math.floor for consistent positioning
+      dropdown.style.top = `${Math.floor(top)}px`
+      dropdown.style.left = `${Math.floor(left)}px`
+      dropdown.style.width = `${Math.floor(width)}px`
     }
 
-    updatePosition()
+    // Use requestAnimationFrame to ensure dropdown is rendered and measured
+    const rafId = requestAnimationFrame(() => {
+      updatePosition()
+      // Update again after a small delay to ensure accurate measurements
+      const timeoutId = setTimeout(() => {
+        updatePosition()
+      }, 50)
+      return () => clearTimeout(timeoutId)
+    })
+    
     window.addEventListener('scroll', updatePosition, true)
     window.addEventListener('resize', updatePosition)
     
     return () => {
+      cancelAnimationFrame(rafId)
       window.removeEventListener('scroll', updatePosition, true)
       window.removeEventListener('resize', updatePosition)
     }
@@ -157,7 +250,7 @@ export function Combobox({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative', isOpen && 'z-[100] overflow-visible', className)}>
+    <div ref={containerRef} className={cn('relative', className)}>
       {/* Input/Button */}
       <div className="relative w-full">
         <input
@@ -224,12 +317,13 @@ export function Combobox({
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div 
           ref={dropdownRef}
-          className="fixed bg-surface-800 border border-surface-700 rounded-lg shadow-xl max-h-64 overflow-y-auto" 
+          className={cn(
+            "fixed bg-surface-800 border border-surface-700 rounded-lg shadow-xl max-h-64 overflow-y-auto z-[100]",
+            isAbove && "rounded-b-lg rounded-t-none"
+          )}
           style={{ 
             position: 'fixed',
-            zIndex: 999999,
             pointerEvents: 'auto',
-            isolation: 'isolate'
           }}
           onMouseDown={(e) => {
             // Prevent the Sheet's click-outside handler from closing the dropdown

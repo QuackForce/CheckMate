@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus } from 'lucide-react'
+import { Plus, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { ReactNode } from 'react'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -30,6 +30,7 @@ function SafeSidebarTrigger({ className }: { className?: string }) {
 interface HeaderProps {
   title: string
   subtitle?: string
+  backHref?: string
   action?: {
     label: string
     href?: string
@@ -38,20 +39,30 @@ interface HeaderProps {
   extraAction?: ReactNode
 }
 
-export function Header({ title, subtitle, action, extraAction }: HeaderProps) {
+export function Header({ title, subtitle, backHref, action, extraAction }: HeaderProps) {
   const hasSidebarTrigger = SidebarTrigger !== null
   const isMobile = useIsMobile()
   
   return (
-    <header className="sticky top-0 z-40 bg-surface-950/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-[110] bg-surface-950/80 backdrop-blur-xl">
       <div className="px-4 md:px-6 py-3 md:py-3 h-[64px] flex items-center justify-between">
         <div className="flex items-center gap-3 md:gap-4">
-          {hasSidebarTrigger && !isMobile && (
+          {backHref ? (
+            <>
+              <Link 
+                href={backHref}
+                className="p-2 hover:bg-surface-800 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-surface-400" />
+              </Link>
+              <div className="h-6 w-px bg-surface-700" />
+            </>
+          ) : hasSidebarTrigger && !isMobile ? (
             <>
               <SafeSidebarTrigger className="h-8 w-8" />
               <div className="h-6 w-px bg-surface-700" />
             </>
-          )}
+          ) : null}
           <div className="pt-1 md:pt-0">
             <h1 className="text-xl md:text-2xl font-bold text-white leading-tight">{title}</h1>
             {subtitle && (
