@@ -30,6 +30,8 @@ import { SearchInput } from '@/components/ui/search-input'
 import { Combobox } from '@/components/ui/combobox'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
+import { useSession } from 'next-auth/react'
+import { hasPermission } from '@/lib/permissions'
 import {
   Sheet,
   SheetContent,
@@ -236,6 +238,10 @@ function getLogoUrl(websiteUrl: string | null): string | null {
 }
 
 export function ClientsTableWrapper() {
+  const { data: session } = useSession()
+  const userRole = session?.user?.role
+  const canViewAll = hasPermission(userRole, 'clients:view_all')
+  
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -299,6 +305,7 @@ export function ClientsTableWrapper() {
   }, [])
   
   // Initialize checkbox state from URL param
+  // Default to false (OFF - show all clients) since everyone now has view_all permission
   const [showMyClientsOnly, setShowMyClientsOnly] = useState(assigneeParam === 'me')
   
   // Sync checkbox with URL param changes
@@ -695,19 +702,21 @@ export function ClientsTableWrapper() {
             isLoading={loading && searchInput !== search}
           />
 
-          {/* My Clients Toggle - matching checks page design */}
-          <button
-            onClick={handleMyClientsToggle}
-            className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              showMyClientsOnly
-                ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
-                : 'bg-surface-800 text-surface-400 border border-surface-700 hover:bg-surface-700'
-            )}
-          >
-            <Users className="w-4 h-4" />
-            My Clients
-          </button>
+          {/* My Clients Toggle - Only show if user can view all */}
+          {canViewAll && (
+            <button
+              onClick={handleMyClientsToggle}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                showMyClientsOnly
+                  ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
+                  : 'bg-surface-800 text-surface-400 border border-surface-700 hover:bg-surface-700'
+              )}
+            >
+              <Users className="w-4 h-4" />
+              My Clients
+            </button>
+          )}
 
           {/* Results count */}
           {!loading && (

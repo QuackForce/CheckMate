@@ -49,6 +49,7 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
   ]),
   IT_ENGINEER: new Set<PermissionKey>([
     'dashboard:view',
+    'clients:view_all',
     'clients:view_own',
     'checks:view_own',
     'schedule:view',
@@ -61,12 +62,14 @@ const rolePermissions: Record<Role, Set<PermissionKey>> = {
   ]),
   CONSULTANT: new Set<PermissionKey>([
     'dashboard:view',
+    'clients:view_all',
     'clients:view_own',
     'checks:view_own',
     'org_chart:view',
   ]),
   VIEWER: new Set<PermissionKey>([
     'dashboard:view',
+    'clients:view_all',
     'reports:view',
     'org_chart:view',
   ]),

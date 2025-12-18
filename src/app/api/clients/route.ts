@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { checkRateLimit, getIdentifier, getRateLimitHeaders, RATE_LIMITS } from '@/lib/rate-limit';
 import { withCache, CACHE_KEYS, CACHE_TTL, generateCacheKey, invalidateClientCache } from '@/lib/cache';
+import { hasPermission } from '@/lib/permissions';
 
 // Use string literals for roles (Prisma enum may not be exported)
 const ClientEngineerRole = {
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Filter: my clients
+  // Apply this filter if user explicitly requested 'me' via assignee param
   if (assignee === 'me' && session?.user?.id) {
     // Get client IDs where user has infra checks assigned
     const clientsWithMyChecks = await db.infraCheck.findMany({

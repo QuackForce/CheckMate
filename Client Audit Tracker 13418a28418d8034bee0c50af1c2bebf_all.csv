@@ -1,0 +1,66 @@
+﻿Client,Audit Status,Compliance Contact,Current Observation,Days till audit,Framework,Hours Remaining,Involvement,JIT Contacts,Notes,Renewal Status
+Jones IT,Observation,anfernee.lai@itjones.com,"April 1, 2024 → March 31, 2026",102,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Fully Managed,Anfernee Lai,SOC 2 Type 2,Renewing
+Jones IT,Observation,anfernee.lai@itjones.com,"May 1, 2025 → April 30, 2026",132,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Fully Managed,Anfernee Lai,Surveillance 2,Renewing
+Hey Jane,N/A,,,,HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21),,Co-Managed,,,Renewing
+Oakland Pharmacy Inc,N/A,,,,HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21),,Co-Managed,,,Discussing
+Productboard,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Productboard,Observation,,,,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Not Involved,,,Renewing
+Replit,Observation,juan.albarracin@repl.it,"June 1, 2024 → May 31, 2026",163,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Eli Miller,SOC 2 Type 2,Renewing
+Scale AI,Observation,,,,"SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), DoD IL4 (https://www.notion.so/DoD-IL4-13418a28418d80829aeef4334154225d?pvs=21), FedRAMP High (https://www.notion.so/FedRAMP-High-1e69f25f89884b18ba63dc83c3983185?pvs=21), ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21)",,Not Involved,,,Renewing
+Agiloft,Observation,carleen.johnson@agiloft.com,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Michael Lemay,,Renewing
+Agiloft,Observation,carleen.johnson@agiloft.com,,,SOC 1 (https://www.notion.so/SOC-1-6873d2b20415490c874b0a439e58d8b6?pvs=21),,Co-Managed,Michael Lemay,,Renewing
+Agiloft,Observation,carleen.johnson@agiloft.com,,,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Co-Managed,Michael Lemay,,Renewing
+Eudia,Audit,uttej.badwane@eudia.com,"September 1, 2024 → August 31, 2025",-109,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),25,Fully Managed,"Anfernee Lai, Michael Lemay",SOC 2 Type 2,Renewing
+Eudia,Audit,uttej.badwane@eudia.com,"August 15, 2024 → August 14, 2025",-126,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),50,Fully Managed,"Anfernee Lai, Michael Lemay",Surveillance 1,Renewing
+Eudia,N/A,uttej.badwane@eudia.com,,,GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21),,Fully Managed,,,Renewing
+Duetto,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Duetto,N/A,,,,GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21),,Not Involved,,,Renewing
+Duetto,N/A,,,,CCPA (https://www.notion.so/CCPA-a96a87d0c17c4a5bb4fa2f0053433b71?pvs=21),,Not Involved,,,Renewing
+EarnUp,Observation,mdorsi@earnup.com,"July 1, 2024 → June 30, 2026",193,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Anfernee Lai,SOC 2 Type 2,Renewing
+Polly,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Jamila Mohamed,,Renewing
+Intercom,Observation,,,,"SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21), ISO 27018 (https://www.notion.so/ISO-27018-94cabfb5f5734021a2eb4e41bf5de704?pvs=21), ISO 27701 (https://www.notion.so/ISO-27701-9be72a77337d4a91b1c73caee4eba268?pvs=21), HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21), CSA STAR (https://www.notion.so/CSA-STAR-c50870510b3b4f82bbbbec4ca856c0e8?pvs=21)",,Not Involved,,,Renewing
+SFPMG,N/A,,,,HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21),,Co-Managed,,,Renewing
+Weavegrid,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Michael Lemay,,Renewing
+Alto Neuroscience,Observation,,,,21 CFR Part 11 (https://www.notion.so/21-CFR-Part-11-04884c25c5be4da5b614bd07c12485cd?pvs=21),,Not Involved,,,Renewing
+Clever,Observation,,,,"FERPA (https://www.notion.so/FERPA-0cf27abc64ca429c89c7531be9e9d343?pvs=21), COPPA (https://www.notion.so/COPPA-13418a28418d8060b5b3f01a750dc2fb?pvs=21), NIST CSF (https://www.notion.so/NIST-CSF-349476a5b18d4935b20476e7c1278f32?pvs=21), SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21)",,Not Involved,,,Renewing
+Laurel,Observation,anthony.lauderdale@laurel.ai,"October 1, 2024 → September 30, 2025",-79,"SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21)",,Co-Managed,Jamila Mohamed,SOC 2 Type 2 + HIPAA,Renewing
+Mercury,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Meter,Observation,michael@meter.com,"March 1, 2025 → February 28, 2026",71,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),25,Co-Managed,"Anfernee Lai, Eli Miller",SOC 2 Type 2,Renewing
+Nava Benefits,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Ricardo Martinez,,Renewing
+Oportun,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Penn River,Observation,,,,"SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21)",,Not Involved,,,Renewing
+ScreenMeet,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Jamila Mohamed,,Renewing
+ScreenMeet,Observation,,,,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Co-Managed,Jamila Mohamed,,Renewing
+Verge,N/A,,,,21 CFR Part 11 (https://www.notion.so/21-CFR-Part-11-04884c25c5be4da5b614bd07c12485cd?pvs=21),,Not Involved,,,Renewing
+Zesty,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+CodeGen,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,"Dylan Soungpanya, JoePro",,Renewing
+Recurve,Observation,mark@recurve.com,"July 1, 2024 → August 31, 2025",-109,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,JoePro,SOC 2 Type 2,Renewing
+Aixtron,Observation,,,,GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21),,Not Involved,,,Renewing
+Hustle,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Lighthouse for the Blind and Visually Impaired,Implementation,,,,HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21),,Not Involved,,,First Time
+Stronghold,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Superhuman,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Michael Lemay,,Renewing
+Bidgely,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Bitwave,Observation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Not Involved,,,Renewing
+Samacare,Observation,nathaniel.fisher@samacare.com,"January 1, 2024 → October 14, 2025",-65,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Eli Miller,SOC 2 Type 2,Renewing
+Trade Ledger,Observation,riccardo.pietri@tradeledger.io,"January 1, 2025 → June 30, 2026",193,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Co-Managed,Jamila Mohamed,SOC 2 Type 2,First Time
+Trade Ledger,Observation,riccardo.pietri@tradeledger.io,"January 27, 2025 → January 23, 2026",35,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Co-Managed,Jamila Mohamed,Surveillance 2,Renewing
+Labelbox,Observation,,,,"PCI DSS (https://www.notion.so/PCI-DSS-88101f083f2840f4a362e83fbbebd40d?pvs=21), ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21), GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21), HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21), SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21)",,Not Involved,,,Renewing
+Cambiar Education,Implementation,garima@cambiareducation.org,"October 1, 2025 → December 31, 2025",12,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),40,Fully Managed,"Anfernee Lai, Jamila Mohamed",SOC 2 Type 2,First Time
+Elicit,Observation,sarah@elicit.com,"July 15, 2025 → July 15, 2026",208,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),,Fully Managed,"Anfernee Lai, Dylan Soungpanya",SOC 2 Type 2,Renewing
+Samara Aerospace,Implementation,pat@samaraaerospace.com,,,NIST SP 800-171 (https://www.notion.so/NIST-SP-800-171-4e4e9a01afc349aabee5f5ac0be1f1d0?pvs=21),125,Fully Managed,"Anfernee Lai, Michael Lemay",,First Time
+Seesaw,N/A,,,,GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21),,,,,Renewing
+Polly,Observation,,,,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),,Co-Managed,Jamila Mohamed,,Renewing
+Coreshell Technologies,Implementation,cicely@coreshelltech.com,,,NIST SP 800-171 (https://www.notion.so/NIST-SP-800-171-4e4e9a01afc349aabee5f5ac0be1f1d0?pvs=21),200,Fully Managed,"Anfernee Lai, Jamila Mohamed, JoePro",,First Time
+Primefocus Health,Implementation,,,,HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21),25,Fully Managed,"Anfernee Lai, Eli Miller",,First Time
+Archer Review,Implementation,,"March 31, 2026",102,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),150,Fully Managed,"Anfernee Lai, Michael Lemay, Jamila Mohamed",,First Time
+Mill,Implementation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),150,Fully Managed,Jamila Mohamed,,First Time
+Meter,Implementation,,,,FedRAMP Moderate (https://www.notion.so/FedRAMP-Moderate-667a8e08a3e2494bb20bda3c3907a329?pvs=21),200,Co-Managed,"Anfernee Lai, Eli Miller",,First Time
+Coreshell Technologies,Implementation,cicely@coreshelltech.com,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),150,Fully Managed,"Anfernee Lai, Jamila Mohamed, JoePro",,First Time
+Speak,Implementation,,"December 1, 2025 → February 28, 2026",71,ISO 27001 (https://www.notion.so/ISO-27001-0d687aa569b746e9945b08e0bd245589?pvs=21),200,Co-Managed,"Anfernee Lai, JoePro, Jamila Mohamed",,First Time
+Substack,Implementation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),150,Fully Managed,"Anfernee Lai, JoePro, Billy Russell",,Dropped
+Logixboard,Reworking,,"April 1, 2025 → March 31, 2026",102,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),75,Co-Managed,"Anfernee Lai, Dylan Soungpanya",SOC 2 Type 2,Renewing
+LeaseEnd,Implementation,,,,SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21),100,Co-Managed,Jamila Mohamed,SOC 2 Type 1,First Time
+SalmaHealth,Implementation,,,,"HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21), SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), HITRUST (https://www.notion.so/HITRUST-904a4b6a9e034452aa36a6de358f5397?pvs=21)",200,Co-Managed,"Anfernee Lai, Eli Miller, Billy Russell",,First Time
+Westgate,Implementation,,,,FedRAMP Moderate (https://www.notion.so/FedRAMP-Moderate-667a8e08a3e2494bb20bda3c3907a329?pvs=21),250,Fully Managed,"Anfernee Lai, Michael Lemay",,First Time
+Bland.ai,Observation,,,,"SOC 2 (https://www.notion.so/SOC-2-6d8bdde08a3a4cab8d772d57fff65a68?pvs=21), GDPR (https://www.notion.so/GDPR-28fd2b6febc24ddbb58c685dc27e1dae?pvs=21), HIPAA (https://www.notion.so/HIPAA-a85be616f64b45efa615520ecb722c1b?pvs=21)",,Co-Managed,Jamila Mohamed,,Renewing
