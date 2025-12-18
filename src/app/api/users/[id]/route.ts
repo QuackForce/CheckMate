@@ -79,11 +79,55 @@ export async function GET(
       },
     })
 
+    // Get client assignments with client details
+    const clientAssignments = await db.clientEngineerAssignment.findMany({
+      where: { userId: params.id },
+      include: {
+        Client: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [
+        { Client: { name: 'asc' } },
+        { role: 'asc' },
+      ],
+    })
+
+    // Group by client (a user can have multiple roles for the same client)
+    const clientsByRole = new Map<string, Array<{ role: string; clientId: string; clientName: string; clientStatus: string }>>()
+    clientAssignments.forEach((assignment: any) => {
+      if (assignment.Client) {
+        const clientId = assignment.Client.id
+        if (!clientsByRole.has(clientId)) {
+          clientsByRole.set(clientId, [])
+        }
+        clientsByRole.get(clientId)!.push({
+          role: assignment.role,
+          clientId: assignment.Client.id,
+          clientName: assignment.Client.name,
+          clientStatus: assignment.Client.status,
+        })
+      }
+    })
+
+    // Convert to array format
+    const clientAssignmentsList = Array.from(clientsByRole.entries()).map(([clientId, roles]) => ({
+      clientId,
+      clientName: roles[0].clientName,
+      clientStatus: roles[0].clientStatus,
+      roles: roles.map(r => r.role),
+    }))
+
     return NextResponse.json({
       ...user,
       roleBreakdown,
       totalUniqueClients: uniqueClientIds.size,
       teams: userTeams.map((ut: any) => ut.Team),
+      clientAssignments: clientAssignmentsList,
     })
   } catch (error: any) {
     console.error('Error fetching user:', error)

@@ -17,6 +17,7 @@ import {
   FileText,
   Bell,
   Shield,
+  UserCog,
 } from 'lucide-react'
 import {
   hasPermission,
@@ -90,6 +91,7 @@ const settingsNavigation: NavItem[] = [
 const settingsSubItems = [
   { name: 'Systems', href: '/settings/systems', icon: Boxes },
   { name: 'Frameworks', href: '/settings/frameworks', icon: Shield },
+  { name: 'Roles', href: '/settings/roles', icon: UserCog },
   { name: 'Teams', href: '/settings/teams', icon: Users },
   { name: 'Integrations', href: '/settings/integrations', icon: Link2 },
   { name: 'Templates', href: '/settings/templates', icon: FileText },

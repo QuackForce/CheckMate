@@ -21,11 +21,23 @@ import {
   Users,
   Clock,
   AlertCircle,
+  Edit,
+  Tag,
+  Layers,
 } from 'lucide-react'
 import { cn, getCadenceLabel } from '@/lib/utils'
 import { SearchInput } from '@/components/ui/search-input'
 import { Combobox } from '@/components/ui/combobox'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { toast } from 'sonner'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
 interface Client {
   id: string
@@ -243,8 +255,16 @@ export function ClientsTableWrapper() {
   const [clientSort, setClientSort] = useState<string>('default')
   
   // Available options for filters
-  const [availableTeams, setAvailableTeams] = useState<Array<{ id: string; name: string; tag: string | null }>>([])
+  const [availableTeams, setAvailableTeams] = useState<Array<{ id: string; name: string; tag: string | null; isActive?: boolean }>>([])
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string | null; email: string | null }>>([])
+  
+  // Bulk edit state
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set())
+  const [bulkEditSheetOpen, setBulkEditSheetOpen] = useState(false)
+  const [bulkEditAction, setBulkEditAction] = useState<'status' | 'priority' | 'teams' | null>(null)
+  const [bulkEditValue, setBulkEditValue] = useState<string>('')
+  const [bulkEditTeamAction, setBulkEditTeamAction] = useState<'add' | 'remove'>('add')
+  const [bulkEditLoading, setBulkEditLoading] = useState(false)
 
   // Read URL query parameters
   const assigneeParam = searchParams.get('assignee')
@@ -303,6 +323,109 @@ export function ClientsTableWrapper() {
       params.delete('assignee')
     }
     router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // Bulk edit handlers
+  const handleSelectClient = (clientId: string) => {
+    setSelectedClientIds(prev => {
+      const next = new Set(prev)
+      if (next.has(clientId)) {
+        next.delete(clientId)
+      } else {
+        next.add(clientId)
+      }
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedClientIds.size === clients.length) {
+      setSelectedClientIds(new Set())
+    } else {
+      setSelectedClientIds(new Set(clients.map(c => c.id)))
+    }
+  }
+
+  const handleBulkEdit = async () => {
+    if (selectedClientIds.size === 0) {
+      toast.error('Please select at least one client')
+      return
+    }
+
+    if (!bulkEditAction) {
+      toast.error('Please select an action')
+      return
+    }
+
+    setBulkEditLoading(true)
+
+    try {
+      const updates: any = {}
+
+      if (bulkEditAction === 'status') {
+        updates.status = bulkEditValue
+      } else if (bulkEditAction === 'priority') {
+        updates.priority = bulkEditValue || null
+      } else if (bulkEditAction === 'teams') {
+        if (!bulkEditValue) {
+          toast.error('Please select a team')
+          setBulkEditLoading(false)
+          return
+        }
+        updates.teams = {
+          [bulkEditTeamAction]: [bulkEditValue],
+        }
+      }
+
+      const res = await fetch('/api/clients/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientIds: Array.from(selectedClientIds),
+          updates,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to update clients')
+      }
+
+      const result = await res.json()
+      
+      if (result.failed > 0) {
+        toast.warning(
+          `Updated ${result.success} client(s), ${result.failed} failed`,
+          {
+            description: result.errors.length > 0 
+              ? result.errors.slice(0, 3).map((e: any) => e.error).join(', ')
+              : undefined,
+          }
+        )
+      } else {
+        toast.success(`Successfully updated ${result.success} client(s)`)
+      }
+
+      // Clear selection and close modal
+      setSelectedClientIds(new Set())
+      setBulkEditSheetOpen(false)
+      setBulkEditAction(null)
+      setBulkEditValue('')
+      
+      // Refresh the clients list
+      fetchClients()
+    } catch (error: any) {
+      toast.error('Failed to update clients', { description: error.message })
+    } finally {
+      setBulkEditLoading(false)
+    }
+  }
+
+  const openBulkEditModal = (action: 'status' | 'priority' | 'teams') => {
+    setBulkEditAction(action)
+    setBulkEditValue('')
+    setBulkEditTeamAction('add')
+    setBulkEditSheetOpen(true)
   }
 
   const totalPages = Math.ceil(total / CLIENTS_PER_PAGE)
@@ -511,6 +634,52 @@ export function ClientsTableWrapper() {
 
   return (
     <div className="card relative overflow-hidden">
+      {/* Sticky Bulk Edit Action Bar */}
+      {selectedClientIds.size > 0 && (
+        <div className="sticky top-0 z-50 bg-brand-500/10 border-b border-brand-500/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-white">
+                {selectedClientIds.size} client{selectedClientIds.size !== 1 ? 's' : ''} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedClientIds(new Set())}
+                className="text-xs text-surface-400 hover:text-white"
+              >
+                Clear selection
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openBulkEditModal('status')}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Tag className="w-4 h-4" />
+                Status
+              </button>
+              <button
+                type="button"
+                onClick={() => openBulkEditModal('priority')}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Layers className="w-4 h-4" />
+                Priority
+              </button>
+              <button
+                type="button"
+                onClick={() => openBulkEditModal('teams')}
+                className="btn-secondary text-sm flex items-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                Teams
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search & Filters Bar */}
       <div className="p-4 border-b border-surface-700/50">
         <div className="flex flex-wrap items-center gap-3">
@@ -633,38 +802,63 @@ export function ClientsTableWrapper() {
               const seUserFromAssignments = seAssignments.length > 0 ? seAssignments[0].User : null
               const avatarImage = client.infraCheckAssigneeUser?.image || seUserFromAssignments?.image || null
 
+              const isSelected = selectedClientIds.has(client.id)
+
               return (
-                <Link
+                <div
                   key={client.id}
-                  href={`/clients/${client.id}`}
-                  className="block p-4 hover:bg-surface-800/30 transition-colors"
+                  className={cn(
+                    "block p-4 hover:bg-surface-800/30 transition-colors",
+                    isSelected && "bg-brand-500/10 border-l-2 border-brand-500"
+                  )}
                 >
                   <div className="flex items-start gap-3">
-                    {/* Logo/Icon */}
-                    {getLogoUrl(client.websiteUrl) ? (
-                      <div className="w-12 h-12 rounded-lg bg-white p-1.5 flex items-center justify-center flex-shrink-0">
-                        <img 
-                          src={getLogoUrl(client.websiteUrl)!} 
-                          alt=""
-                          className="w-full h-full object-contain"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                            const parent = e.currentTarget.parentElement
-                            if (parent) {
-                              parent.innerHTML = '<svg class="w-6 h-6 text-surface-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-surface-700/50 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-6 h-6 text-surface-400" />
-                      </div>
-                    )}
+                    {/* Checkbox */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleSelectClient(client.id)
+                      }}
+                      className="mt-1 flex-shrink-0"
+                    >
+                      {isSelected ? (
+                        <CheckSquare className="w-5 h-5 text-brand-400" />
+                      ) : (
+                        <Square className="w-5 h-5 text-surface-500 hover:text-surface-400" />
+                      )}
+                    </button>
+                    
+                    <Link
+                      href={`/clients/${client.id}`}
+                      className="flex-1 flex items-start gap-3"
+                    >
+                      {/* Logo/Icon */}
+                      {getLogoUrl(client.websiteUrl) ? (
+                        <div className="w-12 h-12 rounded-lg bg-white p-1.5 flex items-center justify-center flex-shrink-0">
+                          <img 
+                            src={getLogoUrl(client.websiteUrl)!} 
+                            alt=""
+                            className="w-full h-full object-contain"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              const parent = e.currentTarget.parentElement
+                              if (parent) {
+                                parent.innerHTML = '<svg class="w-6 h-6 text-surface-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>'
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-surface-700/50 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="w-6 h-6 text-surface-400" />
+                        </div>
+                      )}
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-white truncate">{client.name}</h3>
@@ -738,9 +932,10 @@ export function ClientsTableWrapper() {
                           </div>
                         )}
                       </div>
-                    </div>
+                      </div>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               )
             })
           )}
@@ -807,6 +1002,20 @@ export function ClientsTableWrapper() {
           <table className="w-full border-collapse">
               <thead className="bg-surface-800/50">
                 <tr>
+                  <th className="table-header py-3 px-4 text-xs font-medium text-surface-400 uppercase tracking-wider w-12">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className="flex items-center justify-center"
+                      title={selectedClientIds.size === clients.length ? 'Deselect all' : 'Select all'}
+                    >
+                      {selectedClientIds.size === clients.length && clients.length > 0 ? (
+                        <CheckSquare className="w-4 h-4 text-brand-400" />
+                      ) : (
+                        <Square className="w-4 h-4 text-surface-500 hover:text-surface-400" />
+                      )}
+                    </button>
+                  </th>
                   <th className="table-header py-3 px-4 text-xs font-medium text-surface-400 uppercase tracking-wider">
                     <div className="flex flex-col gap-1">
                       <span>Client</span>
@@ -997,15 +1206,36 @@ export function ClientsTableWrapper() {
                     </td>
                   </tr>
                 ) : (
-                  clients.map((client, index) => (
+                  clients.map((client, index) => {
+                    const isSelected = selectedClientIds.has(client.id)
+                    return (
                   <tr
                     key={client.id}
                     className={cn(
                       "hover:bg-surface-800/30 transition-colors",
-                      index === clients.length - 1 && "last-row-no-padding"
+                      index === clients.length - 1 && "last-row-no-padding",
+                      isSelected && "bg-brand-500/10"
                     )}
                     style={{ overflow: 'visible' }}
                   >
+                    {/* Checkbox */}
+                    <td className="py-3 px-4 text-sm">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleSelectClient(client.id)
+                        }}
+                        className="flex items-center justify-center"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-brand-400" />
+                        ) : (
+                          <Square className="w-4 h-4 text-surface-500 hover:text-surface-400" />
+                        )}
+                      </button>
+                    </td>
                     {/* Client name */}
                     <td className="py-3 px-4 text-sm">
                       <div className="flex items-center gap-3">
@@ -1185,7 +1415,8 @@ export function ClientsTableWrapper() {
                       <ClientActionsMenu client={client} />
                     </td>
                   </tr>
-                  ))
+                  )
+                  })
                 )}
               </tbody>
             </table>
@@ -1248,6 +1479,148 @@ export function ClientsTableWrapper() {
           )}
         </>
       )}
+
+      {/* Bulk Edit Modal */}
+      <Sheet open={bulkEditSheetOpen} onOpenChange={setBulkEditSheetOpen}>
+        <SheetContent side="right" className="w-[500px] sm:w-[600px] overflow-y-auto bg-surface-900 border border-surface-700">
+          <SheetHeader>
+            <SheetTitle className="text-white">
+              Bulk Edit {selectedClientIds.size} Client{selectedClientIds.size !== 1 ? 's' : ''}
+            </SheetTitle>
+            <SheetDescription className="text-surface-400">
+              {bulkEditAction === 'status' && 'Update status for all selected clients'}
+              {bulkEditAction === 'priority' && 'Update priority for all selected clients'}
+              {bulkEditAction === 'teams' && 'Add or remove teams for all selected clients'}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-6">
+            {bulkEditAction === 'status' && (
+              <div>
+                <label className="label">Status</label>
+                <Combobox
+                  value={bulkEditValue}
+                  onChange={setBulkEditValue}
+                  options={[
+                    { value: 'ACTIVE', label: 'Active' },
+                    { value: 'INACTIVE', label: 'Inactive' },
+                    { value: 'ON_HOLD', label: 'On Hold' },
+                    { value: 'OFFBOARDING', label: 'Offboarding' },
+                    { value: 'EXITING', label: 'Exiting' },
+                    { value: 'AS_NEEDED', label: 'As Needed' },
+                  ]}
+                  placeholder="Select status..."
+                  searchable={false}
+                />
+              </div>
+            )}
+
+            {bulkEditAction === 'priority' && (
+              <div>
+                <label className="label">Priority</label>
+                <Combobox
+                  value={bulkEditValue}
+                  onChange={setBulkEditValue}
+                  options={[
+                    { value: '', label: 'None (Remove Priority)' },
+                    { value: 'P1', label: 'P1' },
+                    { value: 'P2', label: 'P2' },
+                    { value: 'P3', label: 'P3' },
+                    { value: 'P4', label: 'P4' },
+                  ]}
+                  placeholder="Select priority..."
+                  searchable={false}
+                  allowClear
+                />
+              </div>
+            )}
+
+            {bulkEditAction === 'teams' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Action</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBulkEditTeamAction('add')}
+                      className={cn(
+                        'flex-1 px-4 py-2 rounded-lg border transition-colors',
+                        bulkEditTeamAction === 'add'
+                          ? 'bg-brand-500/10 text-brand-400 border-brand-500/30'
+                          : 'bg-surface-800 text-surface-300 border-surface-700 hover:bg-surface-700'
+                      )}
+                    >
+                      Add Team
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkEditTeamAction('remove')}
+                      className={cn(
+                        'flex-1 px-4 py-2 rounded-lg border transition-colors',
+                        bulkEditTeamAction === 'remove'
+                          ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                          : 'bg-surface-800 text-surface-300 border-surface-700 hover:bg-surface-700'
+                      )}
+                    >
+                      Remove Team
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Team</label>
+                  <Combobox
+                    value={bulkEditValue}
+                    onChange={setBulkEditValue}
+                    options={availableTeams
+                      .filter(t => t.isActive !== false)
+                      .map(t => ({
+                        value: t.id,
+                        label: t.tag || t.name,
+                      }))}
+                    placeholder="Select team..."
+                    searchable={true}
+                  />
+                  {availableTeams.filter(t => t.isActive !== false).length === 0 && (
+                    <p className="text-xs text-surface-500 mt-2">No active teams available</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <SheetFooter className="mt-8">
+            <button
+              type="button"
+              onClick={() => {
+                setBulkEditSheetOpen(false)
+                setBulkEditAction(null)
+                setBulkEditValue('')
+              }}
+              className="btn-ghost"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkEdit}
+              disabled={bulkEditLoading || !bulkEditValue || (bulkEditAction === 'teams' && !bulkEditValue)}
+              className="btn-primary"
+            >
+              {bulkEditLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Update {selectedClientIds.size} Client{selectedClientIds.size !== 1 ? 's' : ''}
+                </>
+              )}
+            </button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

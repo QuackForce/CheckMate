@@ -201,6 +201,25 @@ model Framework {
   updatedAt   DateTime
 }
 
+model RoleConfiguration {
+  id            String             @id @default(cuid())
+  roleKey       String             @unique // e.g., "SE", "PRIMARY", "JR_SYSTEM_ENGINEER"
+  label         String             // e.g., "System Engineer", "Jr System Engineer"
+  abbreviation  String             // e.g., "SE", "Jr SE"
+  bgColor       String             // e.g., "bg-brand-500/20"
+  textColor     String             // e.g., "text-brand-400"
+  borderColor   String             // e.g., "border-brand-500/30"
+  priority      Int                @default(99) // Lower = higher priority
+  allowMultiple Boolean            @default(true)
+  maxAssignments Int               @default(0) // 0 = unlimited
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([roleKey])
+  @@index([priority])
+}
+
 model InfraCheck {
   id                                       String           @id
   status                                   CheckStatus      @default(SCHEDULED)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import Link from 'next/link'
 import {
   Sheet,
   SheetContent,
@@ -39,6 +40,7 @@ import {
 import { cn, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Combobox } from '@/components/ui/combobox'
+import { getRoleConfig, getRoleBadgeClasses, getRoleAbbreviation } from '@/lib/role-config'
 
 interface TeamMember {
   id: string
@@ -127,6 +129,9 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
   const [openSection, setOpenSection] = useState<string | null>(null) // Track which section is open (accordion)
   const [showNewUserSheet, setShowNewUserSheet] = useState(false)
   const [creatingUser, setCreatingUser] = useState(false)
+  const [showClientAssignments, setShowClientAssignments] = useState<string | null>(null) // User ID whose clients to show
+  const [clientAssignments, setClientAssignments] = useState<Array<{ clientId: string; clientName: string; clientStatus: string; roles: string[] }>>([])
+  const [loadingClientAssignments, setLoadingClientAssignments] = useState(false)
   const [newUserForm, setNewUserForm] = useState({
     email: '',
     name: '',
@@ -719,10 +724,36 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                 {/* Stats */}
                 <div className="flex items-center gap-6">
                   <div className="text-center">
-                    <div className="flex items-center gap-1 text-surface-300">
-                      <Building2 className="w-4 h-4 text-surface-500" />
+                    <button
+                      onClick={() => {
+                        if (member.stats.assignedClients > 0) {
+                          setShowClientAssignments(member.id)
+                          setLoadingClientAssignments(true)
+                          fetch(`/api/users/${member.id}`)
+                            .then(res => res.json())
+                            .then(data => {
+                              setClientAssignments(data.clientAssignments || [])
+                            })
+                            .catch(err => {
+                              console.error('Failed to fetch client assignments:', err)
+                              toast.error('Failed to load client assignments')
+                            })
+                            .finally(() => setLoadingClientAssignments(false))
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-1 text-surface-300 transition-colors group",
+                        member.stats.assignedClients > 0 && "hover:text-white cursor-pointer"
+                      )}
+                      disabled={member.stats.assignedClients === 0}
+                      title={member.stats.assignedClients > 0 ? "Click to view client assignments" : "No client assignments"}
+                    >
+                      <Building2 className={cn(
+                        "w-4 h-4 text-surface-500 transition-colors",
+                        member.stats.assignedClients > 0 && "group-hover:text-brand-400"
+                      )} />
                       <span className="font-semibold">{member.stats.assignedClients}</span>
-                    </div>
+                    </button>
                     <span className="text-xs text-surface-500">Clients</span>
                   </div>
 
@@ -1023,30 +1054,19 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
                               return (order[a] || 99) - (order[b] || 99)
                             })
                             .map(([role, count]) => {
-                              const roleLabels: Record<string, string> = {
-                                SE: 'System Engineer',
-                                PRIMARY: 'Primary Consultant',
-                                SECONDARY: 'Secondary Consultant',
-                                GRCE: 'GRCE Engineer',
-                                IT_MANAGER: 'IT Manager',
-                              }
-                              const roleColors: Record<string, string> = {
-                                SE: 'bg-brand-500/20 text-brand-400 border-brand-500/30',
-                                PRIMARY: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-                                SECONDARY: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-                                GRCE: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-                                IT_MANAGER: 'bg-green-500/20 text-green-400 border-green-500/30',
-                              }
+                              const roleConfig = getRoleConfig(role)
+                              const roleLabel = roleConfig?.label || role
+                              const roleBadgeClasses = getRoleBadgeClasses(role)
                               return (
                                 <div
                                   key={role}
                                   className={cn(
                                     'p-3 rounded-lg border h-20 flex flex-col justify-between',
-                                    roleColors[role] || 'bg-surface-800 text-surface-300 border-surface-700'
+                                    roleBadgeClasses || 'bg-surface-800 text-surface-300 border-surface-700'
                                   )}
                                 >
                                   <div className="text-xs text-surface-500">
-                                    {roleLabels[role] || role}
+                                    {roleLabel}
                                   </div>
                                   <div className="text-lg font-semibold">{count}</div>
                                 </div>
@@ -1268,6 +1288,75 @@ export function TeamList({ team, isAdmin, currentUserId }: TeamListProps) {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Client Assignments Modal */}
+      {showClientAssignments && (
+        <Sheet open={!!showClientAssignments} onOpenChange={(open) => {
+          if (!open) {
+            setShowClientAssignments(null)
+            setClientAssignments([])
+          }
+        }}>
+          <SheetContent side="right" className="w-[500px] sm:w-[600px] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
+                Client Assignments
+              </SheetTitle>
+              <SheetDescription>
+                {team.find(m => m.id === showClientAssignments)?.name || 'User'}'s client assignments and roles
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-6">
+              {loadingClientAssignments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+                </div>
+              ) : clientAssignments.length === 0 ? (
+                <div className="text-center py-8 text-surface-400">
+                  No client assignments found
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {clientAssignments.map((assignment) => {
+                    return (
+                      <Link
+                        key={assignment.clientId}
+                        href={`/clients/${assignment.clientId}`}
+                        className="block p-3 bg-surface-800 rounded-lg border border-surface-700 hover:border-surface-600 transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h4 className="font-medium text-white hover:text-brand-400 transition-colors truncate flex-1 min-w-0">
+                            {assignment.clientName}
+                          </h4>
+                          <div className="flex flex-wrap gap-1.5 flex-shrink-0">
+                            {assignment.roles.map((role) => {
+                              const roleAbbreviation = getRoleAbbreviation(role)
+                              const roleBadgeClasses = getRoleBadgeClasses(role)
+                              return (
+                                <span
+                                  key={role}
+                                  className={cn(
+                                    "text-xs px-2 py-0.5 rounded border",
+                                    roleBadgeClasses
+                                  )}
+                                  title={getRoleConfig(role)?.label || role}
+                                >
+                                  {roleAbbreviation}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   )

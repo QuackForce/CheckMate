@@ -155,6 +155,22 @@ async function compareDatabases() {
     (ct) => ct.id
   ))
 
+  // Compare ClientSystem (systems assigned to clients)
+  results.push(await compareTable(
+    'ClientSystem',
+    () => (oldDb as any).clientSystem.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).clientSystem.findMany({ orderBy: { createdAt: 'asc' } }),
+    (cs) => cs.id
+  ))
+
+  // Compare System (system definitions)
+  results.push(await compareTable(
+    'System',
+    () => (oldDb as any).system.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).system.findMany({ orderBy: { createdAt: 'asc' } }),
+    (s) => s.id
+  ))
+
   // Print results
   console.log('📊 Comparison Results:\n')
   console.log('Table'.padEnd(30), 'Old Count'.padEnd(12), 'New Count'.padEnd(12), 'Missing'.padEnd(12), 'New After Mig'.padEnd(15), 'Conflicts')

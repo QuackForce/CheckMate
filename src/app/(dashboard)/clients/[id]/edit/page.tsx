@@ -758,10 +758,13 @@ export default function EditClientPage() {
                 <input
                   type="text"
                   value={slackChannelName}
-                  onChange={(e) => setSlackChannelName(e.target.value)}
-                  className="input"
+                  readOnly
+                  className="input bg-surface-800/50 cursor-not-allowed opacity-75"
                   placeholder="#client-channel"
                 />
+                <p className="text-xs text-surface-500 mt-1">
+                  Edit Slack channel from the client detail page
+                </p>
               </div>
 
               <div className="col-span-2">

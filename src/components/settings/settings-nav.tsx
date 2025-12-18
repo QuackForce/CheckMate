@@ -10,11 +10,13 @@ import {
   Bell,
   Shield,
   Users,
+  UserCog,
 } from 'lucide-react'
 
 const settingsTabs = [
   { name: 'Systems', href: '/settings/systems', icon: Boxes, description: 'Manage check systems and items' },
   { name: 'Frameworks', href: '/settings/frameworks', icon: Shield, description: 'Compliance frameworks' },
+  { name: 'Roles', href: '/settings/roles', icon: UserCog, description: 'Manage client engineer roles' },
   { name: 'Teams', href: '/settings/teams', icon: Users, description: 'Manage teams' },
   { name: 'Integrations', href: '/settings/integrations', icon: Link2, description: 'Org-wide integrations' },
   { name: 'Templates', href: '/settings/templates', icon: FileText, description: 'Check templates' },

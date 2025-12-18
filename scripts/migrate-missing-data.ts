@@ -230,6 +230,34 @@ async function migrateMissingData(dryRun: boolean = true) {
     dryRun
   ))
 
+  // Migrate ClientSystem (systems assigned to clients)
+  stats.push(await migrateTable(
+    'ClientSystem',
+    () => (oldDb as any).clientSystem.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).clientSystem.findMany({ orderBy: { createdAt: 'asc' } }),
+    (cs) => cs.id,
+    async (clientSystem) => {
+      // Remove relations
+      const { Client, System, ...clientSystemData } = clientSystem as any
+      return (newDb as any).clientSystem.create({ data: clientSystemData })
+    },
+    dryRun
+  ))
+
+  // Migrate System (system definitions)
+  stats.push(await migrateTable(
+    'System',
+    () => (oldDb as any).system.findMany({ orderBy: { createdAt: 'asc' } }),
+    () => (newDb as any).system.findMany({ orderBy: { createdAt: 'asc' } }),
+    (s) => s.id,
+    async (system) => {
+      // Remove relations
+      const { ClientSystem, ...systemData } = system as any
+      return (newDb as any).system.create({ data: systemData })
+    },
+    dryRun
+  ))
+
   // Print summary
   console.log('\n📊 Migration Summary:\n')
   console.log('Table'.padEnd(30), 'Migrated'.padEnd(12), 'Skipped'.padEnd(12), 'Errors')
