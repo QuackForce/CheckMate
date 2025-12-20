@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '20');
   const assignee = searchParams.get('assignee')
   const managerTeam = searchParams.get('managerTeam')
+  const minimal = searchParams.get('minimal') === 'true' // Lightweight mode for dropdowns
   
   // Build where clause
   const where: any = {};
@@ -184,6 +185,95 @@ export async function GET(request: NextRequest) {
         // Get total count
         const total = await db.client.count({ where });
         
+        // Minimal mode: only fetch essential fields for dropdowns
+        if (minimal) {
+          const clients = await db.client.findMany({
+            where,
+            select: {
+              id: true,
+              name: true,
+              defaultCadence: true,
+              systemEngineerName: true,
+              primaryConsultantName: true,
+            },
+            orderBy: { name: 'asc' },
+            skip: (page - 1) * limit,
+            take: limit,
+          });
+          
+          // Fetch assignments for all clients in one query
+          const allClientIds = clients.map(c => c.id)
+          const allAssignments = allClientIds.length > 0
+            ? await (db as any).clientEngineerAssignment.findMany({
+                where: { clientId: { in: allClientIds } },
+                select: {
+                  id: true,
+                  clientId: true,
+                  userId: true,
+                  role: true,
+                  User: {
+                    select: { id: true, name: true, email: true, image: true },
+                  },
+                },
+              })
+            : []
+          
+          // Fetch client systems
+          const allClientSystems = allClientIds.length > 0
+            ? await db.clientSystem.findMany({
+                where: { 
+                  clientId: { in: allClientIds },
+                  isActive: true,
+                },
+                select: {
+                  clientId: true,
+                  System: {
+                    select: { id: true, name: true, category: true },
+                  },
+                },
+              })
+            : []
+          
+          // Group assignments and systems by clientId
+          const assignmentsByClient = new Map<string, typeof allAssignments>()
+          allAssignments.forEach((a: any) => {
+            if (!assignmentsByClient.has(a.clientId)) {
+              assignmentsByClient.set(a.clientId, [])
+            }
+            assignmentsByClient.get(a.clientId)!.push(a)
+          })
+          
+          const systemsByClient = new Map<string, typeof allClientSystems>()
+          allClientSystems.forEach((cs: any) => {
+            if (!systemsByClient.has(cs.clientId)) {
+              systemsByClient.set(cs.clientId, [])
+            }
+            // Map System to system for consistency with existing code
+            systemsByClient.get(cs.clientId)!.push({
+              ...cs,
+              system: cs.System,
+            })
+          })
+          
+          // Map clients with assignments and systems
+          const clientsWithData = clients.map(client => ({
+            ...client,
+            assignments: assignmentsByClient.get(client.id) || [],
+            clientSystems: systemsByClient.get(client.id) || [],
+          }))
+          
+          return {
+            clients: clientsWithData,
+            pagination: {
+              page,
+              limit,
+              total,
+              totalPages: Math.ceil(total / limit),
+            },
+          };
+        }
+        
+        // Full mode: fetch all relations (existing behavior)
         // Get clients
         const clients = await db.client.findMany({
           where,

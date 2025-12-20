@@ -22,12 +22,12 @@ interface MobileSidebarWrapperProps {
 
 export function MobileSidebarWrapper({ user, stats, children }: MobileSidebarWrapperProps) {
   return (
-    <SidebarProvider className="bg-surface-950">
+    <SidebarProvider className="bg-surface-950 overflow-x-hidden">
       {/* Desktop Sidebar - hidden on mobile */}
       <div className="hidden md:block">
         <AppSidebar user={user} stats={stats} />
       </div>
-      <main className="flex-1 flex flex-col min-h-screen w-full transition-[width] duration-200 ease-linear bg-surface-950 md:pb-0" style={{ 
+      <main className="flex-1 flex flex-col min-h-screen w-full transition-[width] duration-200 ease-linear bg-surface-950 md:pb-0 overflow-x-hidden" style={{ 
         paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))',
       }}>
         {children}
