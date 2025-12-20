@@ -10,8 +10,14 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { error: authError } = await requireEngineer()
-  if (authError) return authError
+  const { error: authError, session } = await requireEngineer()
+  if (authError) {
+    console.error('Auth error adding check item:', { 
+      role: session?.user?.role,
+      userId: session?.user?.id 
+    })
+    return authError
+  }
 
   try {
     const body = await request.json()
@@ -36,6 +42,12 @@ export async function POST(
     })
 
     if (!category) {
+      console.error('Category not found:', { 
+        categoryId, 
+        checkId: params.id,
+        userRole: session?.user?.role,
+        userId: session?.user?.id
+      })
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 

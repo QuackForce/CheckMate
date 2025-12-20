@@ -66,10 +66,15 @@ export async function checkRole(allowedRoles: AllowedRole[]) {
 
   const userRole = session.user.role as AllowedRole
   if (!allowedRoles.includes(userRole)) {
+    console.error('Role check failed:', { 
+      userRole, 
+      allowedRoles,
+      sessionUserId: session.user.id 
+    })
     return {
       session,
       error: NextResponse.json(
-        { error: `Forbidden - ${allowedRoles.join(' or ')} access required` },
+        { error: `Forbidden - ${allowedRoles.join(' or ')} access required. Your role: ${userRole}` },
         { status: 403 }
       ),
     }
