@@ -46,6 +46,28 @@ export async function GET(
 
     if (!response.ok) {
       const error = await response.text()
+      
+      // Clear expired/invalid token on auth errors
+      if (response.status === 401 || response.status === 403) {
+        try {
+          await db.user.update({
+            where: { id: session.user.id },
+            data: {
+              harvestAccessToken: null,
+              harvestAccountId: null,
+              harvestUserId: null,
+            },
+          })
+        } catch (dbError) {
+          console.error('Failed to clear Harvest token:', dbError)
+        }
+        
+        return NextResponse.json(
+          { error: 'Harvest authentication failed. Please reconnect.' },
+          { status: 400 }
+        )
+      }
+      
       return NextResponse.json(
         { error: `Harvest API error: ${error}` },
         { status: response.status }

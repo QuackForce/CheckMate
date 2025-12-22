@@ -1064,7 +1064,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
 
       {/* Harvest Picker Modal */}
       {showHarvestPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="card w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-surface-700/50 flex items-center justify-between flex-shrink-0">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -1276,7 +1276,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
 
       {/* Slack Preview Modal */}
       {showSlackPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="card w-full max-w-2xl max-h-[80vh] overflow-hidden animate-scale-in">
             <div className="p-4 border-b border-surface-700/50 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">
@@ -1389,7 +1389,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
 
       {/* Connect to Harvest Modal */}
       {showConnectHarvest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="card w-full max-w-md animate-scale-in">
             <div className="p-6 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/20 flex items-center justify-center">

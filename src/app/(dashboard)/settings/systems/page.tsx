@@ -11,9 +11,9 @@ import {
   Loader2,
   Save,
   X,
+  Shield,
   Mail,
   Laptop,
-  Shield,
   Key,
   ClipboardCheck,
   GraduationCap,
@@ -29,6 +29,15 @@ import { cn } from '@/lib/utils'
 import { Combobox } from '@/components/ui/combobox'
 import { SearchInput } from '@/components/ui/search-input'
 import { hasPermission } from '@/lib/permissions'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
 
 interface SystemCheckItem {
   id: string
@@ -104,6 +113,12 @@ export default function SystemsSettingsPage() {
   const [showNewItemModal, setShowNewItemModal] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // Collapsible sections state (accordion - only one open at a time)
+  const [openSection, setOpenSection] = useState<string | null>(null)
+  
+  const toggleSection = (section: string) => {
+    setOpenSection(openSection === section ? null : section)
+  }
 
   // Form state for new system
   const [newSystem, setNewSystem] = useState({
@@ -314,7 +329,10 @@ export default function SystemsSettingsPage() {
           />
           {canEdit && (
             <button
-              onClick={() => setShowNewSystemModal(true)}
+              onClick={() => {
+                setShowNewSystemModal(true)
+                setOpenSection(null) // Start with all sections closed
+              }}
               className="btn-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -455,67 +473,96 @@ export default function SystemsSettingsPage() {
         })}
       </div>
 
-      {/* New System Modal */}
-      {showNewSystemModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-surface-800 border border-surface-700 rounded-xl w-full max-w-md p-6 relative">
-            <h3 className="text-lg font-semibold text-white mb-4">Add New System</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="label">System Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., CrowdStrike, Okta, 1Password..."
-                  value={newSystem.name}
-                  onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
-                />
-              </div>
+      {/* New System Sheet */}
+      <Sheet open={showNewSystemModal} onOpenChange={(open) => {
+        setShowNewSystemModal(open)
+        if (!open) {
+          setOpenSection(null) // Reset sections (all closed)
+        }
+      }}>
+        <SheetContent side="right" className="w-[500px] sm:w-[600px] overflow-y-auto bg-surface-900 border border-surface-700">
+          <SheetHeader>
+            <SheetTitle className="text-white">Add New System</SheetTitle>
+            <SheetDescription className="text-surface-400">
+              Create a new system that can be assigned to clients for infrastructure checks.
+            </SheetDescription>
+          </SheetHeader>
 
-              <div>
-                <label className="label">Category</label>
-                <Combobox
-                  value={newSystem.category}
-                  onChange={(value) => setNewSystem({ ...newSystem, category: value })}
-                  options={Object.entries(categoryLabels).map(([value, label]) => ({
-                    value,
-                    label,
-                  }))}
-                  placeholder="Select category..."
-                />
-              </div>
-
-              <div>
-                <label className="label">Description (optional)</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Brief description of the system..."
-                  value={newSystem.description}
-                  onChange={(e) => setNewSystem({ ...newSystem, description: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
+          <div className="mt-6">
+            {/* System Details Section */}
+            <div>
               <button
-                onClick={() => setShowNewSystemModal(false)}
-                className="btn-ghost"
+                type="button"
+                onClick={() => toggleSection('systemDetails')}
+                className="w-full flex items-center justify-between p-2 hover:bg-surface-800/50 rounded-lg transition-colors"
               >
-                Cancel
+                <label className="block text-sm font-medium text-surface-300 cursor-pointer flex items-center gap-2">
+                  <Boxes className="w-4 h-4" />
+                  System Details
+                </label>
+                <ChevronDown className={cn(
+                  'w-4 h-4 text-surface-400 transition-transform',
+                  openSection === 'systemDetails' && 'rotate-180'
+                )} />
               </button>
-              <button
-                onClick={createSystem}
-                disabled={!newSystem.name.trim() || saving}
-                className="btn-primary"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add System'}
-              </button>
+              {openSection === 'systemDetails' && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="label">System Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g., CrowdStrike, Okta, 1Password..."
+                      value={newSystem.name}
+                      onChange={(e) => setNewSystem({ ...newSystem, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Category</label>
+                    <Combobox
+                      value={newSystem.category}
+                      onChange={(value) => setNewSystem({ ...newSystem, category: value })}
+                      options={Object.entries(categoryLabels).map(([value, label]) => ({
+                        value,
+                        label,
+                      }))}
+                      placeholder="Select category..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">Description (optional)</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Brief description of the system..."
+                      value={newSystem.description}
+                      onChange={(e) => setNewSystem({ ...newSystem, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+
+          <SheetFooter className="mt-6">
+            <Button
+              variant="ghost"
+              onClick={() => setShowNewSystemModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={createSystem}
+              disabled={!newSystem.name.trim() || saving}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Add System
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Edit System Modal */}
       {showEditSystemModal && (

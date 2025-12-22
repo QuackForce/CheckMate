@@ -49,6 +49,25 @@ export async function GET(request: NextRequest) {
               data: { harvestAccountId: accountId },
             })
           }
+        } else if (userInfoRes.status === 401 || userInfoRes.status === 403) {
+          // Token expired/invalid, clear it
+          try {
+            await db.user.update({
+              where: { id: session.user.id },
+              data: {
+                harvestAccessToken: null,
+                harvestAccountId: null,
+                harvestUserId: null,
+              },
+            })
+          } catch (dbError) {
+            console.error('Failed to clear Harvest token:', dbError)
+          }
+          
+          return NextResponse.json(
+            { error: 'Harvest authentication failed. Please reconnect.' },
+            { status: 400 }
+          )
         }
       } catch {
         // Continue - will error out below if no account ID
@@ -78,6 +97,20 @@ export async function GET(request: NextRequest) {
       const errorText = await response.text()
       
       if (response.status === 401 || response.status === 403) {
+        // Clear expired/invalid token from database
+        try {
+          await db.user.update({
+            where: { id: session.user.id },
+            data: {
+              harvestAccessToken: null,
+              harvestAccountId: null,
+              harvestUserId: null,
+            },
+          })
+        } catch (dbError) {
+          console.error('Failed to clear Harvest token:', dbError)
+        }
+        
         return NextResponse.json(
           { 
             error: 'Harvest authentication failed. Please reconnect.',
