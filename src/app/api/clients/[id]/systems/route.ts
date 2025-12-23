@@ -29,7 +29,35 @@ export async function GET(
       },
     })
 
-    return NextResponse.json(clientSystems)
+    // Fetch client-specific check items for each system and merge them
+    const clientSystemsWithItems = await Promise.all(
+      clientSystems.map(async (cs) => {
+        const clientSpecificItems = await db.clientSystemCheckItem.findMany({
+          where: {
+            clientId: params.id,
+            systemId: cs.System.id,
+          },
+          orderBy: { order: 'asc' },
+        })
+
+        // Merge system items and client-specific items
+        // System items first, then client-specific items
+        const allCheckItems = [
+          ...cs.System.SystemCheckItem,
+          ...clientSpecificItems,
+        ]
+
+        return {
+          ...cs,
+          System: {
+            ...cs.System,
+            SystemCheckItem: allCheckItems,
+          },
+        }
+      })
+    )
+
+    return NextResponse.json(clientSystemsWithItems)
   } catch (error: any) {
     console.error('Error fetching client systems:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -80,12 +108,37 @@ export async function POST(
       },
       include: {
         System: {
-          include: { SystemCheckItem: true },
+          include: { 
+            SystemCheckItem: {
+              orderBy: { order: 'asc' },
+            },
+          },
         },
       },
     })
 
-    return NextResponse.json(clientSystem)
+    // Fetch client-specific items for this system
+    const clientSpecificItems = await db.clientSystemCheckItem.findMany({
+      where: {
+        clientId: params.id,
+        systemId,
+      },
+      orderBy: { order: 'asc' },
+    })
+
+    // Merge system items and client-specific items
+    const allCheckItems = [
+      ...clientSystem.System.SystemCheckItem,
+      ...clientSpecificItems,
+    ]
+
+    return NextResponse.json({
+      ...clientSystem,
+      System: {
+        ...clientSystem.System,
+        SystemCheckItem: allCheckItems,
+      },
+    })
   } catch (error: any) {
     console.error('Error adding system to client:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

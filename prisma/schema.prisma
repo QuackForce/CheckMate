@@ -134,6 +134,7 @@ model Client {
   CheckTemplate                         CheckTemplate?             @relation(fields: [templateId], references: [id])
   ClientEngineerAssignment              ClientEngineerAssignment[]
   ClientSystem                          ClientSystem[]
+  ClientSystemCheckItem                 ClientSystemCheckItem[]
   ClientTeam                            ClientTeam[]
   InfraCheck                            InfraCheck[]
   ComplianceAudit                        ComplianceAudit[]
@@ -176,6 +177,24 @@ model ClientSystem {
   @@unique([clientId, systemId])
   @@index([clientId])
   @@index([systemId])
+}
+
+model ClientSystemCheckItem {
+  id          String   @id
+  text        String
+  description String?
+  order       Int      @default(0)
+  isOptional  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  clientId    String
+  systemId    String
+  Client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  System      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  ItemResult  ItemResult[]
+
+  @@unique([clientId, systemId, text]) // Prevent duplicate items for same client+system
+  @@index([clientId, systemId])
 }
 
 model ClientTeam {
@@ -291,15 +310,18 @@ model IntegrationSettings {
 }
 
 model ItemResult {
-  id               String         @id
-  text             String
-  checked          Boolean        @default(false)
-  notes            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime
-  categoryResultId String
-  order            Int            @default(0)
-  CategoryResult   CategoryResult @relation(fields: [categoryResultId], references: [id], onDelete: Cascade)
+  id                     String                  @id
+  text                   String
+  checked                Boolean                 @default(false)
+  notes                  String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  categoryResultId       String
+  order                  Int                     @default(0)
+  source                 String?                 @default("SYSTEM") // "SYSTEM", "CUSTOM", "CLIENT_SPECIFIC"
+  clientSystemCheckItemId String?
+  CategoryResult         CategoryResult          @relation(fields: [categoryResultId], references: [id], onDelete: Cascade)
+  ClientSystemCheckItem  ClientSystemCheckItem?  @relation(fields: [clientSystemCheckItemId], references: [id], onDelete: SetNull)
 }
 
 model LoginActivity {
@@ -334,6 +356,7 @@ model System {
   updatedAt       DateTime
   source          SystemSource       @default(APP)
   ClientSystem    ClientSystem[]
+  ClientSystemCheckItem ClientSystemCheckItem[]
   SystemCheckItem SystemCheckItem[]
 }
 

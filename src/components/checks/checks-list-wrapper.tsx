@@ -141,10 +141,17 @@ function groupCompletedByClient(checks: Check[]) {
   return grouped
 }
 
-export function ChecksListWrapper() {
+interface ChecksListWrapperProps {
+  myClientsOnly: boolean
+  onMyClientsChange: (value: boolean) => void
+  statsTotal?: number | null
+}
+
+export function ChecksListWrapper({ myClientsOnly, onMyClientsChange, statsTotal }: ChecksListWrapperProps) {
   const { data: session } = useSession()
   const userRole = session?.user?.role
   const canViewAll = hasPermission(userRole, 'checks:view_all')
+  const searchParams = useSearchParams()
   
   const [checks, setChecks] = useState<Check[]>([])
   const [page, setPage] = useState(1)
@@ -153,13 +160,6 @@ export function ChecksListWrapper() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'active' | 'upcoming' | 'completed' | 'all'>('active')
-  const [myClientsOnly, setMyClientsOnly] = useState(!canViewAll) // Default: ON for engineers, OFF for managers
-
-  // Notify parent component when filter changes
-  useEffect(() => {
-    const event = new CustomEvent('checks-filter-change', { detail: myClientsOnly })
-    window.dispatchEvent(event)
-  }, [myClientsOnly])
   const limit = 50 // Increased for better grouping
 
   const fetchChecks = useCallback(async () => {
@@ -180,6 +180,9 @@ export function ChecksListWrapper() {
         setChecks(data.checks)
         setTotalPages(data.pagination?.totalPages || 1)
         setTotal(data.pagination?.total || 0)
+        
+        // If active tab has no results and user can view all, suggest switching tabs
+        // But don't auto-switch to avoid confusion
       }
     } catch (error) {
       console.error('Failed to fetch checks:', error)
@@ -306,9 +309,18 @@ export function ChecksListWrapper() {
     )
   }
 
-  // Show empty state only when truly no checks exist (not filtered)
-  // Don't show this if user has filtered to "My Clients" and has no checks
-  if (!loading && total === 0 && !search && activeTab === 'active' && !myClientsOnly) {
+  // Show empty state only when truly no checks exist in the system
+  // Check statsTotal to see if there are any checks at all (not just in this tab)
+  // Only show "No checks scheduled yet" when:
+  // - Not loading
+  // - This tab has 0 results
+  // - No search
+  // - Active tab
+  // - Not filtered to "My Clients"
+  // - User can view all
+  // - AND stats show 0 total checks (meaning there are truly no checks in the system)
+  const hasNoChecksInSystem = statsTotal !== null && statsTotal === 0
+  if (!loading && total === 0 && !search && activeTab === 'active' && !myClientsOnly && canViewAll && hasNoChecksInSystem) {
     return (
       <div className="card p-12 text-center">
         <Calendar className="w-12 h-12 text-surface-600 mx-auto mb-4" />
@@ -378,10 +390,7 @@ export function ChecksListWrapper() {
             <button
               onClick={() => {
                 const newValue = !myClientsOnly
-                setMyClientsOnly(newValue)
-                // Notify parent component when filter changes
-                const event = new CustomEvent('checks-filter-change', { detail: newValue })
-                window.dispatchEvent(event)
+                onMyClientsChange(newValue)
                 // Update URL to keep in sync
                 const params = new URLSearchParams(window.location.search)
                 if (newValue) {
@@ -429,21 +438,39 @@ export function ChecksListWrapper() {
         <div className="py-12 text-center">
           <Calendar className="w-12 h-12 text-surface-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No checks found</h3>
-          <p className="text-surface-400">
+          <p className="text-surface-400 mb-4">
             {search
               ? 'Try adjusting your search criteria.'
+              : activeTab === 'active'
+              ? 'No active checks (overdue, in progress, or scheduled for today). Try switching to another tab.'
               : myClientsOnly
-              ? 'You don\'t have any checks assigned to your clients. Try turning off "My Clients" to see all checks.'
-              : 'No checks match your current filters.'}
+              ? 'You don\'t have any checks assigned to your clients in this category. Try turning off "My Clients" or switching tabs.'
+              : `No checks match the "${activeTab}" filter. Try switching to another tab.`}
           </p>
-          {myClientsOnly && canViewAll && (
-            <button
-              onClick={() => setMyClientsOnly(false)}
-              className="btn-secondary mt-4 inline-flex"
-            >
-              Show All Checks
-            </button>
-          )}
+          <div className="flex items-center justify-center gap-3">
+            {activeTab !== 'all' && canViewAll && (
+              <button
+                onClick={() => handleTabChange('all')}
+                className="btn-secondary inline-flex"
+              >
+                View All Checks
+              </button>
+            )}
+            {myClientsOnly && canViewAll && (
+              <button
+                onClick={() => {
+                  onMyClientsChange(false)
+                  // Update URL to keep in sync
+                  const params = new URLSearchParams(window.location.search)
+                  params.delete('assignee')
+                  window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`)
+                }}
+                className="btn-secondary inline-flex"
+              >
+                Show All Clients
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <>

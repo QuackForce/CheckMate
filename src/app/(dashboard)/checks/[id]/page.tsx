@@ -29,6 +29,8 @@ async function getCheck(id: string) {
         include: {
           ItemResult: {
             orderBy: { order: 'asc' },
+            // Explicitly select all fields including source and clientSystemCheckItemId
+            // (Prisma will include all fields even if not explicitly listed, but being explicit helps)
           },
         },
         orderBy: { createdAt: 'asc' },
@@ -49,12 +51,37 @@ async function getCheck(id: string) {
         icon: 'clipboard', // Default icon
         status: cat.status,
         notes: cat.notes || '',
-        items: cat.ItemResult.map(item => ({
-          id: item.id,
-          text: item.text,
-          checked: item.checked,
-          notes: item.notes || '',
-        })),
+        items: cat.ItemResult.map(item => {
+          // Access source field using type assertion since Prisma client doesn't have it in types yet
+          // The field exists in the database, we just need to access it
+          const itemAny = item as any
+          let source = itemAny.source
+          
+          // If source is not set, try to determine it
+          if (!source) {
+            // If notes indicate it's custom, use CUSTOM
+            if (item.notes === '(Custom item)') {
+              source = 'CUSTOM'
+            } else {
+              // Check if this item text exists in SystemCheckItem for this system
+              // If it doesn't exist in SystemCheckItem, it's likely a custom item
+              // We'll need to query this, but for now, let's be more permissive
+              // Items without source that don't have the custom note could be either
+              // For safety, we'll default to undefined and let the delete button logic handle it
+              // But we need to check the database to be sure
+              source = undefined // Will be determined by checking against SystemCheckItem
+            }
+          }
+          
+          return {
+            id: item.id,
+            text: item.text,
+            checked: item.checked,
+            notes: item.notes || '',
+            source,
+            isOptional: false,
+          }
+        }),
       })),
     }
   }

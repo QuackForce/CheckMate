@@ -105,10 +105,31 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
       if (res.ok) {
         const data = await res.json()
         // Normalize the data: API returns System (capitalized), component expects system (lowercase)
-        const normalized = data.map((item: any) => ({
-          ...item,
-          system: item.System || item.system, // Handle both cases
-        }))
+        // Also normalize SystemCheckItem to checkItems
+        const normalized = data.map((item: any) => {
+          const system = item.System || item.system
+          if (!system) {
+            return { ...item, system: null }
+          }
+          
+          // Get check items from either SystemCheckItem or checkItems
+          // SystemCheckItem is the Prisma relation name (capitalized)
+          const checkItems = system.SystemCheckItem || system.checkItems || []
+          
+          // Ensure checkItems is always an array
+          const normalizedCheckItems = Array.isArray(checkItems) ? checkItems : []
+          
+          // Remove SystemCheckItem from the system object to avoid confusion
+          const { SystemCheckItem: _, ...systemWithoutCheckItems } = system
+          
+          return {
+            ...item,
+            system: {
+              ...systemWithoutCheckItems,
+              checkItems: normalizedCheckItems
+            }
+          }
+        })
         setClientSystems(normalized)
       }
     } catch (error) {
@@ -272,22 +293,26 @@ export function ClientSystems({ clientId, initialSystems = [] }: ClientSystemsPr
                       
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t border-white/10">
-                          <ul className="mt-3 space-y-2">
-                            {cs.system.checkItems?.map(item => (
-                              <li
-                                key={item.id}
-                                className="flex items-start gap-2 text-sm"
-                              >
-                                <Check className="w-4 h-4 mt-0.5 opacity-50 flex-shrink-0" />
-                                <span className={cn(item.isOptional && 'opacity-70')}>
-                                  {item.text}
-                                  {item.isOptional && (
-                                    <span className="text-xs ml-1 opacity-50">(optional)</span>
-                                  )}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                          {!cs.system.checkItems || cs.system.checkItems.length === 0 ? (
+                            <p className="text-sm text-surface-500 italic mt-3">No check items defined yet.</p>
+                          ) : (
+                            <ul className="mt-3 space-y-2">
+                              {cs.system.checkItems.map(item => (
+                                <li
+                                  key={item.id}
+                                  className="flex items-start gap-2 text-sm"
+                                >
+                                  <Check className="w-4 h-4 mt-0.5 opacity-50 flex-shrink-0" />
+                                  <span className={cn(item.isOptional && 'opacity-70')}>
+                                    {item.text}
+                                    {item.isOptional && (
+                                      <span className="text-xs ml-1 opacity-50">(optional)</span>
+                                    )}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       )}
                     </div>

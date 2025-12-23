@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { hasPermission, hasAnyPermission } from '@/lib/permissions'
 
+export const dynamic = 'force-dynamic'
+
 // Helper to format relative time
 function formatRelativeTime(date: Date): string {
   const now = new Date()

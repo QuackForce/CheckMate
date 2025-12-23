@@ -296,6 +296,39 @@ export async function POST(request: NextRequest) {
     // Create category results from client's systems
     if (client.ClientSystem.length > 0) {
       for (const cs of client.ClientSystem) {
+        // Get client-specific items for this system
+        const clientSpecificItems = await db.clientSystemCheckItem.findMany({
+          where: {
+            clientId: check.clientId,
+            systemId: cs.System.id,
+          },
+          orderBy: { order: 'asc' },
+        })
+
+        // Combine system items and client-specific items
+        const allItems = [
+          // System items first
+          ...cs.System.SystemCheckItem.map((item, index) => ({
+            id: crypto.randomUUID(),
+            text: item.text,
+            checked: false,
+            order: index,
+            source: 'SYSTEM' as const,
+            clientSystemCheckItemId: null,
+            updatedAt: new Date(),
+          })),
+          // Client-specific items after
+          ...clientSpecificItems.map((item, index) => ({
+            id: crypto.randomUUID(),
+            text: item.text,
+            checked: false,
+            order: cs.System.SystemCheckItem.length + index,
+            source: 'CLIENT_SPECIFIC' as const,
+            clientSystemCheckItemId: item.id,
+            updatedAt: new Date(),
+          })),
+        ]
+
         await db.categoryResult.create({
           data: {
             id: crypto.randomUUID(),
@@ -304,13 +337,7 @@ export async function POST(request: NextRequest) {
             status: 'pending',
             updatedAt: new Date(),
             ItemResult: {
-              create: cs.System.SystemCheckItem.map((item, index) => ({
-                id: crypto.randomUUID(),
-                text: item.text,
-                checked: false,
-                order: index,
-                updatedAt: new Date(),
-              })),
+              create: allItems,
             },
           },
         })

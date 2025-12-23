@@ -14,9 +14,10 @@ interface CheckStats {
 
 interface ChecksStatsProps {
   myClientsOnly: boolean
+  onStatsUpdate?: (total: number) => void
 }
 
-export function ChecksStats({ myClientsOnly }: ChecksStatsProps) {
+export function ChecksStats({ myClientsOnly, onStatsUpdate }: ChecksStatsProps) {
   const { data: session } = useSession()
   const userRole = session?.user?.role
   const canViewAll = hasPermission(userRole, 'checks:view_all')
@@ -49,6 +50,10 @@ export function ChecksStats({ myClientsOnly }: ChecksStatsProps) {
           console.error('Error fetching stats:', data.error)
         } else {
           setStats(data)
+          // Notify parent of total count
+          if (onStatsUpdate) {
+            onStatsUpdate(data.total || 0)
+          }
         }
       } catch (error) {
         console.error('Failed to fetch stats:', error)
@@ -73,10 +78,7 @@ export function ChecksStats({ myClientsOnly }: ChecksStatsProps) {
     )
   }
 
-  if (stats.total === 0) {
-    return null
-  }
-
+  // Always show stats dashboard, even when total is 0
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="card p-4">

@@ -39,6 +39,7 @@ interface CheckItem {
   checked: boolean
   notes: string
   isOptional?: boolean
+  source?: string // "SYSTEM", "CUSTOM", "CLIENT_SPECIFIC"
 }
 
 interface CheckCategory {
@@ -194,6 +195,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
   const [showAddItem, setShowAddItem] = useState(false)
   const [addItemCategoryId, setAddItemCategoryId] = useState<string | null>(null)
   const [newItemText, setNewItemText] = useState('')
+  const [saveForClient, setSaveForClient] = useState(false)
   
   // Unsaved changes modal
   const [showUnsavedModal, setShowUnsavedModal] = useState(false)
@@ -601,6 +603,46 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
     await updateDueDateAndTime(newDate, scheduledTime)
   }
 
+  // Delete check item
+  const deleteItem = async (categoryId: string, itemId: string, itemSource?: string) => {
+    const wasClientSpecific = itemSource === 'CLIENT_SPECIFIC'
+    
+    try {
+      const res = await fetch(`/api/checks/${check.id}/items/${itemId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to delete item')
+      }
+
+      const data = await res.json()
+
+      // Remove the item from local state
+      setCategories(prev =>
+        prev.map(cat =>
+          cat.id === categoryId
+            ? { ...cat, items: cat.items.filter(item => item.id !== itemId) }
+            : cat
+        )
+      )
+
+      // Show toast with appropriate message
+      if (wasClientSpecific) {
+        toast.info('Item removed from this check. It will still appear in future checks for this client.', {
+          duration: 4000,
+        })
+      } else {
+        toast.success('Item removed successfully')
+      }
+    } catch (error: any) {
+      toast.error('Failed to delete item', {
+        description: error.message,
+      })
+    }
+  }
+
   // Add new check item
   const addNewItem = async () => {
     if (!addItemCategoryId || !newItemText.trim()) return
@@ -612,6 +654,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         body: JSON.stringify({
           categoryId: addItemCategoryId,
           text: newItemText.trim(),
+          saveForClient: saveForClient,
         }),
       })
 
@@ -620,13 +663,14 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
         throw new Error(error.error || 'Failed to add item')
       }
 
-      const { item } = await res.json()
+      const data = await res.json()
+      const { item, savedForClient } = data
 
       // Add the new item to the local state
       setCategories(prev =>
         prev.map(cat =>
           cat.id === addItemCategoryId
-            ? { ...cat, items: [...cat.items, { ...item, checked: false, notes: '' }] }
+            ? { ...cat, items: [...cat.items, { ...item, checked: false, notes: '', source: item.source || 'CUSTOM' }] }
             : cat
         )
       )
@@ -634,7 +678,8 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
       setNewItemText('')
       setShowAddItem(false)
       setAddItemCategoryId(null)
-      toast.success('Item added!')
+      setSaveForClient(false)
+      toast.success(savedForClient ? 'Item added and saved for this client!' : 'Item added!')
     } catch (error: any) {
       toast.error('Failed to add item', {
         description: error.message,
@@ -1004,21 +1049,48 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                             )}
                           </button>
                           <div className="flex-1">
-                            <p
-                              className={cn(
-                                'text-sm',
-                                item.checked
-                                  ? 'text-surface-400 line-through'
-                                  : 'text-surface-200'
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p
+                                  className={cn(
+                                    'text-sm',
+                                    item.checked
+                                      ? 'text-surface-400 line-through'
+                                      : 'text-surface-200'
+                                  )}
+                                >
+                                  {item.text}
+                                </p>
+                                {item.isOptional && (
+                                  <span className="inline-block mt-1 text-xs text-surface-500 bg-surface-700/50 px-2 py-0.5 rounded">
+                                    Optional
+                                  </span>
+                                )}
+                                {item?.source === 'CLIENT_SPECIFIC' && (
+                                  <span className="inline-block mt-1 ml-2 text-xs text-brand-400 bg-brand-500/20 px-2 py-0.5 rounded">
+                                    Client-specific
+                                  </span>
+                                )}
+                              </div>
+                              {/* Delete button for custom/client-specific items */}
+                              {/* Only show delete button for CUSTOM or CLIENT_SPECIFIC items
+                                  Do NOT show for SYSTEM items (global items that should appear in all checks)
+                                  If source is undefined, check notes field to identify custom items
+                              */}
+                              {!isCompleted && (
+                                item?.source === 'CUSTOM' || 
+                                item?.source === 'CLIENT_SPECIFIC' ||
+                                (!item?.source && item?.notes === '(Custom item)') // Items without source but with custom note
+                              ) && (
+                                <button
+                                  onClick={() => deleteItem(category.id, item.id, item.source)}
+                                  className="p-1.5 text-surface-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                                  title={item.source === 'CLIENT_SPECIFIC' ? 'Remove from this check (will still appear in future checks)' : 'Delete item'}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               )}
-                            >
-                              {item.text}
-                            </p>
-                            {item.isOptional && (
-                              <span className="inline-block mt-1 text-xs text-surface-500 bg-surface-700/50 px-2 py-0.5 rounded">
-                                Optional
-                              </span>
-                            )}
+                            </div>
                             {/* Notes input */}
                             <div className="mt-2">
                               <textarea
@@ -1541,6 +1613,17 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                   autoFocus
                 />
               </div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveForClient}
+                  onChange={(e) => setSaveForClient(e.target.checked)}
+                  className="w-4 h-4 rounded border-surface-500 bg-surface-700 text-brand-500"
+                />
+                <span className="text-sm text-surface-300">
+                  Save for this client (will appear in future checks)
+                </span>
+              </label>
             </div>
             <div className="p-4 border-t border-surface-700/50 flex justify-end gap-3">
               <button
@@ -1548,6 +1631,7 @@ export function CheckExecution({ check: initialCheck }: CheckExecutionProps) {
                   setShowAddItem(false)
                   setNewItemText('')
                   setAddItemCategoryId(null)
+                  setSaveForClient(false)
                 }}
                 className="btn-ghost"
               >
